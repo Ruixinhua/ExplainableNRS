@@ -3,7 +3,6 @@ import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 from models.nc_models import BaseClassifyModel
-# from model.distill_bert import DistilBertModel
 from models.layers import AttLayer, MultiHeadedAttention
 
 

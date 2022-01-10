@@ -5,7 +5,7 @@ import numpy as np
 from pathlib import Path
 from datasets import load_dataset
 from utils.preprocess_utils import clean_text, text2index
-from utils.general_utils import read_json, write_json
+from utils.general_utils import read_json, write_json, get_project_root
 
 
 def clean_df(data_df):
@@ -38,8 +38,10 @@ def load_set_by_type(dataset, set_type: str) -> pd.DataFrame:
     return pd.DataFrame(df)
 
 
-def load_dataset_df(dataset_name, data_path):
+def load_dataset_df(dataset_name, data_path=None):
     if dataset_name in ["MIND15", "News26"]:
+        if data_path is None:
+            data_path = Path(get_project_root()) / "dataset" / "data" / f"{dataset_name}.csv"
         df = clean_df(pd.read_csv(data_path, encoding="utf-8"))
         df["data"] = df.title + "\n" + df.body
     elif dataset_name in ["ag_news", "yelp_review_full", "imdb"]:
@@ -69,10 +71,10 @@ def load_word_dict(data_root, dataset_name, process_method, **kwargs):
     return word_dict
 
 
-def load_glove_embedding(glove_path=None):
-    if not glove_path:
-        glove_path = "E:\\glove.840B.300d.txt"
-    glove = pd.read_csv(glove_path, sep=" ", quoting=3, header=None, index_col=0)
+def load_embedding(path=None):
+    if not path:
+        path = "E:\\glove.840B.300d.txt"
+    glove = pd.read_csv(path, sep=" ", quoting=3, header=None, index_col=0)
     return {key: val.values for key, val in glove.T.items()}
 
 
@@ -84,7 +86,7 @@ def load_embeddings(data_root, dataset_name, process_method, word_dict, glove_pa
         word_dict = read_json(wd_path)
     else:
         new_wd = {"[UNK]": 0}
-        embedding_dict = load_glove_embedding(glove_path)
+        embedding_dict = load_embedding(glove_path)
         embeddings, exclude_words = [np.zeros(300)], []
         for i, w in enumerate(word_dict.keys()):
             if w in embedding_dict:
