@@ -1,11 +1,8 @@
 import logging
 import os
 from pathlib import Path
-
-import numpy as np
-
 from experiment import init_args, customer_args, ConfigParser
-from utils import load_dataset_df, tokenize, get_project_root
+from utils import load_dataset_df, tokenize, get_project_root, write_to_file
 from nltk.stem.wordnet import WordNetLemmatizer
 from gensim.models import Phrases
 from gensim.corpora import Dictionary
@@ -55,15 +52,13 @@ def get_bow_corpus(docs, dictionary):
     return corpus
 
 
-def evaluate_topics(model, corpus, docs, dictionary, num_topics=50, c_method="c_npmi", topn=20):
-    top_topics = model.top_topics(corpus, texts=docs, dictionary=dictionary, coherence=c_method, topn=topn)
-
+def evaluate_topics(model, corpus, docs, dictionary, num_topics=50, method="c_npmi", topn=20, file=None):
+    top_topics = model.top_topics(corpus, texts=docs, dictionary=dictionary, coherence=method, topn=topn)
+    topics = [" ".join([f"{t[1]}: {t[0]}" for t in topic[0]]) for topic in top_topics]
     # Average topic coherence is the sum of topic coherence of all topics, divided by the number of topics.
     avg_topic_coherence = sum([t[1] for t in top_topics]) / num_topics
-    print(f'Average topic coherence({c_method}): %.4f.' % avg_topic_coherence)
-
-    from pprint import pprint
-    pprint(top_topics)
+    write_to_file(file, f'Average topic coherence({method}): %.4f.' % avg_topic_coherence)
+    write_to_file(file, topics)
 
 
 def load_docs(name, method):
@@ -97,7 +92,7 @@ if __name__ == "__main__":
         # topic parameters
         {"flags": ["-nt", "--num_topics"], "type": str, "target": None},
         {"flags": ["-cm", "--c_methods"], "type": str, "target": None},
-
+        {"flags": ["-tn", "--topn"], "type": int, "target": None},
     ]
     args, options = init_args(), customer_args(extra_args)
     config_parser = ConfigParser.from_args(args, options)
@@ -117,4 +112,5 @@ if __name__ == "__main__":
         lda = lda_model(filter_dict, corpus_filter, passes=1, num_topics=num_topic)
         save_topic_embed(lda, filter_dict, saved_path / f"topic_embed_{dataset_names}_{num_topic}.txt")
         for c_method in config.get("c_methods", "c_npmi,c_v").split(","):
-            evaluate_topics(lda, corpus_filter, docs_token, filter_dict, c_method=c_method)
+            evaluate_topics(lda, corpus_filter, docs_token, filter_dict, method=c_method, topn=config.get("topn", 20),
+                            file=saved_path / f"topic_{dataset_names}_{num_topic}.txt")
