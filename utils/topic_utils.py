@@ -4,7 +4,7 @@ import os
 import numpy as np
 from gensim.corpora import Dictionary
 from gensim.models import CoherenceModel
-
+from scipy.stats import entropy
 from utils.preprocess_utils import tokenize
 from utils.general_utils import write_to_file
 
@@ -39,6 +39,11 @@ def evaluate_topic(topic_list, data_loader):
     npmi = get_coherence(topic_list, texts, "c_npmi").get_coherence_per_topic()
     c_v = get_coherence(topic_list, texts, "c_v").get_coherence_per_topic()
     return npmi, c_v
+
+
+def evaluate_entropy(topic_dist):
+    token_entropy, topic_entropy = np.mean(entropy(topic_dist, axis=0)),  np.mean(entropy(topic_dist, axis=1))
+    return token_entropy, topic_entropy
 
 
 def save_topic_info(path, weights, reverse_dict, data_loader, top_n=25):

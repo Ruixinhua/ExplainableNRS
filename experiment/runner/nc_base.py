@@ -4,11 +4,10 @@ import models as module_arch
 import experiment.data_loader as module_data
 from typing import Union
 from torch.backends import cudnn
-from scipy.stats import entropy
 from experiment.data_loader import NewsDataLoader
 from experiment.trainer import NCTrainer
 from experiment.config import ConfigParser, init_args, customer_args, set_seed
-from utils.topic_utils import get_topic_dist, save_topic_info
+from utils.topic_utils import get_topic_dist, save_topic_info, evaluate_entropy
 
 
 def init_default_model(config_parser: ConfigParser, data_loader: NewsDataLoader):
@@ -51,7 +50,8 @@ def topic_evaluation(trainer: NCTrainer, data_loader: NewsDataLoader, path: Unio
     reverse_dict = {v: k for k, v in data_loader.word_dict.items()}
     topic_dist = get_topic_dist(trainer, list(data_loader.word_dict.values()))
     topic_result = save_topic_info(path, topic_dist, reverse_dict, data_loader)
-    topic_result.update({"token_entropy": np.mean(entropy(topic_dist, axis=1))})
+    token_entropy, topic_entropy = evaluate_entropy(topic_dist)
+    topic_result.update({"token_entropy": token_entropy, "topic_entropy": topic_entropy})
     return topic_result
 
 
