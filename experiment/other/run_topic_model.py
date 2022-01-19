@@ -12,13 +12,13 @@ from gensim.models import LdaModel
 def lda_model(dictionary, corpus, **kwargs):
     temp = dictionary[0]  # This is only to "load" the dictionary.
     # Make an index to word dictionary.
-    args = {
+    args_dict = {
         "corpus": corpus, "id2word": dictionary.id2token, "chunksize": kwargs.get("chunksize", 2000),
         "alpha": kwargs.get("alpha", "auto"), "eta": kwargs.get("eta", "auto"), "passes": kwargs.get("passes", 10),
         "iterations": kwargs.get("iterations", 400), "num_topics": kwargs.get("num_topics", 50),
         "eval_every": kwargs.get("eval_every", None)
     }
-    return LdaModel(**args)
+    return LdaModel(**args_dict)
 
 
 def filter_tokens(docs, no_below=20, no_above=0.5):
@@ -110,8 +110,8 @@ if __name__ == "__main__":
     filter_dict = filter_tokens(docs_token, no_below=config.get("no_below", 20), no_above=config.get("no_above", 0.5))
     corpus_filter = get_bow_corpus(docs_token, filter_dict)
     for num_topic in config.get("num_topics", "10,50").split(","):
-        lda = lda_model(filter_dict, corpus_filter, passes=config.get("passes", 10), num_topics=num_topic)
+        lda = lda_model(filter_dict, corpus_filter, passes=config.get("passes", 10), num_topics=int(num_topic))
         save_topic_embed(lda, filter_dict, saved_path / f"topic_embed_{dataset_names}_{num_topic}.txt")
         for c_method in config.get("c_methods", "c_npmi,c_v").split(","):
             evaluate_topics(lda, corpus_filter, docs_token, filter_dict, method=c_method, topn=config.get("topn", 20),
-                            file=saved_path / f"topic_{dataset_names}_{num_topic}.txt", num_topics=num_topic)
+                            file=saved_path / f"topic_{dataset_names}_{num_topic}.txt", num_topics=int(num_topic))
