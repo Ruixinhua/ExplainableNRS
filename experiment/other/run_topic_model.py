@@ -1,8 +1,10 @@
 import logging
 import os
+import pandas as pd
+
 from pathlib import Path
-from experiment import init_args, customer_args, ConfigParser
-from utils import load_dataset_df, tokenize, get_project_root, write_to_file
+from experiment import init_args
+from utils import load_dataset_df, tokenize, get_project_root, write_to_file, evaluate_entropy
 from nltk.stem.wordnet import WordNetLemmatizer
 from gensim.models import Phrases
 from gensim.corpora import Dictionary
@@ -59,15 +61,16 @@ def evaluate_topics(model, corpus, docs, dictionary, num_topics=50, method="c_np
     avg_topic_coherence = sum([t[1] for t in top_topics]) / num_topics
     topics.append(f'Average topic coherence({method}): %.4f. \n' % avg_topic_coherence)
     write_to_file(file, topics, mode="a+")
+    return avg_topic_coherence
 
 
 def load_docs(name, method):
     df, _ = load_dataset_df(name)
     docs = [tokenize(d, method) for d in df["data"].values]
-    if do_lemma:
+    if args.do_lemma:
         docs = lemmatize(docs)
-    if add_bi:
-        docs = add_bigram(docs, config.get("min_count", 200))
+    if args.add_bi:
+        docs = add_bigram(docs, args.get.min_count)
     return docs
 
 
@@ -80,40 +83,48 @@ def save_topic_embed(model, dictionary, saved_file):
 
 if __name__ == "__main__":
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
-    extra_args = [
-        {"flags": ["-dn", "--dataset_names"], "type": str, "target": None},
+    cus_args = [
+        {"flags": ["-dn", "--dataset_names"], "type": str, "default": "News26"},
         # preprocess parameters
-        {"flags": ["-pm", "--process_method"], "type": str, "target": None},
-        {"flags": ["-dl", "--do_lemma"], "type": int, "target": None},
-        {"flags": ["-ab", "--add_bi"], "type": int, "target": None},
-        {"flags": ["-mc", "--min_count"], "type": int, "target": None},
-        {"flags": ["-nob", "--no_below"], "type": int, "target": None},
-        {"flags": ["-noa", "--no_above"], "type": float, "target": None},
+        {"flags": ["-pm", "--process_method"], "type": str, "default": "keep_all"},
+        {"flags": ["-dl", "--do_lemma"], "type": int, "default": 0},
+        {"flags": ["-ab", "--add_bi"], "type": int, "default": 0},
+        {"flags": ["-mc", "--min_count"], "type": int, "default": 200},
+        {"flags": ["-nob", "--no_below"], "type": int, "default": 20},
+        {"flags": ["-noa", "--no_above"], "type": float, "default": 0.5},
         # topic parameters
-        {"flags": ["-nt", "--num_topics"], "type": str, "target": None},
-        {"flags": ["-cm", "--c_methods"], "type": str, "target": None},
-        {"flags": ["-tn", "--topn"], "type": int, "target": None},
-        {"flags": ["-pa", "--passes"], "type": int, "target": None},
+        {"flags": ["-nt", "--num_topics"], "type": str, "default": "10"},
+        {"flags": ["-cm", "--c_methods"], "type": str, "default": "c_npmi,c_v"},
+        {"flags": ["-tn", "--topn"], "type": int, "default": 25},
+        {"flags": ["-pa", "--passes"], "type": int, "default": 10},
     ]
-    args, options = init_args(), customer_args(extra_args)
-    config_parser = ConfigParser.from_args(args, options)
-    config = config_parser.config
-    do_lemma, add_bi = config.get("do_lemma", False), config.get("add_bi", False)
-    dataset_names = config.get("dataset_names", "News26_MIND15")
+    args = init_args(cus_args).parse_args()
+    dataset_names = args.dataset_names
     saved_path = Path(get_project_root()) / "saved" / "topic_embed"
     os.makedirs(saved_path, exist_ok=True)
 
     docs_token = []
     for dataset_name in dataset_names.split("_"):
-        docs_token.extend(load_docs(dataset_name, config.get("process_method", "aggressive")))
+        docs_token.extend(load_docs(dataset_name, args.process_method))
 
-    filter_dict = filter_tokens(docs_token, no_below=config.get("no_below", 20), no_above=config.get("no_above", 0.5))
+    filter_dict = filter_tokens(docs_token, no_below=args.no_below, no_above=args.no_above)
     corpus_filter = get_bow_corpus(docs_token, filter_dict)
-    for num_topic in config.get("num_topics", "10,50").split(","):
-        lda = lda_model(filter_dict, corpus_filter, passes=config.get("passes", 10), num_topics=int(num_topic))
-        save_topic_embed(lda, filter_dict, saved_path / f"{dataset_names}_{num_topic}_lda.txt")
-        for c_method in config.get("c_methods", "c_npmi,c_v").split(","):
+    model_name = "LDA"
+    stat_df = pd.DataFrame()
+    for num_topic in args.num_topics.split(","):
+        saved_name = f"{dataset_names}_{num_topic}_{model_name}"
+        topic_model = lda_model(filter_dict, corpus_filter, passes=args.passes, num_topics=int(num_topic))
+        save_topic_embed(topic_model, filter_dict, saved_path / f"{saved_name}.txt")
+        stat_dict = {"model": model_name, "num_topic": num_topic, "process_method": args.process_method}
+        for c_method in args.c_methods.split(","):
             log_path = saved_path / "log"
             os.makedirs(log_path, exist_ok=True)
-            evaluate_topics(lda, corpus_filter, docs_token, filter_dict, method=c_method, topn=config.get("topn", 20),
-                            file=log_path / f"{dataset_names}_lda_{num_topic}.txt", num_topics=int(num_topic))
+            score = evaluate_topics(topic_model, corpus_filter, docs_token, filter_dict, method=c_method,
+                                    topn=args.topn, file=log_path / f"{saved_name}.txt", num_topics=int(num_topic))
+            stat_dict[c_method] = score
+        token_entropy, topic_entropy = evaluate_entropy(topic_model.get_topics())
+        stat_dict.update({"token_entropy": token_entropy, "topic_entropy": topic_entropy})
+        stat_df = stat_df.append(pd.Series(stat_dict), ignore_index=True)
+    stat_path = saved_path / "stat"
+    os.makedirs(stat_path, exist_ok=True)
+    stat_df.to_csv(stat_path / f"{dataset_names}_{model_name}.csv")

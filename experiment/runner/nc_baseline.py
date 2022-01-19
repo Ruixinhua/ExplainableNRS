@@ -3,7 +3,7 @@ import ast
 from pathlib import Path
 from itertools import product
 from experiment.config import ConfigParser
-from experiment.config import init_args, customer_args, set_seed
+from experiment.config import init_args, custom_args, set_seed
 from experiment.runner.nc_base import run, test, init_data_loader, topic_evaluation
 
 # setup default values
@@ -23,7 +23,7 @@ if __name__ == "__main__":
         {"flags": ["-va", "--values"], "type": str, "target": None},
         {"flags": ["-tp", "--evaluate_topic"], "type": int, "target": None},
     ]
-    args, options = init_args(), customer_args(baseline_args)
+    args, options = init_args(), custom_args(baseline_args)
     config_parser = ConfigParser.from_args(args, options)
     config = config_parser.config
     saved_dir = Path(config.project_root) / "saved" / "performance"  # init saved directory

@@ -6,7 +6,7 @@ from typing import Union
 from torch.backends import cudnn
 from experiment.data_loader import NewsDataLoader
 from experiment.trainer import NCTrainer
-from experiment.config import ConfigParser, init_args, customer_args, set_seed
+from experiment.config import ConfigParser, init_args, custom_args, set_seed
 from utils.topic_utils import get_topic_dist, save_topic_info, evaluate_entropy
 
 
@@ -56,7 +56,7 @@ def topic_evaluation(trainer: NCTrainer, data_loader: NewsDataLoader, path: Unio
 
 
 if __name__ == "__main__":
-    args, options = init_args(), customer_args()
+    args, options = init_args(), custom_args()
     main_config = ConfigParser.from_args(args, options)
     set_seed(main_config["seed"])
     run(main_config, init_data_loader(main_config))

@@ -13,14 +13,16 @@ def set_seed(seed):
     torch.cuda.manual_seed_all(seed)
 
 
-def init_args():
+def init_args(cus_args=None):
     args = argparse.ArgumentParser(description="Define Argument")
-    args.add_argument("-r", "--resume", default=None, type=str,
-                      help="path to latest checkpoint (default: None)")
+    if cus_args is not None:
+        for ca in cus_args:
+            args.add_argument(*ca["flags"], default=ca["default"], type=ca["type"])
     return args
 
 
-def customer_args(args=None):
+def custom_args(args=None):
+    """Setup some default custom arguments"""
     # custom cli options to modify configuration from default values given in json file.
     CustomArgs = collections.namedtuple("CustomArgs", "flags type target")
     # set default arguments
@@ -29,6 +31,7 @@ def customer_args(args=None):
         CustomArgs(["-et", "--embedding_type"], type=str, target=None),
         CustomArgs(["-sd", "--save_dir"], type=str, target=None),
         CustomArgs(["-rn", "--run_name"], type=str, target=None),
+        CustomArgs(["-r", "--resume"], type=str, target=None),  # resume path
 
         CustomArgs(["-ng", "--n_gpu"], type=int, target=None),
         CustomArgs(["-s", "--seed"], type=int, target=None),
