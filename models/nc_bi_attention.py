@@ -1,9 +1,11 @@
 import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+from pathlib import Path
 
 from models.nc_models import BaseClassifyModel
 from models.layers import AttLayer, MultiHeadedAttention
+from utils import get_project_root, load_embedding_from_path, load_embedding_from_dict
 
 
 class BiAttentionClassifyModel(BaseClassifyModel):
@@ -18,6 +20,11 @@ class BiAttentionClassifyModel(BaseClassifyModel):
                                              nn.Linear(topic_dim, self.head_num))
         elif self.variant_name == "topic_embed":
             self.topic_layer = nn.Embedding(len(self.word_dict), self.head_num)
+            if self.topic_embed:
+                path = Path(get_project_root()) / "saved" / "topic_embed" / f"{self.topic_embed}_{self.head_num}.txt"
+                embed_dict = load_embedding_from_path(path)
+                topic_embeds = load_embedding_from_dict(embed_dict, self.word_dict, "use_part", self.head_num)
+                self.topic_layer.from_pretrained(torch.FloatTensor(topic_embeds), freeze=False)
         else:  # default setting
             self.topic_layer = nn.Linear(self.embed_dim, self.head_num)
         if self.variant_name == "gru" or self.variant_name == "combined_gru":

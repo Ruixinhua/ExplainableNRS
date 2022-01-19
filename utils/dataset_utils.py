@@ -62,7 +62,7 @@ def load_word_dict(data_root, dataset_name, process_method, **kwargs):
     if os.path.exists(wd_path):
         word_dict = read_json(wd_path)
     else:
-        word_dict = {}
+        word_dict = {"[UNK]": 0}
         data_path = kwargs.get("data_path", Path(data_root) / "data" / f"{dataset_name}.csv")
         df = kwargs.get("df", load_dataset_df(dataset_name, data_path)[0])
         df.data.apply(lambda s: text2index(s, word_dict, process_method, False))
@@ -71,37 +71,51 @@ def load_word_dict(data_root, dataset_name, process_method, **kwargs):
     return word_dict
 
 
-def load_embedding(path=None):
+def load_embedding_from_path(path=None):
     if not path:
         path = "E:\\glove.840B.300d.txt"
     glove = pd.read_csv(path, sep=" ", quoting=3, header=None, index_col=0)
     return {key: val.values for key, val in glove.T.items()}
 
 
-def load_embeddings(data_root, dataset_name, process_method, word_dict, glove_path=None, embed_method="use_all"):
+def load_embedding_from_dict(embed_dict: dict, word_dict: dict, embed_method: str, embed_dim: int = 300):
+    new_wd = {}
+    embeddings, exclude_words = [], []
+    # acquire the embedding values in the embedding dictionary
+    for i, w in enumerate(word_dict.keys()):
+        if w in embed_dict:
+            embeddings.append(embed_dict[w])
+            new_wd[w] = embed_dict[w]
+        else:
+            exclude_words.append(w)
+    if embed_method == "use_all":
+        # append a random value if all words are initialized with values
+        mean, std = np.mean(embeddings), np.std(embeddings)
+        for i, w in enumerate(exclude_words):
+            # append random embedding
+            random_embed = np.random.normal(loc=mean, scale=std, size=300)
+            new_wd[w] = random_embed
+            embeddings.append(random_embed)
+    else:
+        # add zero embedding
+        for i, w in enumerate(exclude_words):
+            new_wd[w] = np.zeros(embed_dim)
+            embeddings.append(np.zeros(embed_dim))
+    # get embeddings with original word dictionary
+    for w, i in word_dict.items():
+        embeddings[i] = new_wd[w]
+    return np.array(embeddings)
+
+
+def load_glove_embeddings(data_root, dataset_name, process_method, word_dict=None, glove_path=None, embed_method="use_all"):
     embed_path = Path(data_root) / "utils" / "embed_dict" / f"{dataset_name}_{process_method}_{embed_method}.npy"
-    wd_path = Path(data_root) / "utils" / "word_dict" / f"{dataset_name}_{process_method}_{embed_method}.json"
     if os.path.exists(embed_path):
         embeddings = np.load(embed_path.__str__())
-        word_dict = read_json(wd_path)
     else:
-        new_wd = {"[UNK]": 0}
-        embedding_dict = load_embedding(glove_path)
-        embeddings, exclude_words = [np.zeros(300)], []
-        for i, w in enumerate(word_dict.keys()):
-            if w in embedding_dict:
-                embeddings.append(embedding_dict[w])
-                new_wd[w] = len(new_wd)
-            else:
-                exclude_words.append(w)
-        if embed_method == "use_all":
-            mean, std = np.mean(embeddings), np.std(embeddings)
-            # append random embedding
-            for i, w in enumerate(exclude_words):
-                new_wd[w] = len(new_wd)
-                embeddings.append(np.random.normal(loc=mean, scale=std, size=300))
+        embed_dict = load_embedding_from_path(glove_path)
+        if word_dict is None:
+            word_dict = load_word_dict(data_root, dataset_name, process_method, embed_method=embed_method)
+        embeddings = load_embedding_from_dict(embed_dict, word_dict, embed_method)
         os.makedirs(embed_path.parent, exist_ok=True)
-        np.save(embed_path.__str__(), np.array(embeddings))
-        word_dict = new_wd
-        write_json(word_dict, wd_path)
-    return np.array(embeddings), word_dict
+        np.save(embed_path.__str__(), embeddings)
+    return embeddings

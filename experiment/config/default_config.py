@@ -12,7 +12,8 @@ default_configs = {
         "variant_name": "gru_att"
     },
     "BiAttentionClassifyModel": {
-        "head_num": None, "head_dim": 20, "entropy_constraint": False, "alpha": 0.01, "n_layers": 1, "variant_name": "base",
+        "head_num": None, "head_dim": 20, "entropy_constraint": False, "alpha": 0.01, "n_layers": 1,
+        "variant_name": "base", "topic_embed": None, "calculate_entropy": True,
     },
     "TopicExtractorClassifyModel": {
         "head_num": None, "head_dim": 20, "entropy_constraint": False, "alpha": 0.01, "n_layers": 1

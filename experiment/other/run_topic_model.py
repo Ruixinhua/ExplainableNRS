@@ -57,7 +57,7 @@ def evaluate_topics(model, corpus, docs, dictionary, num_topics=50, method="c_np
     topics = [" ".join([f"{t[1]}: {t[0]}" for t in topic[0]]) for topic in top_topics]
     # Average topic coherence is the sum of topic coherence of all topics, divided by the number of topics.
     avg_topic_coherence = sum([t[1] for t in top_topics]) / num_topics
-    topics.append(f'Average topic coherence({method}): %.4f.' % avg_topic_coherence)
+    topics.append(f'Average topic coherence({method}): %.4f. \n' % avg_topic_coherence)
     write_to_file(file, topics, mode="a+")
 
 
@@ -111,7 +111,9 @@ if __name__ == "__main__":
     corpus_filter = get_bow_corpus(docs_token, filter_dict)
     for num_topic in config.get("num_topics", "10,50").split(","):
         lda = lda_model(filter_dict, corpus_filter, passes=config.get("passes", 10), num_topics=int(num_topic))
-        save_topic_embed(lda, filter_dict, saved_path / f"topic_embed_{dataset_names}_{num_topic}.txt")
+        save_topic_embed(lda, filter_dict, saved_path / f"{dataset_names}_{num_topic}_lda.txt")
         for c_method in config.get("c_methods", "c_npmi,c_v").split(","):
+            log_path = saved_path / "log"
+            os.makedirs(log_path, exist_ok=True)
             evaluate_topics(lda, corpus_filter, docs_token, filter_dict, method=c_method, topn=config.get("topn", 20),
-                            file=saved_path / f"topic_{dataset_names}_{num_topic}.txt", num_topics=int(num_topic))
+                            file=log_path / f"{dataset_names}_lda_{num_topic}.txt", num_topics=int(num_topic))

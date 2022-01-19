@@ -1,6 +1,6 @@
 from pathlib import Path
 from torch.utils.data import DataLoader
-from utils import load_dataset_df, load_word_dict, load_embeddings
+from utils import load_dataset_df, load_word_dict, load_glove_embeddings
 from base.base_dataset import BaseDatasetBert, BaseDataset
 
 
@@ -36,8 +36,8 @@ class NewsDataLoader:
             # setup word dictionary for glove or init embedding
             self.word_dict = load_word_dict(self.data_root, self.set_name, self.method, df=df)
         if self.embedding_type == "glove":
-            self.embeds, self.word_dict = load_embeddings(self.data_root, self.set_name, self.method, self.word_dict,
-                                                          embed_method=kwargs.get("embed_method", "use_all"))
+            self.embeds = load_glove_embeddings(self.data_root, self.set_name, self.method, self.word_dict,
+                                                embed_method=kwargs.get("embed_method", "use_all"))
         self.init_params = {'batch_size': batch_size, 'shuffle': shuffle, 'num_workers': num_workers}
         # initialize train loader
         self.train_loader = DataLoader(self.load_dataset(df[train_set]), **self.init_params)
