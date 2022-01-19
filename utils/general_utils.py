@@ -29,8 +29,8 @@ def write_json(content: Dict, file: Union[str, os.PathLike]):
         json.dump(content, handle, indent=4, sort_keys=False)
 
 
-def write_to_file(file: Union[str, os.PathLike], text: Union[str, list]):
-    with open(file, "w", encoding="utf-8") as w:
+def write_to_file(file: Union[str, os.PathLike], text: Union[str, list], mode: str = "w"):
+    with open(file, mode, encoding="utf-8") as w:
         if isinstance(text, str):
             w.write(text)
         elif isinstance(text, list):

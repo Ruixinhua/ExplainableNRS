@@ -57,8 +57,8 @@ def evaluate_topics(model, corpus, docs, dictionary, num_topics=50, method="c_np
     topics = [" ".join([f"{t[1]}: {t[0]}" for t in topic[0]]) for topic in top_topics]
     # Average topic coherence is the sum of topic coherence of all topics, divided by the number of topics.
     avg_topic_coherence = sum([t[1] for t in top_topics]) / num_topics
-    write_to_file(file, f'Average topic coherence({method}): %.4f.' % avg_topic_coherence)
-    write_to_file(file, topics)
+    topics.append(f'Average topic coherence({method}): %.4f.' % avg_topic_coherence)
+    write_to_file(file, topics, mode="a+")
 
 
 def load_docs(name, method):
@@ -93,6 +93,7 @@ if __name__ == "__main__":
         {"flags": ["-nt", "--num_topics"], "type": str, "target": None},
         {"flags": ["-cm", "--c_methods"], "type": str, "target": None},
         {"flags": ["-tn", "--topn"], "type": int, "target": None},
+        {"flags": ["-pa", "--passes"], "type": int, "target": None},
     ]
     args, options = init_args(), customer_args(extra_args)
     config_parser = ConfigParser.from_args(args, options)
@@ -100,7 +101,7 @@ if __name__ == "__main__":
     do_lemma, add_bi = config.get("do_lemma", False), config.get("add_bi", False)
     dataset_names = config.get("dataset_names", "News26_MIND15")
     saved_path = Path(get_project_root()) / "saved" / "topic_embed"
-    os.makedirs(saved_path)
+    os.makedirs(saved_path, exist_ok=True)
 
     docs_token = []
     for dataset_name in dataset_names.split("_"):
@@ -109,8 +110,8 @@ if __name__ == "__main__":
     filter_dict = filter_tokens(docs_token, no_below=config.get("no_below", 20), no_above=config.get("no_above", 0.5))
     corpus_filter = get_bow_corpus(docs_token, filter_dict)
     for num_topic in config.get("num_topics", "10,50").split(","):
-        lda = lda_model(filter_dict, corpus_filter, passes=1, num_topics=num_topic)
+        lda = lda_model(filter_dict, corpus_filter, passes=config.get("passes", 10), num_topics=num_topic)
         save_topic_embed(lda, filter_dict, saved_path / f"topic_embed_{dataset_names}_{num_topic}.txt")
         for c_method in config.get("c_methods", "c_npmi,c_v").split(","):
             evaluate_topics(lda, corpus_filter, docs_token, filter_dict, method=c_method, topn=config.get("topn", 20),
-                            file=saved_path / f"topic_{dataset_names}_{num_topic}.txt")
+                            file=saved_path / f"topic_{dataset_names}_{num_topic}.txt", num_topics=num_topic)
