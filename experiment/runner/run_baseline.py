@@ -22,6 +22,7 @@ if __name__ == "__main__":
         {"flags": ["-aa", "--arch_attr"], "type": str, "target": None},
         {"flags": ["-va", "--values"], "type": str, "target": None},
         {"flags": ["-tp", "--evaluate_topic"], "type": int, "target": None},
+        {"flags": ["-tn", "--top_n"], "type": int, "target": None}
     ]
     args, options = init_args(), custom_args(baseline_args)
     config_parser = ConfigParser.from_args(args, options)
@@ -32,7 +33,7 @@ if __name__ == "__main__":
     saved_name = f'{config.data_config["name"].replace("/", "-")}-{arch_attr}'
     evaluate_topic, entropy_constraint = config.get("evaluate_topic", 0), config.get("entropy_constraint", 0)
     if evaluate_topic:
-        saved_name += "-evaluate_topic"
+        saved_name += f"-evaluate_topic"
     if entropy_constraint:
         saved_name += "-entropy_constraint"
     # acquires test values for a given arch attribute
@@ -52,5 +53,5 @@ if __name__ == "__main__":
         log.update(test(trainer, data_loader))
         if evaluate_topic:
             topic_path = Path(config.project_root) / "saved" / "topics" / saved_name / f"{value}_{seed}"
-            log.update(topic_evaluation(trainer, data_loader, topic_path))
+            log.update(topic_evaluation(trainer, data_loader, topic_path, top_n=config.get("top_n", 25)))
         trainer.save_log(log, saved_path=saved_dir / f'{saved_name}.csv')

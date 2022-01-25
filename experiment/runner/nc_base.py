@@ -45,13 +45,13 @@ def test(trainer: NCTrainer, data_loader: NewsDataLoader):
     return log
 
 
-def topic_evaluation(trainer: NCTrainer, data_loader: NewsDataLoader, path: Union[str, os.PathLike]):
+def topic_evaluation(trainer: NCTrainer, data_loader: NewsDataLoader, path: Union[str, os.PathLike], top_n: int = 25):
     # statistic topic distribution of Topic Attention network
     reverse_dict = {v: k for k, v in data_loader.word_dict.items()}
     topic_dist = get_topic_dist(trainer, list(data_loader.word_dict.values()))
-    topic_result = save_topic_info(path, topic_dist, reverse_dict, data_loader)
+    topic_result = save_topic_info(path, topic_dist, reverse_dict, data_loader, top_n=top_n)
     token_entropy, topic_entropy = evaluate_entropy(topic_dist)
-    topic_result.update({"token_entropy": token_entropy, "topic_entropy": topic_entropy})
+    topic_result.update({"token_entropy": token_entropy, "topic_entropy": topic_entropy, "top_n": top_n})
     return topic_result
 
 

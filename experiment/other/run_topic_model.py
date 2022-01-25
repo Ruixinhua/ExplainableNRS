@@ -4,7 +4,7 @@ import pandas as pd
 
 from pathlib import Path
 from experiment import init_args
-from utils import load_dataset_df, tokenize, get_project_root, write_to_file, evaluate_entropy
+from utils import load_dataset_df, tokenize, get_project_root, write_to_file, evaluate_entropy, del_index_column
 from nltk.stem.wordnet import WordNetLemmatizer
 from gensim.models import Phrases
 from gensim.corpora import Dictionary
@@ -70,7 +70,7 @@ def load_docs(name, method):
     if args.do_lemma:
         docs = lemmatize(docs)
     if args.add_bi:
-        docs = add_bigram(docs, args.get.min_count)
+        docs = add_bigram(docs, args.min_count)
     return docs
 
 
@@ -93,14 +93,14 @@ if __name__ == "__main__":
         {"flags": ["-nob", "--no_below"], "type": int, "default": 20},
         {"flags": ["-noa", "--no_above"], "type": float, "default": 0.5},
         # topic parameters
-        {"flags": ["-nt", "--num_topics"], "type": str, "default": "10"},
+        {"flags": ["-nt", "--num_topics"], "type": str, "default": "10,30,50,70,100,120,150,180,200"},
         {"flags": ["-cm", "--c_methods"], "type": str, "default": "c_npmi,c_v"},
         {"flags": ["-tn", "--topn"], "type": int, "default": 25},
         {"flags": ["-pa", "--passes"], "type": int, "default": 10},
     ]
     args = init_args(cus_args).parse_args()
     dataset_names = args.dataset_names
-    saved_path = Path(get_project_root()) / "saved" / "topic_embed"
+    saved_path = Path(get_project_root()) / "saved" / "topic_model"
     os.makedirs(saved_path, exist_ok=True)
 
     docs_token = []
@@ -110,12 +110,18 @@ if __name__ == "__main__":
     filter_dict = filter_tokens(docs_token, no_below=args.no_below, no_above=args.no_above)
     corpus_filter = get_bow_corpus(docs_token, filter_dict)
     model_name = "LDA"
-    stat_df = pd.DataFrame()
+    stat_path = saved_path / "stat"
+    os.makedirs(stat_path, exist_ok=True)
+    stat_file = stat_path / f"{dataset_names}_{model_name}.csv"
+    stat_df = pd.DataFrame() if not os.path.exists(stat_file) else pd.read_csv(stat_file)
     for num_topic in args.num_topics.split(","):
         saved_name = f"{dataset_names}_{num_topic}_{model_name}"
         topic_model = lda_model(filter_dict, corpus_filter, passes=args.passes, num_topics=int(num_topic))
         save_topic_embed(topic_model, filter_dict, saved_path / f"{saved_name}.txt")
-        stat_dict = {"model": model_name, "num_topic": num_topic, "process_method": args.process_method}
+        stat_dict = {
+            "model": model_name, "num_topic": num_topic, "process_method": args.process_method, "topn": args.topn,
+            "#Vocabulary": len(filter_dict)
+        }
         for c_method in args.c_methods.split(","):
             log_path = saved_path / "log"
             os.makedirs(log_path, exist_ok=True)
@@ -125,6 +131,4 @@ if __name__ == "__main__":
         token_entropy, topic_entropy = evaluate_entropy(topic_model.get_topics())
         stat_dict.update({"token_entropy": token_entropy, "topic_entropy": topic_entropy})
         stat_df = stat_df.append(pd.Series(stat_dict), ignore_index=True)
-    stat_path = saved_path / "stat"
-    os.makedirs(stat_path, exist_ok=True)
-    stat_df.to_csv(stat_path / f"{dataset_names}_{model_name}.csv")
+    del_index_column(stat_df).to_csv(stat_file)
