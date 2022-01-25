@@ -45,13 +45,13 @@ if __name__ == "__main__":
         except ValueError:
             config.set(arch_attr, value)
         config.set("seed", seed)
-        log = {"arch_type": config.arch_config["type"], "seed": config.seed, arch_attr: value,
-               "variant_name": config.arch_config.get("variant_name", None)}
-        set_seed(log["seed"])
         data_loader = init_data_loader(config_parser)
+        log = {"arch_type": config.arch_config["type"], "seed": config.seed, arch_attr: value,
+               "variant_name": config.arch_config.get("variant_name", None), "#Voc": len(data_loader.word_dict)}
+        set_seed(log["seed"])
         trainer = run(config_parser, data_loader)
         log.update(test(trainer, data_loader))
         if evaluate_topic:
             topic_path = Path(config.project_root) / "saved" / "topics" / saved_name / f"{value}_{seed}"
-            log.update(topic_evaluation(trainer, data_loader, topic_path, top_n=config.get("top_n", 25)))
+            log.update(topic_evaluation(trainer, data_loader, topic_path, top_n=int(config.get("top_n", 25))))
         trainer.save_log(log, saved_path=saved_dir / f'{saved_name}.csv')
