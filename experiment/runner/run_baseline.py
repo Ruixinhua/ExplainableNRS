@@ -56,7 +56,7 @@ if __name__ == "__main__":
             topic_path = Path(config.project_root) / "saved" / "topics" / saved_name / f"{value}_{seed}"
             dataset_name, method = config.data_config["name"].split("/")
             ref_texts = load_docs(dataset_name, method)
-            topic_dict = filter_tokens(ref_texts, 0, 1)
+            topic_dict = filter_tokens(ref_texts, 20, 0.5)
             topic_dict = {token: data_loader.word_dict[token] for token in topic_dict.values()}
             log["#Ref Voc"] = len(topic_dict)
             scores = topic_evaluation(trainer, topic_dict, topic_path, ref_texts, config.get("top_n", 25), log["#Voc"])
