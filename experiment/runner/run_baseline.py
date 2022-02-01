@@ -4,7 +4,8 @@ from pathlib import Path
 from itertools import product
 from experiment.config import ConfigParser
 from experiment.config import init_args, custom_args, set_seed
-from experiment.runner.nc_base import run, test, init_data_loader, topic_evaluation
+from experiment.runner.nc_base import run, test, init_data_loader
+from utils import topic_evaluation, load_docs, filter_tokens
 
 # setup default values
 DEFAULT_VALUES = {
@@ -53,5 +54,11 @@ if __name__ == "__main__":
         log.update(test(trainer, data_loader))
         if evaluate_topic:
             topic_path = Path(config.project_root) / "saved" / "topics" / saved_name / f"{value}_{seed}"
-            log.update(topic_evaluation(trainer, data_loader, topic_path, top_n=int(config.get("top_n", 25))))
+            dataset_name, method = config.data_config["name"].split("/")
+            ref_texts = load_docs(dataset_name, method)
+            topic_dict = filter_tokens(ref_texts, 0, 1)
+            topic_dict = {token: data_loader.word_dict[token] for token in topic_dict.values()}
+            log["#Ref Voc"] = len(topic_dict)
+            scores = topic_evaluation(trainer, topic_dict, topic_path, ref_texts, config.get("top_n", 25), log["#Voc"])
+            log.update(scores)
         trainer.save_log(log, saved_path=saved_dir / f'{saved_name}.csv')

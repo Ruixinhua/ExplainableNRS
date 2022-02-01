@@ -1,14 +1,13 @@
 import logging
 import os
-import pandas as pd
-
 from pathlib import Path
-from experiment import init_args
-from utils import load_dataset_df, tokenize, get_project_root, write_to_file, evaluate_entropy, del_index_column
-from nltk.stem.wordnet import WordNetLemmatizer
-from gensim.models import Phrases
-from gensim.corpora import Dictionary
+
+import pandas as pd
 from gensim.models import LdaModel
+
+from experiment import init_args
+from utils import get_project_root, write_to_file, evaluate_entropy, del_index_column, load_docs, get_bow_corpus, \
+    filter_tokens
 
 
 def lda_model(dictionary, corpus, **kwargs):
@@ -23,37 +22,6 @@ def lda_model(dictionary, corpus, **kwargs):
     return LdaModel(**args_dict)
 
 
-def filter_tokens(docs, no_below=20, no_above=0.5):
-    # Create a dictionary representation of the documents.
-    dictionary = Dictionary(docs)
-
-    # Filter out words that occur less than 20 documents, or more than 50% of the documents.
-    dictionary.filter_extremes(no_below=no_below, no_above=no_above)
-    return dictionary
-
-
-def lemmatize(docs):
-    lemmatizer = WordNetLemmatizer()
-    return [[lemmatizer.lemmatize(t) for t in d] for d in docs]
-
-
-def add_bigram(docs, min_count=200):
-    # Add bigrams and trigrams to docs (only ones that appear 20 times or more).
-    bigram = Phrases(docs, min_count=min_count)
-    for idx in range(len(docs)):
-        for token in bigram[docs[idx]]:
-            if '_' in token:
-                # Token is a bigram, add to document.
-                docs[idx].append(token)
-    return docs
-
-
-def get_bow_corpus(docs, dictionary):
-    # Bag-of-words representation of the documents.
-    corpus = [dictionary.doc2bow(d) for d in docs]
-    return corpus
-
-
 def evaluate_topics(model, corpus, docs, dictionary, num_topics=50, method="c_npmi", topn=20, file=None):
     top_topics = model.top_topics(corpus, texts=docs, dictionary=dictionary, coherence=method, topn=topn)
     topics = [" ".join([f"{t[1]}: {t[0]}" for t in topic[0]]) for topic in top_topics]
@@ -62,16 +30,6 @@ def evaluate_topics(model, corpus, docs, dictionary, num_topics=50, method="c_np
     topics.append(f'Average topic coherence({method}): %.4f. \n' % avg_topic_coherence)
     write_to_file(file, topics, mode="a+")
     return avg_topic_coherence
-
-
-def load_docs(name, method):
-    df, _ = load_dataset_df(name)
-    docs = [tokenize(d, method) for d in df["data"].values]
-    if args.do_lemma:
-        docs = lemmatize(docs)
-    if args.add_bi:
-        docs = add_bigram(docs, args.min_count)
-    return docs
 
 
 def save_topic_embed(model, dictionary, saved_file):
@@ -85,6 +43,7 @@ if __name__ == "__main__":
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
     cus_args = [
         {"flags": ["-dn", "--dataset_names"], "type": str, "default": "News26"},
+        {"flags": ["-rd", "--ref_dataset"], "type": str, "default": "MIND15"},
         # preprocess parameters
         {"flags": ["-pm", "--process_method"], "type": str, "default": "keep_all"},
         {"flags": ["-dl", "--do_lemma"], "type": int, "default": 0},
@@ -103,9 +62,15 @@ if __name__ == "__main__":
     saved_path = Path(get_project_root()) / "saved" / "topic_model"
     os.makedirs(saved_path, exist_ok=True)
 
-    docs_token = []
-    for dataset_name in dataset_names.split("_"):
-        docs_token.extend(load_docs(dataset_name, args.process_method))
+    docs_token, ref_token = [], []
+    datasets = {}
+    for dn in dataset_names.split("_"):
+        datasets[dn] = load_docs(dn, args.process_method, args.do_lemma, args.add_bi, args.min_count)
+        docs_token.extend(datasets[dn])
+    for dn in args.ref_dataset.split("_"):
+        if dn not in datasets:
+            datasets[dn] = load_docs(dn, args.process_method, args.do_lemma, args.add_bi, args.min_count)
+        ref_token.extend(datasets[dn])
 
     filter_dict = filter_tokens(docs_token, no_below=args.no_below, no_above=args.no_above)
     corpus_filter = get_bow_corpus(docs_token, filter_dict)
@@ -125,7 +90,7 @@ if __name__ == "__main__":
         for c_method in args.c_methods.split(","):
             log_path = saved_path / "log"
             os.makedirs(log_path, exist_ok=True)
-            score = evaluate_topics(topic_model, corpus_filter, docs_token, filter_dict, method=c_method,
+            score = evaluate_topics(topic_model, corpus_filter, ref_token, filter_dict, method=c_method,
                                     topn=args.topn, file=log_path / f"{saved_name}.txt", num_topics=int(num_topic))
             stat_dict[c_method] = score
         token_entropy, topic_entropy = evaluate_entropy(topic_model.get_topics())

@@ -1,13 +1,9 @@
-import os
-import numpy as np
 import models as module_arch
 import experiment.data_loader as module_data
-from typing import Union
 from torch.backends import cudnn
 from experiment.data_loader import NewsDataLoader
 from experiment.trainer import NCTrainer
 from experiment.config import ConfigParser, init_args, custom_args, set_seed
-from utils.topic_utils import get_topic_dist, save_topic_info, evaluate_entropy
 
 
 def init_default_model(config_parser: ConfigParser, data_loader: NewsDataLoader):
@@ -43,16 +39,6 @@ def test(trainer: NCTrainer, data_loader: NewsDataLoader):
     # run test
     log.update(trainer.evaluate(data_loader.test_loader, trainer.best_model, prefix="test"))
     return log
-
-
-def topic_evaluation(trainer: NCTrainer, data_loader: NewsDataLoader, path: Union[str, os.PathLike], top_n: int = 25):
-    # statistic topic distribution of Topic Attention network
-    reverse_dict = {v: k for k, v in data_loader.word_dict.items()}
-    topic_dist = get_topic_dist(trainer, list(data_loader.word_dict.values()))
-    topic_result = save_topic_info(path, topic_dist, reverse_dict, data_loader, top_n=top_n)
-    token_entropy, topic_entropy = evaluate_entropy(topic_dist)
-    topic_result.update({"token_entropy": token_entropy, "topic_entropy": topic_entropy, "top_n": top_n})
-    return topic_result
 
 
 if __name__ == "__main__":

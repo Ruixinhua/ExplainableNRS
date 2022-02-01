@@ -4,7 +4,7 @@ import os
 import numpy as np
 from pathlib import Path
 from datasets import load_dataset
-from utils.preprocess_utils import clean_text, text2index
+from utils.preprocess_utils import clean_text, text2index, tokenize, lemmatize, add_bigram
 from utils.general_utils import read_json, write_json, get_project_root
 
 
@@ -54,6 +54,16 @@ def load_dataset_df(dataset_name, data_path=None):
     labels = df["category"].values.tolist()
     label_dict = dict(zip(sorted(set(labels)), range(len(set(labels)))))
     return df, label_dict
+
+
+def load_docs(name, method, do_lemma=False, add_bi=False, min_count=200):
+    df, _ = load_dataset_df(name)
+    docs = [tokenize(d, method) for d in df["data"].values]
+    if do_lemma:
+        docs = lemmatize(docs)
+    if add_bi:
+        docs = add_bigram(docs, min_count)
+    return docs
 
 
 def load_word_dict(data_root, dataset_name, process_method, **kwargs):
