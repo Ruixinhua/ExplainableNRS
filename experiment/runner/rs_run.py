@@ -76,8 +76,8 @@ if __name__ == "__main__":
     cus_args = [
         {"flags": ["-mt", "--mind_type"], "type": str, "target": "data_config"},
     ]
-    args, options = init_args(), custom_args(cus_args)
-    main_config = ConfigParser.from_args(args, options)
     default_config = read_json(Path(get_project_root()) / "config" / "mind_rs_default.json")
+    args, options = init_args(), custom_args(cus_args)
+    main_config = ConfigParser.from_args(args, options, default_config=default_config)
     main_config.config.update(default_config)
     run(main_config)

@@ -46,7 +46,7 @@ class ConfigParser:
         return self._log_dir
 
     @classmethod
-    def from_args(cls, args, options: list = None):
+    def from_args(cls, args, options: list = None, **kwargs):
         """
         Initialize this class from some cli arguments. Used in train, test.
         """
@@ -56,7 +56,7 @@ class ConfigParser:
         if not isinstance(args, tuple):
             args = args.parse_args()
         # parse custom cli options into dictionary
-        modification = defaultdict()
+        modification = kwargs.get("default_config", defaultdict())
         if hasattr(args, "arch_type") and args.arch_type is not None:
             modification["arch_config"] = arch_default_config(args.arch_type)  # setup default arch params
         for opt in options:
