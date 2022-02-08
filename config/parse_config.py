@@ -58,7 +58,10 @@ class ConfigParser:
         # parse custom cli options into dictionary
         modification = kwargs.get("default_config", defaultdict())
         if hasattr(args, "arch_type") and args.arch_type is not None:
-            modification["arch_config"] = arch_default_config(args.arch_type)  # setup default arch params
+            if "arch_config" not in modification:
+                modification["arch_config"] = arch_default_config(args.arch_type)  # setup default arch params
+            else:
+                modification["arch_config"].update(arch_default_config(args.arch_type))
         for opt in options:
             name = opt.flags[-1].replace("--", "")  # acquire param name
             if opt.target:

@@ -28,7 +28,6 @@ def run(config):
 
 def train(config):
     logger = config.get_logger("MIND RS training")
-    logger.info(config)
     # setup data_loader instances
     data_loader = config.init_obj("data_config", module_data)
     # build model architecture, then print to console
@@ -43,7 +42,6 @@ def train(config):
 def train_dist(local_rank, nprocs, config):
     # TODO: Distributed Training
     logger = config.get_logger("mind train")
-    logger.info(config)
     cudnn.benchmark = True
     dist.init_process_group(backend='nccl', init_method='tcp://127.0.0.1:23457', world_size=nprocs, rank=local_rank)
     # When using a single GPU per process and per

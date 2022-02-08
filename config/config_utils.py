@@ -43,7 +43,7 @@ def custom_args(args=None):
         CustomArgs(["-sm", "--save_model"], type=int, target=None),
 
         # architecture params
-        CustomArgs(["-at", "--arch_type"], type=str, target="arch_config"),
+        CustomArgs(["-at", "--arch_type"], type=str, target="arch_config"),  # setup architecture type(default params)
         CustomArgs(["-p", "--pooling"], type=str, target="arch_config"),
         CustomArgs(["-em", "--entropy_method"], type=str, target="arch_config"),
         CustomArgs(["-vn", "--variant_name"], type=str, target="arch_config"),
