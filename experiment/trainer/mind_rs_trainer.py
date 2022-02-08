@@ -140,12 +140,12 @@ class MindRSTrainer(NCTrainer):
                         user_vectors.update(user_object[i])
                 for batch_dict in tqdm(self.valid_loader, total=len(self.valid_loader)):
                     input_feat = {
-                        "candidate_news": torch.tensor([
-                            [news_vectors[i.tolist()] for i in candidate] for candidate in batch_dict["candidate_index"]
-                        ]),
-                        "history_news": torch.tensor(
+                        "candidate_news": torch.tensor(np.array([[
+                            news_vectors[i.tolist()] for i in candidate] for candidate in batch_dict["candidate_index"]
+                        ])),
+                        "history_news": torch.tensor(np.array(
                             [user_vectors[index.tolist()] for index in batch_dict["impression_index"]]
-                        )
+                        ))
                     }
                     batch_dict.update(input_feat)
                     batch_dict = self.load_batch_data(batch_dict)

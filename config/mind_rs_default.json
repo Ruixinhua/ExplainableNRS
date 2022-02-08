@@ -15,7 +15,7 @@
     ],
     "trainer_config": {
         "epochs": 10,
-        "valid_interval": 0.0002,
+        "valid_interval": 0.5,
         "save_period": 1,
         "verbosity": 2,
         "monitor": "max val_group_auc",
