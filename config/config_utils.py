@@ -3,12 +3,16 @@ import collections
 import random
 import numpy as np
 import torch
+from torch.backends import cudnn
 
 
 def set_seed(seed):
+    # fix random seeds for reproducibility
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
+    cudnn.benchmark = False
+    cudnn.deterministic = True
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
 

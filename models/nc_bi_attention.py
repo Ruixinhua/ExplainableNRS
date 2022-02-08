@@ -4,7 +4,7 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from pathlib import Path
 
 from models.nc_models import BaseClassifyModel
-from models.layers import AttLayer, MultiHeadedAttention
+from models.general.layers import AttLayer, MultiHeadedAttention
 from utils import get_project_root, load_embedding_from_path, load_embedding_from_dict
 
 

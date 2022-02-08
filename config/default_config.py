@@ -1,9 +1,10 @@
+# setup default configures for models
 default_configs = {
     "PretrainedBaseline": {
         "n_layers": 1,
     },
     "TextCNNClassifyModel": {
-        "num_filters": 100, "filter_sizes": (2, )
+        "num_filters": 100, "filter_sizes": (2,)
     },
     "NRMSNewsEncoderModel": {
         "variant_name": "base"
@@ -22,7 +23,21 @@ default_configs = {
         "embedding_dim": 300, "n_layers": 2, "hidden_act": "gelu", "head_num": 15, "type_vocab_size": 2,
         "vocab_size": 100000, "layer_norm_eps": 1e-12, "initializer_range": 0.02, "pooler_type": "weightpooler",
         "enable_fp16": "False"
+    },
+    # MIND RS model
+    "MindNRSBase": {
+        "out_layer": "product",
     }
+}
+
+# setup default values
+default_values = {
+    "seeds": [42, 2020, 2021, 25, 4],
+    "head_num": [10, 30, 50, 70, 100, 150, 180, 200],
+    "embedding_type": ["distilbert-base-uncased", "bert-base-uncased", "roberta-base", "xlnet-base-cased",
+                       "allenai/longformer-base-4096", "transfo-xl-wt103"],
+    "bert_embedding": ["distilbert-base-uncased", "bert-base-uncased", "roberta-base", "xlnet-base-cased",
+                       "allenai/longformer-base-4096", "transfo-xl-wt103"]
 }
 
 

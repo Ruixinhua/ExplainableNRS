@@ -9,8 +9,8 @@ from transformers import AutoTokenizer
 from utils import text2index
 
 
-class BaseDataset(Dataset):
-    def __init__(self, texts, labels, label_dict, max_length, word_dict, process_method="keep_all"):
+class NCDataset(Dataset):
+    def __init__(self, texts: List[str], labels, label_dict, max_length, word_dict, process_method="keep_all"):
         super().__init__()
         self.texts, self.labels, self.label_dict, self.max_length = texts, labels, label_dict, max_length
         self.word_dict = word_dict
@@ -31,7 +31,7 @@ class BaseDataset(Dataset):
         return len(self.labels)
 
 
-class BaseDatasetBert(Dataset):
+class NCDatasetBert(Dataset):
     def __init__(self, texts: List[str], labels: List[str] = None, label_dict: Mapping[str, int] = None,
                  max_length: int = 512, embedding_type: str = 'distilbert-base-uncased'):
 
@@ -46,8 +46,6 @@ class BaseDatasetBert(Dataset):
         self.tokenizer = AutoTokenizer.from_pretrained(embedding_type)
         logging.getLogger("transformers.tokenization_utils").setLevel(logging.FATAL)
 
-        # self.sep_vid = self.tokenizer.sep_token_id
-        # self.cls_vid = self.tokenizer.cls_token_id
         if embedding_type == "transfo-xl-wt103":
             self.tokenizer.pad_token = self.tokenizer.eos_token
             self.pad_vid = self.tokenizer.pad_token_id

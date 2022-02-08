@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import torch.distributed
 from base.base_trainer import BaseTrainer
 from utils import MetricTracker
 from tqdm import tqdm
@@ -31,7 +32,10 @@ class NCTrainer(BaseTrainer):
         """
         load batch data to default device
         """
-        return {k: v.to(self.device) for k, v in batch_dict.items()}
+        if torch.distributed.is_initialized():
+            return {k: v.cuda(self.device, non_blocking=True) for k, v in batch_dict.items()}
+        else:
+            return {k: v.to(self.device) for k, v in batch_dict.items()}
 
     def run_model(self, batch_dict, model=None):
         """

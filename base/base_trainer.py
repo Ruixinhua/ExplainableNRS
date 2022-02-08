@@ -3,7 +3,7 @@ import os
 import utils.loss_utils as module_loss
 import utils.metric_utils as module_metric
 from utils import prepare_device
-from experiment.config.default_config import arch_default_config
+from config.default_config import arch_default_config
 import torch
 import torch.distributed
 import pandas as pd

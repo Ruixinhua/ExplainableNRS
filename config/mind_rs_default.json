@@ -1,0 +1,46 @@
+{
+    "arch_config": {
+        "type": "MindNRSBase",
+        "word_emb_file": "C:\\Users\\Rui\\Documents\\Phd_research_RS\\baseline\\NRHA\\mind_dataset\\utils\\embedding_all.npy",
+        "out_layer": "product",
+        "init_std": 0.001,
+        "attention_hidden_dim": 128,
+        "embedding_dim": 300,
+        "dropout": 0.2
+    },
+    "embedding_type": "glove",
+    "loss": "categorical_loss",
+    "metrics": [
+        "group_auc", "mean_mrr", "ndcg_5", "ndcg_10"
+    ],
+    "trainer_config": {
+        "epochs": 10,
+        "valid_interval": 0.0002,
+        "save_period": 1,
+        "verbosity": 2,
+        "monitor": "max val_group_auc",
+        "early_stop": 3,
+        "tensorboard": false
+    },
+    "data_config": {
+        "type": "MindDataLoader",
+        "data_path": "C:\\Users\\Rui\\Documents\\Phd_research_RS\\baseline\\NRHA\\mind_dataset",
+        "mind_type": "demo",
+        "news_attr": {
+            "title": 30,
+            "//body use news articles": 100
+        },
+        "history_size": 50,
+        "neg_pos_ratio": 4,
+        "fast_evaluation": true,
+        "flatten_article": true,
+        "//comment for flatten_article": "default use articles in flatten instead of sentences",
+        "load_mode": "pair_wise",
+        "batch_size": 4,
+        "shuffle": true,
+        "num_workers": 1
+    },
+    "optimizer_config": {
+        "lr": 1e-3
+    }
+}

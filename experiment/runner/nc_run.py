@@ -1,9 +1,10 @@
 import models as module_arch
 import experiment.data_loader as module_data
-from torch.backends import cudnn
+
+from config.config_utils import init_args, custom_args, set_seed
+from config.parse_config import ConfigParser
 from experiment.data_loader import NewsDataLoader
 from experiment.trainer import NCTrainer
-from experiment.config import ConfigParser, init_args, custom_args, set_seed
 
 
 def init_default_model(config_parser: ConfigParser, data_loader: NewsDataLoader):
@@ -22,8 +23,6 @@ def init_data_loader(config_parser: ConfigParser):
 
 
 def run(config_parser: ConfigParser, data_loader: NewsDataLoader):
-    cudnn.benchmark = False
-    cudnn.deterministic = True
     logger = config_parser.get_logger("train")
     model = init_default_model(config_parser, data_loader)
     logger.info(model)

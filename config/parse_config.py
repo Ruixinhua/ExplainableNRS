@@ -2,7 +2,9 @@ import copy
 import logging
 from collections import defaultdict
 from pathlib import Path
-from experiment.config import Configuration, arch_default_config
+
+from config.configuration import Configuration
+from config.default_config import arch_default_config
 from logger import setup_logging
 
 

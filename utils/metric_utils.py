@@ -40,3 +40,74 @@ def macro_f(output, target):
         pred = torch.argmax(output, dim=1)
         score = f1_score(target.cpu(), pred.cpu(), average="macro")
         return score
+
+
+def mrr_score(y_true, y_score):
+    """Computing mrr score metric.
+
+    Args:
+        y_true (np.ndarray): ground-truth labels.
+        y_score (np.ndarray): predicted labels.
+
+    Returns:
+        np.ndarray: mrr scores.
+    """
+    order = np.argsort(y_score)[::-1]
+    y_true = np.take(y_true, order)
+    rr_score = y_true / (np.arange(len(y_true)) + 1)
+    return np.sum(rr_score) / np.sum(y_true)
+
+
+def dcg_score(y_true, y_score, k=10):
+    """Computing dcg score metric at k.
+
+    Args:
+        y_true (np.ndarray): ground-truth labels.
+        y_score (np.ndarray): predicted labels.
+        k
+
+    Returns:
+        np.ndarray: dcg scores.
+    """
+    k = min(np.shape(y_true)[-1], k)
+    order = np.argsort(y_score)[::-1]
+    y_true = np.take(y_true, order[:k])
+    gains = 2 ** y_true - 1
+    discounts = np.log2(np.arange(len(y_true)) + 2)
+    return np.sum(gains / discounts)
+
+
+def ndcg_score(y_true, y_score, k=10):
+    """Computing ndcg score metric at k.
+
+    Args:
+        y_true (np.ndarray): ground-truth labels.
+        y_score (np.ndarray): predicted labels.
+        k
+
+    Returns:
+        np.ndarray: ndcg scores.
+    """
+    best = dcg_score(y_true, y_true, k)
+    actual = dcg_score(y_true, y_score, k)
+    return actual / best
+
+
+def group_auc(label, pred):
+    return round(np.mean([roc_auc_score(l, p) for l, p in zip(label, pred)]).item(), 4)
+
+
+def mean_mrr(label, pred):
+    return round(np.mean([mrr_score(l, p) for l, p in zip(label, pred)]).item(), 4)
+
+
+def ndcg(label, pred, k):
+    return round(np.mean([ndcg_score(l, p, k) for l, p in zip(label, pred)]).item(), 4)
+
+
+def ndcg_5(label, pred):
+    return ndcg(label, pred, 5)
+
+
+def ndcg_10(label, pred):
+    return ndcg(label, pred, 10)

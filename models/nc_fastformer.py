@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from transformers import BertConfig
-from models.fastformer import FastformerEncoder
+from models.general.fastformer import FastformerEncoder
 from models.nc_models import BaseClassifyModel
 
 

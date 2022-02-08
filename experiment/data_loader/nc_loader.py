@@ -1,25 +1,25 @@
 from pathlib import Path
 from torch.utils.data import DataLoader
+from base.nc_dataset import NCDatasetBert, NCDataset
 from utils import load_dataset_df, load_word_dict, load_glove_embeddings
-from base.base_dataset import BaseDatasetBert, BaseDataset
 
 
 class NewsDataLoader:
     def load_dataset(self, df):
-        pretrained_models = ["distilbert-base-uncased", "bert-base-uncased", "xlnet-base-cased", "roberta-base",
-                             "allenai/longformer-base-4096", "transfo-xl-wt103"]
+        from config.default_config import default_values
+        pretrained_models = default_values["bert_embedding"]
         if self.embedding_type in pretrained_models:
-            dataset = BaseDatasetBert(texts=df["data"].values.tolist(), labels=df["category"].values.tolist(),
-                                      label_dict=self.label_dict, max_length=self.max_length,
-                                      embedding_type=self.embedding_type)
+            dataset = NCDatasetBert(texts=df["data"].values.tolist(), labels=df["category"].values.tolist(),
+                                    label_dict=self.label_dict, max_length=self.max_length,
+                                    embedding_type=self.embedding_type)
             if self.embedding_type == "transfo-xl-wt103":
                 self.word_dict = dataset.tokenizer.sym2idx
             else:
                 self.word_dict = dataset.tokenizer.vocab
         elif self.embedding_type in ["glove", "init"]:
             # if we use glove embedding, then we ignore the unknown words
-            dataset = BaseDataset(df["data"].values.tolist(), df["category"].values.tolist(), self.label_dict,
-                                  self.max_length, self.word_dict, self.method)
+            dataset = NCDataset(df["data"].values.tolist(), df["category"].values.tolist(), self.label_dict,
+                                self.max_length, self.word_dict, self.method)
         else:
             raise ValueError(f"Embedding type should be one of {','.join(pretrained_models)} or glove and init")
         return dataset
