@@ -21,17 +21,17 @@ class MindRSTrainer(NCTrainer):
         self.news_loader, self.user_loader = data_loader.news_loader, data_loader.user_loader
         self.behaviors = data_loader.valid_set.behaviors
 
-    def _do_validation(self, epoch):
+    def _do_validation(self):
         log = self.train_metrics.result()
         if self.do_validation:
-            val_log = self._valid_epoch(epoch)
+            val_log = self._valid_epoch()
             log.update(**{'val_' + k: v for k, v in val_log.items()})
         return log
 
     def _validation(self, epoch, batch_idx):
         # do validation when reach the interval
         log = {"epoch/step": f"{epoch}/{batch_idx}"}
-        log.update(self._do_validation(epoch))
+        log.update(self._do_validation())
         self._log_info(log)
         self._monitor(log, epoch)
         return log
@@ -73,7 +73,7 @@ class MindRSTrainer(NCTrainer):
                 self.train_metrics.reset()
         if self.lr_scheduler is not None:
             self.lr_scheduler.step()
-        return self._do_validation(epoch)
+        return self._do_validation()
 
     def _run_news_data(self, model):
         news_vectors = {}
@@ -109,10 +109,9 @@ class MindRSTrainer(NCTrainer):
             user_vectors.update(dict(zip(batch_dict["impression_index"].cpu().tolist(), user_vec.cpu().numpy())))
         return user_vectors
 
-    def _valid_epoch(self, epoch):
+    def _valid_epoch(self):
         """
         Validate after training an epoch
-        :param epoch: Integer, current training epoch.
         :return: A log that contains information about validation
         """
         # used for distributed validation
@@ -149,7 +148,7 @@ class MindRSTrainer(NCTrainer):
                     }
                     batch_dict.update(input_feat)
                     batch_dict = self.load_batch_data(batch_dict)
-                    pred = model.predict(batch_dict).cpu()
+                    pred = model.predict(batch_dict, evaluate=True).cpu()
                     if self.train_strategy == "point_wise":
                         pred = pred[:, 1]
                         label = batch_dict["label"]
@@ -159,33 +158,20 @@ class MindRSTrainer(NCTrainer):
                     group_pred.append(pred.tolist())
                     group_label.append(label.cpu().tolist())
             else:
-                if self.train_strategy == "point_wise":
-                    for batch_dict in tqdm(self.valid_loader, total=len(self.valid_loader)):
-                        # load history and candidate news from news vector
-                        input_feat = {
-                            f"{k}_news": torch.tensor([
-                                [news_vectors[i.tolist()] for i in news] for news in batch_dict[f"{k}_index"]
-                            ]) for k in ["history", "candidate"]
-                        }
-                        batch_dict.update(input_feat)
-                        batch_dict = self.load_batch_data(batch_dict)
-                        batch_dict["history_news"] = model.user_encoder(batch_dict)
-                        group_pred.append(model.predict(batch_dict).squeeze().cpu().tolist())
-                        group_label.append(batch_dict["label"].cpu().tolist())
-                else:
-                    behaviors = zip(*[self.behaviors[attr] for attr in ["history_news", "candidate_news", "labels"]])
-                    for history, candidate, label in tqdm(behaviors, total=len(self.behaviors["labels"])):
-                        # setup input feat of history news and candidate news
-                        input_feat = {
-                            "history_news": torch.tensor([[news_vectors[i] for i in history]]),
-                            "candidate_news": torch.tensor([[news_vectors[i] for i in candidate]]),
-                            "history_length": torch.tensor([len(history)]),
-                            "label": torch.tensor([label], dtype=torch.long)
-                        }
-                        input_feat = self.load_batch_data(input_feat)
-                        input_feat["history_news"] = model.user_encoder(input_feat)
-                        group_pred.append(model.predict(input_feat).squeeze().cpu().tolist())
-                        group_label.append(label)
+                # TODO: slow evaluation
+                behaviors = zip(*[self.behaviors[attr] for attr in ["history_news", "candidate_news", "labels"]])
+                for history, candidate, label in tqdm(behaviors, total=len(self.behaviors["labels"])):
+                    # setup input feat of history news and candidate news
+                    input_feat = {
+                        "history_news": torch.tensor([[news_vectors[i] for i in history]]),
+                        "candidate_news": torch.tensor([[news_vectors[i] for i in candidate]]),
+                        "history_length": torch.tensor([len(history)]),
+                        "label": torch.tensor([label], dtype=torch.long)
+                    }
+                    input_feat = self.load_batch_data(input_feat)
+                    input_feat["history_news"] = model.user_encoder(input_feat)
+                    group_pred.append(model.predict(input_feat).squeeze().cpu().tolist())
+                    group_label.append(label)
             for met in self.metric_ftns:
                 self.valid_metrics.update(met.__name__, met(group_label, group_pred))
         return self.valid_metrics.result()

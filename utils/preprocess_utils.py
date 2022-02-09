@@ -7,8 +7,24 @@ import numpy as np
 from config.default_config import default_values
 
 
+def word_tokenize(sent):
+    """ Split sentence into word list using regex.
+    Args:
+        sent (str): Input sentence
+
+    Return:
+        list: word list
+    """
+    pat = re.compile(r"[\w]+|[.,!?;|]")
+    if isinstance(sent, str):
+        return pat.findall(sent.lower())
+    else:
+        return []
+
+
 def text2index(text, word_dict, method="keep", ignore=True):
-    return word2index(word_dict, tokenize(text, method), ignore)
+    # TODO: tokenize for compare
+    return word2index(word_dict, word_tokenize(text), ignore)
 
 
 def clean_text(text):

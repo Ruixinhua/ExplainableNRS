@@ -35,7 +35,11 @@ class MindRSDataset(Dataset):
             self.news_text["body"] = [[""]]  # setup default article data format not using flatten articles
         self.nid2index = {}
 
-        self._load_news(news_file)
+        self._load_news(news_file)  # load news from file and save to news_text object
+        self.news_matrix = OrderedDict({
+            k: np.stack([self.tokenizer.tokenize(news, self.news_attr[k]) for news in news_text])
+            for k, news_text in self.news_text.items()
+        })
         self._load_behaviors(behaviors_file)
 
     def _load_news(self, news_file):
@@ -82,8 +86,8 @@ class MindRSDataset(Dataset):
                 # deal with behavior data
                 history = [self.nid2index[i] for i in history.split()] if len(history) > 1 else [0]  # TODO history
                 his_length = min(len(history), self.history_size)
-                history = history[:self.history_size]
-                # history = history[:self.params["his_size"]] + [0] * (self.params["his_size"] - len(history))
+                # history = history[:self.history_size]
+                history = [0] * (self.history_size - len(history)) + history[:self.history_size]
                 candidate_news = [self.nid2index[i.split("-")[0]] for i in candidates.split()]
                 uindex = self.uid2index[uid] if uid in self.uid2index else 0
                 # define attributes value
@@ -109,12 +113,7 @@ class MindRSDataset(Dataset):
         :return: a default dictionary with keys called name.
         """
         # get the matrix of corresponding news features with index
-        if isinstance(indices, list):
-            news = [np.stack([self.tokenizer.tokenize(self.news_text[k][i], self.news_attr[k]) for i in indices])
-                    for k in self.news_text.keys()]
-        else:
-            news = [self.tokenizer.tokenize(self.news_text[k][indices], self.news_attr[k])
-                    for k in self.news_text.keys()]
+        news = [self.news_matrix[k][indices] for k in self.news_matrix.keys()]
         input_feat = {name: torch.tensor(np.concatenate(news, axis=-1), dtype=torch.long),
                       f"{name}_index": torch.tensor(indices, dtype=torch.long)}
         if self.tokenizer.embedding_type in default_values["bert_embedding"]:

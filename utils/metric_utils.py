@@ -93,21 +93,21 @@ def ndcg_score(y_true, y_score, k=10):
     return actual / best
 
 
-def group_auc(label, pred):
-    return round(np.mean([roc_auc_score(l, p) for l, p in zip(label, pred)]).item(), 4)
+def group_auc(labels, pred):
+    return round(np.mean([roc_auc_score(label, p) for label, p in zip(labels, pred)]).item(), 4)
 
 
-def mean_mrr(label, pred):
-    return round(np.mean([mrr_score(l, p) for l, p in zip(label, pred)]).item(), 4)
+def mean_mrr(labels, pred):
+    return round(np.mean([mrr_score(label, p) for label, p in zip(labels, pred)]).item(), 4)
 
 
-def ndcg(label, pred, k):
-    return round(np.mean([ndcg_score(l, p, k) for l, p in zip(label, pred)]).item(), 4)
+def ndcg(labels, pred, k):
+    return round(np.mean([ndcg_score(label, p, k) for label, p in zip(labels, pred)]).item(), 4)
 
 
-def ndcg_5(label, pred):
-    return ndcg(label, pred, 5)
+def ndcg_5(labels, pred):
+    return ndcg(labels, pred, 5)
 
 
-def ndcg_10(label, pred):
-    return ndcg(label, pred, 10)
+def ndcg_10(labels, pred):
+    return ndcg(labels, pred, 10)

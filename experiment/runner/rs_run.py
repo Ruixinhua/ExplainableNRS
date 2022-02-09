@@ -10,7 +10,7 @@ import torch.nn.parallel
 
 import experiment.data_loader as module_data
 import models as module_arch
-from config.config_utils import init_args, custom_args
+from config.config_utils import init_args, custom_args, set_seed
 from config.parse_config import ConfigParser
 from experiment.trainer import MindRSTrainer
 from utils import prepare_device, read_json, get_project_root
@@ -78,4 +78,5 @@ if __name__ == "__main__":
     args, options = init_args(), custom_args(cus_args)
     main_config = ConfigParser.from_args(args, options, default_config=default_config)
     main_config.config.update(default_config)
+    set_seed(42)
     run(main_config)

@@ -59,14 +59,14 @@ class MindDataLoader:
         bs, sampler = kwargs.get("batch_size", 64), None
         fn = bert_collate_fn if self.tokenizer.embedding_type in default_values["bert_embedding"] else collate_fn
         train_news, train_behaviors = get_mind_file_path(data_path, mind_type, "train")
-        self.train_set = self.set_dataset(train_news, train_behaviors, "train")
+        self.train_set = self.set_dataset(train_news, train_behaviors, "train", **kwargs)
         if torch.distributed.is_initialized():
             sampler = DistributedSampler(self.train_set)
         self.train_loader = DataLoader(self.train_set, bs, pin_memory=True, sampler=sampler, collate_fn=fn)
         # setup news and user dataset
         news_sampler = None
         valid_news, valid_behaviors = get_mind_file_path(data_path, mind_type, "valid")
-        self.valid_set = self.set_dataset(valid_news, valid_behaviors, "valid")
+        self.valid_set = self.set_dataset(valid_news, valid_behaviors, "valid", **kwargs)
         news_set, user_set = NewsDataset(self.valid_set), UserDataset(self.valid_set)
         impression_set = ImpressionDataset(self.valid_set)
         self.valid_loader = DataLoader(impression_set, 1, pin_memory=True, sampler=sampler, collate_fn=fn)
