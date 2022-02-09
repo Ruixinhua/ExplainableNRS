@@ -163,9 +163,8 @@ class UserDataset(Dataset):
         # get the matrix of corresponding news features with index
         history_index = self.behaviors["history_news"][i]
         input_feat = self.dataset.load_news_feat(history_index, "history")
-        impression_index = self.behaviors["impression_index"][i]
         input_feat.update({
-            "impression_index": torch.tensor(impression_index), "uid": torch.tensor(self.behaviors["uid"][i]),
+            "impression_index": torch.tensor(i), "uid": torch.tensor(self.behaviors["uid"][i]),
             # "padding": self.tokenizer.pad_id,  # TODO: pad sentence
             "history_length": torch.tensor(len(history_index))
         })

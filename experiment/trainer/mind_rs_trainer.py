@@ -21,19 +21,14 @@ class MindRSTrainer(NCTrainer):
         self.news_loader, self.user_loader = data_loader.news_loader, data_loader.user_loader
         self.behaviors = data_loader.valid_set.behaviors
 
-    def _do_validation(self):
-        log = self.train_metrics.result()
-        if self.do_validation:
-            val_log = self._valid_epoch()
-            log.update(**{'val_' + k: v for k, v in val_log.items()})
-        return log
-
     def _validation(self, epoch, batch_idx):
         # do validation when reach the interval
         log = {"epoch/step": f"{epoch}/{batch_idx}"}
-        log.update(self._do_validation())
+        log.update(**{'val_' + k: v for k, v in self._valid_epoch().items()})
         self._log_info(log)
         self._monitor(log, epoch)
+        self.model.train()  # reset to training mode
+        self.train_metrics.reset()
         return log
 
     def _train_epoch(self, epoch):
@@ -69,11 +64,9 @@ class MindRSTrainer(NCTrainer):
                 break
             if (batch_idx + 1) % int(length * self.valid_interval) == 0 and (batch_idx + 1) < length:
                 self._validation(epoch, batch_idx)
-                self.model.train()  # reset to training mode
-                self.train_metrics.reset()
         if self.lr_scheduler is not None:
             self.lr_scheduler.step()
-        return self._do_validation()
+        return self._validation(epoch, length)
 
     def _run_news_data(self, model):
         news_vectors = {}
@@ -138,25 +131,24 @@ class MindRSTrainer(NCTrainer):
                     for i in range(2):
                         user_vectors.update(user_object[i])
                 for batch_dict in tqdm(self.valid_loader, total=len(self.valid_loader)):
-                    input_feat = {
-                        "candidate_news": torch.tensor(np.array([[
-                            news_vectors[i.tolist()] for i in candidate] for candidate in batch_dict["candidate_index"]
-                        ])),
-                        "history_news": torch.tensor(np.array(
+                    candidate_news = np.array([[
+                            news_vectors[i.tolist()] for i in cans] for cans in batch_dict["candidate_index"]
+                    ])
+                    history_news = np.array(
                             [user_vectors[index.tolist()] for index in batch_dict["impression_index"]]
-                        ))
-                    }
-                    batch_dict.update(input_feat)
-                    batch_dict = self.load_batch_data(batch_dict)
-                    pred = model.predict(batch_dict, evaluate=True).cpu()
-                    if self.train_strategy == "point_wise":
-                        pred = pred[:, 1]
-                        label = batch_dict["label"]
+                    )
+                    if self.config["arch_config"]["out_layer"] == "product":
+                        pred = np.dot(candidate_news.squeeze(0), history_news.squeeze(0))
                     else:
-                        pred = pred.squeeze()
-                        label = batch_dict["label"].squeeze()
-                    group_pred.append(pred.tolist())
-                    group_label.append(label.cpu().tolist())
+                        input_feat = {
+                            "candidate_news": torch.tensor(candidate_news),
+                            "history_news": torch.tensor(history_news)
+                        }
+                        batch_dict.update(input_feat)
+                        batch_dict = self.load_batch_data(batch_dict)
+                        pred = model.predict(batch_dict, evaluate=True).cpu().squeeze().tolist()
+                    group_pred.append(pred)
+                    group_label.append(batch_dict["label"].squeeze().cpu().tolist())
             else:
                 # TODO: slow evaluation
                 behaviors = zip(*[self.behaviors[attr] for attr in ["history_news", "candidate_news", "labels"]])

@@ -80,11 +80,10 @@ class BaseTrainer:
 
     def save_log(self, log, **kwargs):
         log["seed"] = self.config["seed"]
+        arch_log = kwargs.get("arch_log", "").split(",")
         arch_config = self.config["arch_config"]
-        default_config = arch_default_config(arch_config.get("type"))
-        for key in arch_config.keys():
-            if default_config.get(key, None) != arch_config.get(key):
-                log[key] = arch_config.get(key)
+        for extra in arch_log:
+            log[extra] = arch_config.get(extra, None)
         log["run_id"] = self.config["run_name"]
         saved_path = kwargs.get("saved_path", Path(self.checkpoint_dir) / "model_best.csv")
         log_df = pd.DataFrame(log, index=[0])
