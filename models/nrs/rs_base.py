@@ -15,8 +15,8 @@ class MindNRSBase(BaseModel):
             self.glove_embedding = np.load(self.word_emb_file)
             self.embedding_layer = nn.Embedding(self.glove_embedding.shape[0], self.embedding_dim).from_pretrained(
                 torch.FloatTensor(self.glove_embedding), freeze=False)
-        # self.news_att_layer = AttLayer(self.embedding_dim, self.attention_hidden_dim)
-        # self.user_att_layer = AttLayer(self.embedding_dim, self.attention_hidden_dim)
+        self.news_att_layer = AttLayer(self.embedding_dim, self.attention_hidden_dim)
+        self.user_att_layer = AttLayer(self.embedding_dim, self.attention_hidden_dim)
         if self.out_layer == "mlp":
             self.dnn = DNN(self.embedding_dim * 2, (256, 128), 'relu', 0, 0, False, init_std=self.init_std, seed=1024)
             self.final_layer = nn.Linear(128, 2)

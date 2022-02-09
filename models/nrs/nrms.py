@@ -12,11 +12,11 @@ class NRMSRSModel(MindNRSBase):
         self.user_att_layer = AttLayer(self.head_num * self.head_dim, self.attention_hidden_dim)
         self.news_encode_layer = MultiHeadedAttention(self.head_num, self.head_dim, self.embedding_dim)
         self.user_encode_layer = MultiHeadedAttention(self.head_num, self.head_dim, self.head_num * self.head_dim)
-        self.dropouts = nn.Dropout(self.dropout)
+        self.dropouts = nn.Dropout(self.dropout_rate)
 
     def news_encoder(self, input_feat):
         """input_feat: Size is [N * H, S]"""
-        y = self.embedding_layer(input_feat["news"])
+        y = self.dropouts(self.embedding_layer(input_feat["news"]))
         y = self.news_encode_layer(y, y, y)[0]  # the MHA layer for news encoding
         y = self.dropouts(y)  # TODO dropout layer
         # add activation function

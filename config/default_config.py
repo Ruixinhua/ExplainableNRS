@@ -30,6 +30,9 @@ default_configs = {
     },
     "NRMSRSModel": {
         "out_layer": "product", "head_num": 20, "head_dim": 20
+    },
+    "LSTURRSModel": {
+        "kernel_size": 3,
     }
 }
 

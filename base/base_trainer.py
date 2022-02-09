@@ -105,8 +105,6 @@ class BaseTrainer:
                 self.mnt_mode = "off"
                 improved = False
             log["split"] = "valid"
-            self.save_log(log)
-
             if improved:
                 self.mnt_best = log[self.mnt_metric]
                 self.not_improved_count = 0
@@ -115,12 +113,13 @@ class BaseTrainer:
                     self._save_checkpoint(epoch, log[self.mnt_metric])
             else:
                 self.not_improved_count += 1
+            log["monitor_best"] = self.mnt_best
+            self.save_log(log)
+            self._log_info(log)
 
     def train(self):
         """
         Full training logic
-
-
         """
         for epoch in range(self.start_epoch, self.epochs + 1):
             result = self._train_epoch(epoch)
@@ -128,7 +127,6 @@ class BaseTrainer:
             # save logged information into log dict
             log = {"epoch": epoch}
             log.update(result)
-            self._log_info(log)
             self._monitor(log, epoch)
             if self.not_improved_count > self.early_stop:
                 self.logger.info(f"Validation performance did not improve for {self.early_stop} epochs. "

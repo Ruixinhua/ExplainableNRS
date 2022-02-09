@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 import torch
 import torch.distributed
@@ -21,12 +23,12 @@ class MindRSTrainer(NCTrainer):
         self.news_loader, self.user_loader = data_loader.news_loader, data_loader.user_loader
         self.behaviors = data_loader.valid_set.behaviors
 
-    def _validation(self, epoch, batch_idx):
+    def _validation(self, epoch, batch_idx, do_monitor=True):
         # do validation when reach the interval
-        log = {"epoch/step": f"{epoch}/{batch_idx}"}
+        log = {"epoch/step": f"{epoch}/{batch_idx}", "lr": self.config["optimizer_config"]["lr"]}
         log.update(**{'val_' + k: v for k, v in self._valid_epoch().items()})
-        self._log_info(log)
-        self._monitor(log, epoch)
+        if do_monitor:
+            self._monitor(log, epoch)
         self.model.train()  # reset to training mode
         self.train_metrics.reset()
         return log
@@ -62,11 +64,11 @@ class MindRSTrainer(NCTrainer):
                 bar.set_description(f"Train Epoch: {epoch} Loss: {loss.item()}")
             if batch_idx == self.len_epoch:
                 break
-            if (batch_idx + 1) % int(length * self.valid_interval) == 0 and (batch_idx + 1) < length:
+            if (batch_idx + 1) % math.ceil(length * self.valid_interval) == 0 and (batch_idx + 1) < length:
                 self._validation(epoch, batch_idx)
         if self.lr_scheduler is not None:
             self.lr_scheduler.step()
-        return self._validation(epoch, length)
+        return self._validation(epoch, length, False)
 
     def _run_news_data(self, model):
         news_vectors = {}
