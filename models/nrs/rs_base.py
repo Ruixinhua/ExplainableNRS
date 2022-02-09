@@ -28,11 +28,12 @@ class MindNRSBase(BaseModel):
         # y = nn.ReLU()(y)  # [N * H, D]
         return self.news_att_layer(y)[0]
 
-    def time_distributed(self, news_index):
-        # calculate news features across time series
+    def time_distributed(self, news_index, news_mask=None):
+        # calculate news features across multiple input news: [N * H, S]
         x_shape = torch.Size([-1]) + news_index.size()[2:]
         news_reshape = news_index.contiguous().view(x_shape)  # [N * H, S]
-        y = self.news_encoder({"news": news_reshape})
+        mask_reshape = news_mask.contiguous().view(x_shape) if news_mask is not None else news_mask
+        y = self.news_encoder({"news": news_reshape, "news_mask": mask_reshape})
         y = y.contiguous().view(news_index.size(0), -1, y.size(-1))  # change size to (N, H, D)
         return y
 
@@ -63,7 +64,9 @@ class MindNRSBase(BaseModel):
         :param input_feat: should include two keys, candidate and history
         :return: prediction result in softmax possibility
         """
-        input_feat["candidate_news"] = self.time_distributed(input_feat["candidate"])  # (B, C, E)
-        input_feat["history_news"] = self.time_distributed(input_feat["history"])  # (B, H, E)
-        input_feat["history_news"] = self.user_encoder(input_feat)  # user modeling: (B, E)
+        # [N, C, E]
+        input_feat["candidate_news"] = self.time_distributed(input_feat["candidate"], input_feat["candidate_mask"])
+        # [N, H, E]
+        input_feat["history_news"] = self.time_distributed(input_feat["history"], input_feat["history_mask"])
+        input_feat["history_news"] = self.user_encoder(input_feat)  # user modeling: [N, E]
         return self.predict(input_feat)

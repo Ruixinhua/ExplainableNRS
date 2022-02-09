@@ -25,6 +25,5 @@ class NRMSRSModel(MindNRSBase):
     def user_encoder(self, input_feat):
         y = input_feat["history_news"]
         y = self.user_encode_layer(y, y, y)[0]  # the MHA layer for user encoding
-        # y = self.dropouts(y)  # TODO dropout layer
-        y = self.user_att_layer(y)[0]
+        y = self.user_att_layer(y)[0]  # additive attention layer
         return y

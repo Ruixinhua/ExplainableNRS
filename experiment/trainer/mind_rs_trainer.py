@@ -25,7 +25,8 @@ class MindRSTrainer(NCTrainer):
 
     def _validation(self, epoch, batch_idx, do_monitor=True):
         # do validation when reach the interval
-        log = {"epoch/step": f"{epoch}/{batch_idx}", "lr": self.config["optimizer_config"]["lr"]}
+        log = {"epoch/step": f"{epoch}/{batch_idx}", "lr": self.config["optimizer_config"]["lr"],
+               "dropout": self.config["arch_config"]["dropout_rate"]}
         log.update(**{'val_' + k: v for k, v in self._valid_epoch().items()})
         if do_monitor:
             self._monitor(log, epoch)

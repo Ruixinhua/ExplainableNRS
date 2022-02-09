@@ -33,6 +33,9 @@ default_configs = {
     },
     "LSTURRSModel": {
         "kernel_size": 3,
+    },
+    "BATMRSModel": {
+        "variant_name": "base", "head_num": 10, "head_dim": 30
     }
 }
 

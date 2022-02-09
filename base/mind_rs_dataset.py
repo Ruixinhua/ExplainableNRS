@@ -114,11 +114,13 @@ class MindRSDataset(Dataset):
         """
         # get the matrix of corresponding news features with index
         news = [self.news_matrix[k][indices] for k in self.news_matrix.keys()]
-        input_feat = {name: torch.tensor(np.concatenate(news, axis=-1), dtype=torch.long),
-                      f"{name}_index": torch.tensor(indices, dtype=torch.long)}
-        if self.tokenizer.embedding_type in default_values["bert_embedding"]:
-            # pass news mask to the model
-            input_feat[f"{name}_mask"] = torch.tensor(np.where(input_feat[name] == 0, 0, 1), dtype=torch.int8)
+        input_feat = {
+            name: torch.tensor(np.concatenate(news, axis=-1), dtype=torch.long),
+            f"{name}_index": torch.tensor(indices, dtype=torch.long),
+        }
+        # pass news mask to the model
+        mask = np.where(input_feat[name] == self.tokenizer.pad_id, self.tokenizer.pad_id, 1)
+        input_feat[f"{name}_mask"] = torch.tensor(mask, dtype=torch.int8)
         return input_feat
 
     def __getitem__(self, index):
