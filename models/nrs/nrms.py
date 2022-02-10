@@ -11,7 +11,11 @@ class NRMSRSModel(MindNRSBase):
         self.news_att_layer = AttLayer(self.head_num * self.head_dim, self.attention_hidden_dim)
         self.user_att_layer = AttLayer(self.head_num * self.head_dim, self.attention_hidden_dim)
         self.news_encode_layer = MultiHeadedAttention(self.head_num, self.head_dim, self.embedding_dim)
-        self.user_encode_layer = MultiHeadedAttention(self.head_num, self.head_dim, self.head_num * self.head_dim)
+        if self.user_layer == "mha":
+            self.user_encode_layer = MultiHeadedAttention(self.head_num, self.head_dim, self.head_num * self.head_dim)
+        elif self.user_layer == "gru":
+            self.user_encode_layer = nn.GRU(self.head_num * self.head_dim, self.head_num * self.head_dim,
+                                            batch_first=True, bidirectional=False)
         self.dropouts = nn.Dropout(self.dropout_rate)
 
     def news_encoder(self, input_feat):
@@ -24,6 +28,9 @@ class NRMSRSModel(MindNRSBase):
 
     def user_encoder(self, input_feat):
         y = input_feat["history_news"]
-        y = self.user_encode_layer(y, y, y)[0]  # the MHA layer for user encoding
+        if self.user_layer == "mha":
+            y = self.user_encode_layer(y, y, y)[0]  # the MHA layer for user encoding
+        elif self.user_layer == "gru":
+            y = self.user_encode_layer(y)[0]
         y = self.user_att_layer(y)[0]  # additive attention layer
         return y

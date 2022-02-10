@@ -49,6 +49,7 @@ def custom_args(args=None):
         CustomArgs(["-vn", "--variant_name"], type=str, target="arch_config"),
         CustomArgs(["-an", "--act_name"], type=str, target="arch_config"),
         CustomArgs(["-te", "--topic_embed"], type=str, target="arch_config"),
+        CustomArgs(["-ul", "--user_layer"], type=str, target="arch_config"),  # user modeling method
 
         CustomArgs(["-up", "--use_pretrained"], type=int, target="arch_config"),
         CustomArgs(["-nl", "--n_layers"], type=int, target="arch_config"),
