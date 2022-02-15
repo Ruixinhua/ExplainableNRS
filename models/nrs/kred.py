@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from sentence_transformers import SentenceTransformer
 
 from models import MultiHeadedAttention, AttLayer
 from models.nrs.rs_base import MindNRSBase
