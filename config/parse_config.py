@@ -9,7 +9,7 @@ from logger import setup_logging
 
 
 class ConfigParser:
-    def __init__(self, config: Configuration, modification: dict = None):
+    def __init__(self, config: Configuration, modification: dict = None, **kwargs):
         """
         class to parse configuration json file. Handles hyper-parameters for training, initializations of modules,
         checkpoint saving and logging module.
@@ -21,7 +21,7 @@ class ConfigParser:
         self.config = config
         if modification:
             self.config.update(modification)
-
+        self.log_args = kwargs.get("log_args", defaultdict())
         # set save_dir where training model and log will be saved.
         save_dir = Path(self.config.save_dir)
         run_name = self.config.run_name
@@ -56,30 +56,28 @@ class ConfigParser:
         if not isinstance(args, tuple):
             args = args.parse_args()
         # parse custom cli options into dictionary
-        modification = kwargs.get("default_config", defaultdict())
+        modification = kwargs.get("default_config", defaultdict(lambda: {}))
+        log_args = defaultdict(lambda: {})
         if hasattr(args, "arch_type") and args.arch_type is not None:
-            if "arch_config" not in modification:
-                modification["arch_config"] = arch_default_config(args.arch_type)  # setup default arch params
-            else:
-                modification["arch_config"].update(arch_default_config(args.arch_type))
+            modification["arch_config"].update(arch_default_config(args.arch_type))
         for opt in options:
             name = opt.flags[-1].replace("--", "")  # acquire param name
-            if opt.target:
-                if opt.target not in modification:
-                    modification[opt.target] = {}
-                if getattr(args, name):
+            if opt.target:  # sub-configuration
+                if getattr(args, name) is not None:
                     modification[opt.target][name] = getattr(args, name)  # setup custom params values
-            else:
-                if getattr(args, name):
+                    log_args[opt.target][name] = getattr(args, name)  # log all args
+            else:  # top-configuration
+                if getattr(args, name) is not None:
                     modification[name] = getattr(args, name)  # setup custom params values
+                    log_args[name] = getattr(args, name)  # log all args
         if hasattr(args, "resume") and args.resume is not None:
             config_file = Path(args.resume).parent / "config.json"
             config = Configuration.from_json_file(config_file)
         else:
             config = Configuration(**modification)
-        return cls(config)
+        return cls(config, log_args=log_args)
 
-    def init_obj(self, module_config: str, module: object, *args, **kwargs):
+    def init_obj(self, module_config: str, module: object, update_config=False, *args, **kwargs):
         """
         Finds a function handle with the name given as 'type' in config, and returns the
         instance initialized with corresponding arguments given.
@@ -89,7 +87,9 @@ class ConfigParser:
         `object = module.module_name(a, b=1)`
         """
         module_args = copy.deepcopy(getattr(self.config, module_config))
-        module_args.update(kwargs)
+        module_args.update(kwargs)  # update extra configuration
+        if update_config:
+            module_args.update(self.config.to_dict())  # append all configurations to the module
         module_name = module_args.pop("type")
         return getattr(module, module_name)(*args, **module_args)
 

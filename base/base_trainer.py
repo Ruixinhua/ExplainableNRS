@@ -3,7 +3,6 @@ import os
 import utils.loss_utils as module_loss
 import utils.metric_utils as module_metric
 from utils import prepare_device
-from config.default_config import arch_default_config
 import torch
 import torch.distributed
 import pandas as pd
@@ -33,8 +32,8 @@ class BaseTrainer:
         self.metric_ftns = [getattr(module_metric, met) for met in config["metrics"]]
         # build optimizer, learning rate scheduler. delete every lines containing lr_scheduler for disabling scheduler
         trainable_params = filter(lambda p: p.requires_grad, model.parameters())
-        self.optimizer = config.init_obj("optimizer_config", torch.optim, trainable_params)
-        self.lr_scheduler = config.init_obj("scheduler_config", torch.optim.lr_scheduler, self.optimizer)
+        self.optimizer = config.init_obj("optimizer_config", torch.optim, False, trainable_params)
+        self.lr_scheduler = config.init_obj("scheduler_config", torch.optim.lr_scheduler, False, self.optimizer)
         # set up trainer parameters
         self.epochs = cfg_trainer["epochs"]
         self.save_model = config["save_model"]
@@ -80,6 +79,11 @@ class BaseTrainer:
 
     def save_log(self, log, **kwargs):
         log["seed"] = self.config["seed"]
+        for key, item in self.config.log_args.items():
+            if isinstance(item, dict):
+                log.update(item)
+            else:
+                log[key] = item
         arch_log = kwargs.get("arch_log", "").split(",")
         arch_config = self.config["arch_config"]
         for extra in arch_log:

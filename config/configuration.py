@@ -125,3 +125,7 @@ class Configuration:
         :return: a configuration object
         """
         return cls(**read_json(json_file))
+
+    def to_dict(self):
+        """return all configuration values"""
+        return {attr: getattr(self, attr) for attr in self.__dict__}

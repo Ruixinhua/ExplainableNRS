@@ -1,14 +1,14 @@
 import os
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
+from pathlib import Path
 
 import numpy as np
 import torch
 import torch.distributed
 from torch.utils.data.dataset import Dataset
-from pathlib import Path
 
-from config.default_config import default_values
-from utils import read_json, news_sampling, Tokenizer
+from utils import read_json, news_sampling, Tokenizer, get_project_root
+from utils.graph_untils import load_entities, load_entity_feature
 from utils.mind_untils import load_entity
 
 
@@ -34,12 +34,17 @@ class MindRSDataset(Dataset):
         if self.use_body and not self.flatten_article:
             self.news_text["body"] = [[""]]  # setup default article data format not using flatten articles
         self.nid2index = {}
-
+        self.news_entity_num = kwargs.get("news_entity_num", False)
+        if self.news_entity_num:
+            self.entity2id = load_entities(**kwargs)  # load wikidata id to entity id mapping
+            self.news_entity_feature, self.entity_type_dict = [np.zeros(4 * self.news_entity_num)], defaultdict()
         self._load_news(news_file)  # load news from file and save to news_text object
         self.news_matrix = OrderedDict({
             k: np.stack([self.tokenizer.tokenize(news, self.news_attr[k]) for news in news_text])
             for k, news_text in self.news_text.items()
         })
+        if self.news_entity_num:  # after load news from file
+            self.news_matrix["entity_feature"] = np.array(self.news_entity_feature, dtype=np.int)
         self._load_behaviors(behaviors_file)
 
     def _load_news(self, news_file):
@@ -50,9 +55,16 @@ class MindRSDataset(Dataset):
             for text in rd:
                 # news id, category, subcategory, title, abstract, url
                 nid, vert, subvert, title, ab, url, title_entity, abs_entity = text.strip("\n").split("\t")
-                entities = load_entity(title_entity) if len(title_entity) > 2 else load_entity(abs_entity)
-                entities = entities if len(entities) else title
-                news_dict = {"title": title, "entity": entities, "vert": vert, "subvert": subvert, "abstract": ab}
+                if self.news_entity_num:
+                    entity_feature = load_entity_feature(title_entity, abs_entity, self.entity_type_dict)
+                    entities = [[self.entity2id[entity_id]] + feature   # [entity id, freq, pos, type]
+                                for entity_id, feature in entity_feature.items() if entity_id in self.entity2id]
+                    entities.append([0, 0, 0, 0])  # avoid zero array
+                    pad_size = max(0, self.news_entity_num - len(entities))
+                    entities = np.array(entities, dtype=np.int)[:self.news_entity_num]  # shape is (N, 4)
+                    feature = np.pad(entities, [(0, pad_size), (0, 0)]) if pad_size else entities
+                    self.news_entity_feature.append(feature.transpose().flatten())  # convert to a 4*N vector
+                news_dict = {"title": title, "vert": vert, "subvert": subvert, "abstract": ab}
                 if nid in self.nid2index:
                     continue
                 if self.use_body:  # add news body

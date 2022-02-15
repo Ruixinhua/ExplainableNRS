@@ -25,8 +25,7 @@ class MindRSTrainer(NCTrainer):
 
     def _validation(self, epoch, batch_idx, do_monitor=True):
         # do validation when reach the interval
-        log = {"epoch/step": f"{epoch}/{batch_idx}", "lr": self.config["optimizer_config"]["lr"],
-               "dropout": self.config["arch_config"]["dropout_rate"]}
+        log = {"epoch/step": f"{epoch}/{batch_idx}"}
         log.update(**{'val_' + k: v for k, v in self._valid_epoch().items()})
         if do_monitor:
             self._monitor(log, epoch)
@@ -158,10 +157,9 @@ class MindRSTrainer(NCTrainer):
                 for history, candidate, label in tqdm(behaviors, total=len(self.behaviors["labels"])):
                     # setup input feat of history news and candidate news
                     input_feat = {
-                        "history_news": torch.tensor([[news_vectors[i] for i in history]]),
-                        "candidate_news": torch.tensor([[news_vectors[i] for i in candidate]]),
+                        "history_news": torch.tensor(np.array([[news_vectors[i] for i in history]])),
+                        "candidate_news": torch.tensor(np.array([[news_vectors[i] for i in candidate]])),
                         "history_length": torch.tensor([len(history)]),
-                        "label": torch.tensor([label], dtype=torch.long)
                     }
                     input_feat = self.load_batch_data(input_feat)
                     input_feat["history_news"] = model.user_encoder(input_feat)

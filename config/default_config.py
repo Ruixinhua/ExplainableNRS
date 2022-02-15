@@ -36,6 +36,9 @@ default_configs = {
     },
     "BATMRSModel": {
         "variant_name": "base", "head_num": 10, "head_dim": 30
+    },
+    "KREDRSModel": {
+        "head_num": 10, "head_dim": 30
     }
 }
 
@@ -51,6 +54,7 @@ default_values = {
 
 
 def arch_default_config(arch_type: str):
-    default_config = {"type": arch_type}
-    default_config.update(default_configs[arch_type])
-    return default_config
+    arch_config = {"type": arch_type}
+    if arch_type in default_configs:
+        arch_config.update(default_configs[arch_type])
+    return arch_config
