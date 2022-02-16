@@ -16,13 +16,13 @@ class KREDRSModel(MindNRSBase):
         self.kgat = KGAT(self.entity_embedding, self.relation_embedding, self.entity_adj, self.relation_adj, **kwargs)
         # self.sentence_encode = SentenceTransformer('distilbert-base-nli-stsb-mean-tokens')
         # initial some parameters
-        self.entity_embedding_dim, self.layer_dim = kwargs.get("entity_embedding_dim", 100), kwargs.get("layer_dim", 128)
+        self.entity_embedding_dim = kwargs.get("entity_embedding_dim", 100)
         max_frequency, max_entity_category = kwargs.get("max_frequency", 100), kwargs.get("max_entity_category", 100)
-        self.document_embedding_dim = kwargs.get("document_embedding_dim", 300)
-        self.news_entity_num = kwargs.get("news_entity_num", 10)
+        self.news_entity_num, self.layer_dim = kwargs.get("news_entity_num", 10), kwargs.get("layer_dim", 128)
 
+        self.news_encode_layer = MultiHeadedAttention(self.head_num, self.head_dim, self.embedding_dim)
         self.news_att_layer = AttLayer(self.head_num * self.head_dim, self.attention_hidden_dim)
-        self.news_encode_layer = MultiHeadedAttention(self.head_num, self.head_dim, self.document_embedding_dim)
+        self.document_embedding_dim = kwargs.get("document_embedding_dim", self.head_num * self.head_dim)
 
         self.news_final_layer = nn.Sequential(
             nn.Linear(self.document_embedding_dim + self.entity_embedding_dim, self.layer_dim), nn.ReLU(inplace=True),
@@ -38,10 +38,18 @@ class KREDRSModel(MindNRSBase):
             nn.Linear(self.document_embedding_dim + self.entity_embedding_dim, self.layer_dim), nn.ReLU(inplace=True),
             nn.Linear(self.layer_dim, 1), nn.ReLU(inplace=True), nn.Softmax(dim=-2),  # output weight
         )
-        self.user_attention_layer = nn.Sequential(
+        self.user_att_layer = nn.Sequential(
             nn.Linear(self.entity_embedding_dim, self.layer_dim), nn.ReLU(inplace=True),  # first attention layer
             nn.Linear(self.layer_dim, 1), nn.ReLU(inplace=True), nn.Softmax(dim=0)  # second layer: output weight
         )
+        self.user_layer = kwargs.get("user_layer", None)
+        if self.user_layer == "mha":
+            self.user_encode_layer = MultiHeadedAttention(self.head_num, self.entity_embedding_dim / self.head_num,
+                                                          self.entity_embedding_dim)
+            self.user_att_layer = AttLayer(self.entity_embedding_dim, self.attention_hidden_dim)
+        elif self.user_layer == "gru":
+            self.user_encode_layer = nn.GRU(self.entity_embedding_dim, self.entity_embedding_dim,
+                                            batch_first=True, bidirectional=False)
         self.mlp_layer = nn.Sequential(
             nn.Linear(2 * self.entity_embedding_dim, self.layer_dim),  # first MLP layer
             nn.ReLU(inplace=True),  # use ReLU activation
@@ -87,8 +95,12 @@ class KREDRSModel(MindNRSBase):
         return news_embeddings
 
     def user_encoder(self, input_feat):
-        history_news = input_feat["history_news"]
-        y = torch.sum(history_news * self.user_attention_layer(history_news), dim=1)
+        y = input_feat["history_news"]
+        if self.user_layer == "mha":
+            y = self.user_encode_layer(y, y, y)[0]  # the MHA layer for user encoding
+        elif self.user_layer == "gru":
+            y = self.user_encode_layer(y)[0]
+        y = torch.sum(y * self.user_att_layer(y), dim=1)
         return y
 
     def predict(self, input_feat, **kwargs):

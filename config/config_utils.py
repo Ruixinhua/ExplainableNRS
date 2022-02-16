@@ -52,8 +52,8 @@ def custom_args(args=None):
         CustomArgs(["-vn", "--variant_name"], type=str, target="arch_config"),
         CustomArgs(["-an", "--act_name"], type=str, target="arch_config"),
         CustomArgs(["-te", "--topic_embed"], type=str, target="arch_config"),
-        CustomArgs(["-ne", "--news_encoder"], type=str, target="arch_config"),  # user modeling method
-        CustomArgs(["-ue", "--user_encoder"], type=str, target="arch_config"),  # user modeling method
+        CustomArgs(["-el", "--news_layer"], type=str, target="arch_config"),  # user modeling method
+        CustomArgs(["-ul", "--user_layer"], type=str, target="arch_config"),  # user modeling method
         CustomArgs(["-ol", "--out_layer"], type=str, target="arch_config"),  # options: product/mlp
 
         CustomArgs(["-up", "--use_pretrained"], type=int, target="arch_config"),

@@ -29,7 +29,7 @@ default_configs = {
         "out_layer": "product",
     },
     "NRMSRSModel": {
-        "out_layer": "product", "head_num": 20, "head_dim": 20, "user_encoder": "mha"  # options: mha, gru
+        "out_layer": "product", "head_num": 20, "head_dim": 20, "user_layer": "mha"  # options: mha, gru
     },
     "LSTURRSModel": {
         "kernel_size": 3,
@@ -38,7 +38,7 @@ default_configs = {
         "variant_name": "base", "head_num": 10, "head_dim": 30
     },
     "KREDRSModel": {
-        "head_num": 10, "head_dim": 30, "entity_embedding_dim": 100,
+        "head_num": 10, "head_dim": 30, "entity_embedding_dim": 100, "attention_hidden_dim": 64
     }
 }
 
