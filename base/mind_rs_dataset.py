@@ -9,7 +9,6 @@ from torch.utils.data.dataset import Dataset
 
 from utils import read_json, news_sampling, Tokenizer, get_project_root
 from utils.graph_untils import load_entities, load_entity_feature
-from utils.mind_untils import load_entity
 
 
 class MindRSDataset(Dataset):
@@ -24,25 +23,37 @@ class MindRSDataset(Dataset):
         self.neg_pos_ratio = kwargs.get("neg_pos_ratio", 4)  # negative sampling ratio, default is 20% positive ratio
         self.uid2index = kwargs.get("uid2index", {})  # get user id to index dictionary
         self.train_strategy = kwargs.get("train_strategy", "pair_wise")  # pair wise uses negative sampling strategy
-        self.news_attr = OrderedDict(kwargs.get("news_attr", {"title": 30}))  # shape of news attributes in order
+        self.news_attr = {"title": kwargs.get("title", 30), "body": kwargs.get("body", None)}  # default only use title
         # initial data of corresponding news attributes, such as: title, entity, vert, subvert, abstract
-        self.news_text = OrderedDict({attr: [""] for attr in self.news_attr.keys()})  # default use title only
+        self.news_text = OrderedDict({"title": [""]})  # default use title only
+        self.nid2index = {}
         # load news articles text from a json file
         body_file = Path(os.path.dirname(news_file)) / "msn.json"
-        self.use_body = "body" in self.news_text and body_file.exists()  # boolean value for use article or not
+        self.use_body = self.news_attr["body"] and body_file.exists()  # boolean value for use article or not
         self.news_articles = read_json(body_file) if self.use_body else None  # read articles from file
-        if self.use_body and not self.flatten_article:
-            self.news_text["body"] = [[""]]  # setup default article data format not using flatten articles
-        self.nid2index = {}
-        self.news_entity_num = kwargs.get("news_entity_num", False)
+        if self.use_body:  # setup default article data format based on flatten option
+            self.news_text["body"] = [] if self.flatten_article else [[""]]
+        # use sentence embedding, must specify method and document embedding dim
+        sentence_embed_method = kwargs.get("sentence_embed_method", None)
+        document_embedding_dim = kwargs.get("document_embedding_dim", None)
+        self.use_sent_embed = sentence_embed_method and document_embedding_dim
+        if self.use_sent_embed:
+            self.sentence_embed = [np.zeros(document_embedding_dim)]  # initial zero embedding
+            embed_file = Path(get_project_root()) / f"dataset/utils/sentence_embed/{sentence_embed_method}.vec"
+            if not embed_file.exists():
+                raise FileNotFoundError("Sentence embedding file is not found")
+            self.sentence_embed_dict = torch.load(embed_file)
+        self.news_entity_num = kwargs.get("news_entity_num", None)  # default not use entity
         if self.news_entity_num:
             self.entity2id = load_entities(**kwargs)  # load wikidata id to entity id mapping
             self.news_entity_feature, self.entity_type_dict = [np.zeros(4 * self.news_entity_num)], defaultdict()
         self._load_news(news_file)  # load news from file and save to news_text object
-        self.news_matrix = OrderedDict({
+        self.news_matrix = OrderedDict({  # init news text matrix
             k: np.stack([self.tokenizer.tokenize(news, self.news_attr[k]) for news in news_text])
             for k, news_text in self.news_text.items()
         })
+        if self.use_sent_embed:
+            self.news_matrix["sentence_embed"] = np.array(self.sentence_embed, dtype=np.float)
         if self.news_entity_num:  # after load news from file
             self.news_matrix["entity_feature"] = np.array(self.news_entity_feature, dtype=np.int)
         self._load_behaviors(behaviors_file)
@@ -54,7 +65,7 @@ class MindRSDataset(Dataset):
         with open(news_file, "r", encoding="utf-8") as rd:
             for text in rd:
                 # news id, category, subcategory, title, abstract, url
-                nid, vert, subvert, title, ab, url, title_entity, abs_entity = text.strip("\n").split("\t")
+                nid, vert, subvert, title, abstract, url, title_entity, abs_entity = text.strip("\n").split("\t")
                 if self.news_entity_num:
                     entity_feature = load_entity_feature(title_entity, abs_entity, self.entity_type_dict)
                     entities = [[self.entity2id[entity_id]] + feature   # [entity id, freq, pos, type]
@@ -64,7 +75,7 @@ class MindRSDataset(Dataset):
                     entities = np.array(entities, dtype=np.int)[:self.news_entity_num]  # shape is (N, 4)
                     feature = np.pad(entities, [(0, pad_size), (0, 0)]) if pad_size else entities
                     self.news_entity_feature.append(feature.transpose().flatten())  # convert to a 4*N vector
-                news_dict = {"title": title, "vert": vert, "subvert": subvert, "abstract": ab}
+                news_dict = {"title": title + " " + abstract}  # abstract is used as a part of title
                 if nid in self.nid2index:
                     continue
                 if self.use_body:  # add news body
@@ -73,6 +84,8 @@ class MindRSDataset(Dataset):
                     else:
                         article = " ".join(self.news_articles[nid]) if self.flatten_article else self.news_articles[nid]
                     news_dict["body"] = article
+                if self.use_sent_embed:
+                    self.sentence_embed.append(self.sentence_embed_dict[nid])
                 # add news attribution
                 for attr in self.news_text.keys():
                     if attr in news_dict:

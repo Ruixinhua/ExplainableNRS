@@ -23,9 +23,7 @@
         "early_stop": 3,
         "tensorboard": false
     },
-    "news_attr": {
-        "title": 30
-    },
+    "title": 30,
     "data_config": {
         "type": "MindDataLoader",
         "data_path": "C:\\Users\\Rui\\Documents\\Phd_research_RS\\baseline\\NRHA\\mind_dataset",

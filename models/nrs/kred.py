@@ -4,25 +4,21 @@ import torch.nn as nn
 from models import MultiHeadedAttention, AttLayer
 from models.nrs.rs_base import MindNRSBase
 from models.general.kgat import KGAT
-from utils.graph_untils import construct_adj, construct_entity_embedding
 
 
 class KREDRSModel(MindNRSBase):
     def __init__(self, **kwargs):
         super(KREDRSModel, self).__init__(**kwargs)
         # construct entity embedding and adjacent matrix
-        self.entity_embedding, self.relation_embedding = construct_entity_embedding(**kwargs)
-        self.entity_adj, self.relation_adj = construct_adj(**kwargs)
-        self.kgat = KGAT(self.entity_embedding, self.relation_embedding, self.entity_adj, self.relation_adj, **kwargs)
-        # self.sentence_encode = SentenceTransformer('distilbert-base-nli-stsb-mean-tokens')
+        self.kgat = KGAT(**kwargs)  # load knowledge graph attention network
         # initial some parameters
         self.entity_embedding_dim = kwargs.get("entity_embedding_dim", 100)
         max_frequency, max_entity_category = kwargs.get("max_frequency", 100), kwargs.get("max_entity_category", 100)
         self.news_entity_num, self.layer_dim = kwargs.get("news_entity_num", 10), kwargs.get("layer_dim", 128)
-
         self.news_encode_layer = MultiHeadedAttention(self.head_num, self.head_dim, self.embedding_dim)
         self.news_att_layer = AttLayer(self.head_num * self.head_dim, self.attention_hidden_dim)
         self.document_embedding_dim = kwargs.get("document_embedding_dim", self.head_num * self.head_dim)
+        self.use_sent_embed = kwargs.get("sentence_embed_method", None) and self.document_embedding_dim
 
         self.news_final_layer = nn.Sequential(
             nn.Linear(self.document_embedding_dim + self.entity_embedding_dim, self.layer_dim), nn.ReLU(inplace=True),
@@ -44,7 +40,7 @@ class KREDRSModel(MindNRSBase):
         )
         self.user_layer = kwargs.get("user_layer", None)
         if self.user_layer == "mha":
-            self.user_encode_layer = MultiHeadedAttention(self.head_num, self.entity_embedding_dim / self.head_num,
+            self.user_encode_layer = MultiHeadedAttention(self.head_num, self.entity_embedding_dim // self.head_num,
                                                           self.entity_embedding_dim)
             self.user_att_layer = AttLayer(self.entity_embedding_dim, self.attention_hidden_dim)
         elif self.user_layer == "gru":
@@ -80,10 +76,15 @@ class KREDRSModel(MindNRSBase):
         return weighted_entity_embedding_sum, soft_att_value
 
     def news_encoder(self, input_feat):
-        title, entity = input_feat["news"][:, :self.title_len], input_feat["news"][:, self.title_len:]
-        y = self.dropouts(self.embedding_layer(title))  # encode document
-        y = self.dropouts(self.news_encode_layer(y, y, y)[0])
-        context_vec = self.news_att_layer(y)[0]
+        if self.use_sent_embed:
+            entity_index = self.title_len+self.document_embedding_dim
+            context_vec = input_feat["news"][:, self.title_len:entity_index]
+            entity = input_feat["news"][:, entity_index:]
+        else:
+            title, entity = input_feat["news"][:, :self.title_len], input_feat["news"][:, self.title_len:]
+            y = self.dropouts(self.embedding_layer(title))  # encode document
+            y = self.dropouts(self.news_encode_layer(y, y, y)[0])
+            context_vec = self.news_att_layer(y)[0]
         entity = entity.reshape(-1, 4, self.news_entity_num)  # (B, 4, EN)
         entity_ids, entity_freq, entity_pos, entity_type = entity[:, 0], entity[:, 1], entity[:, 2], entity[:, 3]
         freq_embedding, pos_embedding = self.frequency_encoding(entity_freq), self.position_encoding(entity_pos)
@@ -98,9 +99,12 @@ class KREDRSModel(MindNRSBase):
         y = input_feat["history_news"]
         if self.user_layer == "mha":
             y = self.user_encode_layer(y, y, y)[0]  # the MHA layer for user encoding
+            y = self.user_att_layer(y)[0]
         elif self.user_layer == "gru":
             y = self.user_encode_layer(y)[0]
-        y = torch.sum(y * self.user_att_layer(y), dim=1)
+            y = torch.sum(y * self.user_att_layer(y), dim=1)
+        else:
+            y = torch.sum(y * self.user_att_layer(y), dim=1)
         return y
 
     def predict(self, input_feat, **kwargs):

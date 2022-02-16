@@ -37,6 +37,7 @@ def custom_args(args=None):
         CustomArgs(["-rn", "--run_name"], type=str, target=None),
         CustomArgs(["-r", "--resume"], type=str, target=None),  # resume path
         CustomArgs(["-l", "--loss"], type=str, target=None),  # loss function
+        CustomArgs(["-se", "--sentence_embed_method"], type=str, target=None),  # sentence embedding method: distilbert
 
         CustomArgs(["-ng", "--n_gpu"], type=int, target=None),
         CustomArgs(["-s", "--seed"], type=int, target=None),
@@ -64,7 +65,8 @@ def custom_args(args=None):
         CustomArgs(["-ap", "--add_pos"], type=int, target="arch_config"),
         CustomArgs(["-hn", "--head_num"], type=int, target="arch_config"),
         CustomArgs(["-hd", "--head_dim"], type=int, target="arch_config"),
-        CustomArgs(["-ee", "--entity_embedding_dim"], type=int, target="arch_config"),
+        CustomArgs(["-ee", "--entity_embedding_dim"], type=int, target="arch_config"),  # pretrained default is 100,
+        CustomArgs(["-ze", "--freeze_embedding"], type=int, target="arch_config"),  # freeze embedding params
 
         CustomArgs(["-al", "--alpha"], type=float, target="arch_config"),
         CustomArgs(["-dr", "--dropout_rate"], type=float, target="arch_config"),
