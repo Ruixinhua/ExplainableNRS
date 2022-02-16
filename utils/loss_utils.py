@@ -18,7 +18,7 @@ def categorical_loss(predict, target, epsilon=1e-12):
            target (N, k) ndarray
     Returns: scalar
     """
-    predict, target = predict.float(), target.float()
+    predict, target = torch.softmax(predict.float(), dim=-1), target.float()
     predict = torch.clamp(predict, epsilon, 1. - epsilon)
     return -torch.sum(target * torch.log(predict + 1e-9)) / predict.shape[0]
 

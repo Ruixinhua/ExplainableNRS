@@ -5,7 +5,6 @@ from utils.graph_untils import construct_entity_embedding, construct_adj
 
 
 class KGAT(BaseModel):
-
     def __init__(self, **kwargs):
         super(KGAT, self).__init__()
         self.entity_neighbor_num = kwargs.get("entity_neighbor_num", 20)

@@ -8,6 +8,8 @@ from models.general.kgat import KGAT
 
 class KREDRSModel(MindNRSBase):
     def __init__(self, **kwargs):
+        self.head_num, self.head_dim = kwargs.get("head_num", 20), kwargs.get("head_dim", 20)
+        self.document_embedding_dim = kwargs.get("document_embedding_dim", self.head_num * self.head_dim)
         super(KREDRSModel, self).__init__(**kwargs)
         # construct entity embedding and adjacent matrix
         self.kgat = KGAT(**kwargs)  # load knowledge graph attention network
@@ -17,7 +19,6 @@ class KREDRSModel(MindNRSBase):
         self.news_entity_num, self.layer_dim = kwargs.get("news_entity_num", 10), kwargs.get("layer_dim", 128)
         self.news_encode_layer = MultiHeadedAttention(self.head_num, self.head_dim, self.embedding_dim)
         self.news_att_layer = AttLayer(self.head_num * self.head_dim, self.attention_hidden_dim)
-        self.document_embedding_dim = kwargs.get("document_embedding_dim", self.head_num * self.head_dim)
         self.use_sent_embed = kwargs.get("sentence_embed_method", None) and self.document_embedding_dim
 
         self.news_final_layer = nn.Sequential(
@@ -76,6 +77,7 @@ class KREDRSModel(MindNRSBase):
         return weighted_entity_embedding_sum, soft_att_value
 
     def news_encoder(self, input_feat):
+        # the order of news is title, body(option), document embed, entity feature
         if self.use_sent_embed:
             entity_index = self.title_len+self.document_embedding_dim
             context_vec = input_feat["news"][:, self.title_len:entity_index]
@@ -106,19 +108,3 @@ class KREDRSModel(MindNRSBase):
         else:
             y = torch.sum(y * self.user_att_layer(y), dim=1)
         return y
-
-    def predict(self, input_feat, **kwargs):
-        candidate_news, user_embedding = input_feat["candidate_news"], input_feat["history_news"]
-        evaluate = kwargs.get("evaluate", False)
-        if self.out_layer == "mlp":
-            if len(candidate_news.shape) != len(user_embedding.shape):
-                user_embedding = torch.unsqueeze(user_embedding, 1)  # expand user embedding to candidate news shape
-                user_embedding = user_embedding.expand([
-                    user_embedding.shape[0], candidate_news.shape[1], user_embedding.shape[2]])
-            u_n_embedding = torch.cat([user_embedding, candidate_news], dim=(len(user_embedding.shape) - 1))
-            pred = self.mlp_layer(u_n_embedding).squeeze()
-        else:
-            pred = torch.sum(candidate_news * user_embedding.unsqueeze(1), dim=-1)
-            if not evaluate:
-                pred = torch.softmax(pred, dim=-1)
-        return pred

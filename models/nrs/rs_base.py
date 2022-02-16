@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 
 from base.base_model import BaseModel
-from models.general import AttLayer, DNN
+from models.general import AttLayer, DNN, DotProduct, DNNClickPredictor
 
 
 class MindNRSBase(BaseModel):
@@ -18,12 +18,17 @@ class MindNRSBase(BaseModel):
         self.title_len, self.body_len = kwargs.get("title", 30), kwargs.get("body", None)
         self.news_att_layer = AttLayer(self.embedding_dim, self.attention_hidden_dim)
         self.user_att_layer = AttLayer(self.embedding_dim, self.attention_hidden_dim)
-        if self.out_layer == "mlp":
-            self.dnn = DNN(self.embedding_dim * 2, (256, 128), 'relu', 0, 0, False, init_std=self.init_std, seed=1024)
-            self.final_layer = nn.Linear(128, 2)
+        if self.out_layer == "product":
+            self.click_predictor = DotProduct()
+        else:
+            self.click_predictor = DNNClickPredictor(self.document_embedding_dim * 2, self.attention_hidden_dim)
 
     def news_encoder(self, input_feat):
-        """input_feat: Size of  is [N * H, S]"""
+        """
+        input_feat["news"]: [N * H, S],
+        default only use title, and body is added after title.
+        Dim S contains: title(30) + body(100) + document_embed(300/768) + entity_feature(4*entity_num)
+        """
         y = self.embedding_layer(input_feat["news"])
         # add activation function
         # y = nn.ReLU()(y)  # [N * H, D]
@@ -48,15 +53,10 @@ class MindNRSBase(BaseModel):
         :param input_feat: should include encoded candidate news and user representations (history_news)
         :return: softmax possibility of click candidate news
         """
-        candidate_news, history_news = input_feat["candidate_news"], input_feat["history_news"]
-        evaluate = kwargs.get("evaluate", False)
-        if self.out_layer == "mlp":
-            pred = self.dnn(torch.cat([candidate_news.squeeze(1), history_news], dim=-1))
-            pred = self.final_layer(pred)
-        else:
-            pred = torch.sum(candidate_news * history_news.unsqueeze(1), dim=-1)
-            if not evaluate:
-                pred = torch.softmax(pred, dim=-1)
+        candidate_news, user_vector = input_feat["candidate_news"], input_feat["history_news"]
+        if self.out_layer == "mlp" and len(candidate_news.shape) != len(user_vector.shape):
+            user_vector = torch.unsqueeze(user_vector, 1).expand([user_vector.shape[0], candidate_news.shape[1], -1])
+        pred = self.click_predictor(candidate_news, user_vector)
         return pred
 
     def forward(self, input_feat):
