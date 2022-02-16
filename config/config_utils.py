@@ -52,7 +52,8 @@ def custom_args(args=None):
         CustomArgs(["-vn", "--variant_name"], type=str, target="arch_config"),
         CustomArgs(["-an", "--act_name"], type=str, target="arch_config"),
         CustomArgs(["-te", "--topic_embed"], type=str, target="arch_config"),
-        CustomArgs(["-ul", "--user_layer"], type=str, target="arch_config"),  # user modeling method
+        CustomArgs(["-ne", "--news_encoder"], type=str, target="arch_config"),  # user modeling method
+        CustomArgs(["-ue", "--user_encoder"], type=str, target="arch_config"),  # user modeling method
         CustomArgs(["-ol", "--out_layer"], type=str, target="arch_config"),  # options: product/mlp
 
         CustomArgs(["-up", "--use_pretrained"], type=int, target="arch_config"),
@@ -63,6 +64,7 @@ def custom_args(args=None):
         CustomArgs(["-ap", "--add_pos"], type=int, target="arch_config"),
         CustomArgs(["-hn", "--head_num"], type=int, target="arch_config"),
         CustomArgs(["-hd", "--head_dim"], type=int, target="arch_config"),
+        CustomArgs(["-ee", "--entity_embedding_dim"], type=int, target="arch_config"),
 
         CustomArgs(["-al", "--alpha"], type=float, target="arch_config"),
         CustomArgs(["-dr", "--dropout_rate"], type=float, target="arch_config"),

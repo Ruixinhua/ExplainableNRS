@@ -19,7 +19,6 @@ class KREDRSModel(MindNRSBase):
         self.entity_embedding_dim, self.layer_dim = kwargs.get("entity_embedding_dim", 100), kwargs.get("layer_dim", 128)
         max_frequency, max_entity_category = kwargs.get("max_frequency", 100), kwargs.get("max_entity_category", 100)
         self.document_embedding_dim = kwargs.get("document_embedding_dim", 300)
-        self.entity_embedding_dim = kwargs.get("entity_embedding_dim", 100)
         self.news_entity_num = kwargs.get("news_entity_num", 10)
 
         self.news_att_layer = AttLayer(self.head_num * self.head_dim, self.attention_hidden_dim)
@@ -77,7 +76,7 @@ class KREDRSModel(MindNRSBase):
         y = self.dropouts(self.embedding_layer(title))  # encode document
         y = self.dropouts(self.news_encode_layer(y, y, y)[0])
         context_vec = self.news_att_layer(y)[0]
-        entity = entity.reshape(-1, 4, self.news_entity_num)
+        entity = entity.reshape(-1, 4, self.news_entity_num)  # (B, 4, EN)
         entity_ids, entity_freq, entity_pos, entity_type = entity[:, 0], entity[:, 1], entity[:, 2], entity[:, 3]
         freq_embedding, pos_embedding = self.frequency_encoding(entity_freq), self.position_encoding(entity_pos)
         type_embedding, kgat_embeddings = self.category_encoding(entity_type), self.kgat(entity_ids)
