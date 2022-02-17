@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from models import MultiHeadedAttention, AttLayer
+from models.general import MultiHeadedAttention, AttLayer, DNNClickPredictor
 from models.nrs.rs_base import MindNRSBase
 from models.general.kgat import KGAT
 
@@ -47,12 +47,8 @@ class KREDRSModel(MindNRSBase):
         elif self.user_layer == "gru":
             self.user_encode_layer = nn.GRU(self.entity_embedding_dim, self.entity_embedding_dim,
                                             batch_first=True, bidirectional=False)
-        self.mlp_layer = nn.Sequential(
-            nn.Linear(2 * self.entity_embedding_dim, self.layer_dim),  # first MLP layer
-            nn.ReLU(inplace=True),  # use ReLU activation
-            nn.Linear(self.layer_dim, 1),  # second MLP layer
-            nn.Sigmoid(),  # Sigmoid activation for the final output
-        )
+        if self.out_layer == "mlp":
+            self.click_predictor = DNNClickPredictor(self.entity_embedding_dim * 2, self.layer_dim)
 
     def init_embedding(self, num_embeddings):
         embedding = nn.Embedding(num_embeddings, self.entity_embedding_dim)

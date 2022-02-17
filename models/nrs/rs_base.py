@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 
 from base.base_model import BaseModel
-from models.general import AttLayer, DNN, DotProduct, DNNClickPredictor
+from models.general import AttLayer, DotProduct, DNNClickPredictor
 
 
 class MindNRSBase(BaseModel):

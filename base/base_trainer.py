@@ -88,7 +88,7 @@ class BaseTrainer:
         arch_config = self.config["arch_config"]
         for extra in arch_log:
             log[extra] = arch_config.get(extra, None)
-        log["run_id"] = self.config["run_name"]
+        log["run_name"] = self.config["run_name"]
         saved_path = kwargs.get("saved_path", Path(self.checkpoint_dir) / "model_best.csv")
         log_df = pd.DataFrame(log, index=[0])
         if os.path.exists(saved_path):
@@ -108,7 +108,6 @@ class BaseTrainer:
                 self.logger.warning(err_msg)
                 self.mnt_mode = "off"
                 improved = False
-            log["split"] = "valid"
             if improved:
                 self.mnt_best = log[self.mnt_metric]
                 self.not_improved_count = 0

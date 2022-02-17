@@ -3,3 +3,4 @@ from .nrms import *
 from .lstur import *
 from .batm import *
 from .kred import *
+from .dkn import *
