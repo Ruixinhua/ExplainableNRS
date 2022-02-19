@@ -11,6 +11,7 @@ class MindNRSBase(BaseModel):
     def __init__(self, **kwargs):
         super().__init__()
         self.__dict__.update(kwargs)
+        self.attention_hidden_dim = kwargs.get("attention_hidden_dim", 200)
         if self.embedding_type == "glove":
             self.glove_embedding = np.load(self.word_emb_file)
             self.embedding_layer = nn.Embedding(self.glove_embedding.shape[0], self.embedding_dim).from_pretrained(

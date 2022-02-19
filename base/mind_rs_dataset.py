@@ -26,6 +26,10 @@ class MindRSDataset(Dataset):
         self.news_attr = {"title": kwargs.get("title", 30), "body": kwargs.get("body", None)}  # default only use title
         # initial data of corresponding news attributes, such as: title, entity, vert, subvert, abstract
         self.news_text = OrderedDict({"title": [""]})  # default use title only
+        self.use_category, self.use_sub_cat = kwargs.get("use_category", 0), kwargs.get("use_subcategory", 0)
+        if self.use_category or self.use_sub_cat:
+            self.category2id = OrderedDict()
+            self.category_index = []
         self.nid2index = {}
         # load news articles text from a json file
         body_file = Path(os.path.dirname(news_file)) / "msn.json"
@@ -51,12 +55,19 @@ class MindRSDataset(Dataset):
         self.news_matrix = OrderedDict({  # init news text matrix
             k: np.stack([self.tokenizer.tokenize(news, self.news_attr[k]) for news in news_text])
             for k, news_text in self.news_text.items()
-        })
+        })  # the order of news info: title(abstract), category, sub-category, sentence embedding, entity feature
+        if self.use_category or self.use_sub_cat:
+            self.news_matrix["category"] = np.array(self.category_index, dtype=np.int)
         if self.use_sent_embed:
             self.news_matrix["sentence_embed"] = np.array(self.sentence_embed, dtype=np.float)
         if self.news_entity_num:  # after load news from file
             self.news_matrix["entity_feature"] = np.array(self.news_entity_feature, dtype=np.int)
         self._load_behaviors(behaviors_file)
+
+    def convert_category(self, cat):
+        if cat not in self.category2id:
+            self.category2id[cat] = len(self.category2id)
+        return self.category2id[cat]
 
     def _load_news(self, news_file):
         """
@@ -66,6 +77,15 @@ class MindRSDataset(Dataset):
             for text in rd:
                 # news id, category, subcategory, title, abstract, url
                 nid, vert, subvert, title, abstract, url, title_entity, abs_entity = text.strip("\n").split("\t")
+                if nid in self.nid2index:
+                    continue
+                category = []
+                if self.use_category:
+                    category.append(self.convert_category(vert))
+                if self.use_sub_cat:
+                    category.append(self.convert_category(subvert))
+                if self.use_category or self.use_sub_cat:
+                    self.category_index.append(np.array(category, dtype=np.int))
                 if self.news_entity_num:
                     entity_feature = load_entity_feature(title_entity, abs_entity, self.entity_type_dict)
                     entities = [[self.entity2id[entity_id]] + feature   # [entity id, freq, pos, type]
@@ -76,8 +96,6 @@ class MindRSDataset(Dataset):
                     feature = np.pad(entities, [(0, pad_size), (0, 0)]) if pad_size else entities
                     self.news_entity_feature.append(feature.transpose().flatten())  # convert to a 4*N vector
                 news_dict = {"title": title + " " + abstract}  # abstract is used as a part of title
-                if nid in self.nid2index:
-                    continue
                 if self.use_body:  # add news body
                     if nid not in self.news_articles or self.news_articles[nid] is None:  # article not found or none
                         article = "" if self.flatten_article else [""]
