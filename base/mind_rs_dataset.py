@@ -29,7 +29,7 @@ class MindRSDataset(Dataset):
         self.use_category, self.use_sub_cat = kwargs.get("use_category", 0), kwargs.get("use_subcategory", 0)
         if self.use_category or self.use_sub_cat:
             self.category2id = OrderedDict()
-            self.category_index = []
+            self.category_index = [np.array([0, 0])] if self.use_category and self.use_sub_cat else [np.array([0])]
         self.nid2index = {}
         # load news articles text from a json file
         body_file = Path(os.path.dirname(news_file)) / "msn.json"
@@ -66,7 +66,7 @@ class MindRSDataset(Dataset):
 
     def convert_category(self, cat):
         if cat not in self.category2id:
-            self.category2id[cat] = len(self.category2id)
+            self.category2id[cat] = len(self.category2id) + 1
         return self.category2id[cat]
 
     def _load_news(self, news_file):
@@ -229,7 +229,7 @@ class NewsDataset(Dataset):
         return input_feat
 
     def __len__(self):
-        return len(self.dataset.news_text[list(self.dataset.news_text.keys())[0]])
+        return len(self.dataset.news_matrix[list(self.dataset.news_matrix.keys())[0]])
 
 
 class ImpressionDataset(Dataset):
