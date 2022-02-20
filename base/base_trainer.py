@@ -23,6 +23,7 @@ class BaseTrainer:
         # prepare for (multi-device) GPU training
         self.device, device_ids = prepare_device(config["n_gpu"])
         self.model = model.to(self.device)
+        self.logger.info(f"load device {self.device}")
         if len(device_ids) > 1:
             self.model = torch.nn.DataParallel(self.model, device_ids=device_ids)
         # set up model parameters

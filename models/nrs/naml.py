@@ -11,19 +11,27 @@ class NAMLRSModel(MindNRSBase):
         self.category_num, self.category_dim = kwargs.get("category_num", 300), kwargs.get("category_dim", 100)
         self.use_category, self.use_sub = kwargs.get("use_category", 0), kwargs.get("use_subcategory", 0)
         super(NAMLRSModel, self).__init__(**kwargs)
-        self.category_embedding = nn.Embedding(self.category_num, self.category_dim)  # max category number 300
-        self.category_linear = nn.Sequential(
-            self.category_embedding, nn.Linear(self.category_dim, self.document_embedding_dim), nn.ReLU(inplace=True)
+        if self.use_category or self.use_sub:
+            self.category_embedding = nn.Embedding(self.category_num, self.category_dim)  # max category number 300
+            self.category_linear = nn.Sequential(
+                self.category_embedding, nn.Linear(self.category_dim, self.document_embedding_dim),
+                nn.ReLU(inplace=True)
+            )
+        # self.text_cnn = nn.Conv2d(1, self.document_embedding_dim, (self.window_size, self.embedding_dim),
+        #                           padding=(int((self.window_size - 1) / 2), 0))
+        self.text_cnn = nn.Sequential(
+            nn.Conv1d(self.document_embedding_dim, self.embedding_dim, self.window_size, padding=0),
+            nn.ReLU()
         )
-        self.text_cnn = nn.Conv2d(1, self.document_embedding_dim, (self.window_size, self.embedding_dim),
-                                  padding=(int((self.window_size - 1) / 2), 0))
         self.final_attention = AttLayer(self.document_embedding_dim, self.attention_hidden_dim)
         self.dropouts = nn.Dropout(self.dropout_rate)
 
     def text_encode(self, news):
         y = self.dropouts(self.embedding_layer(news))
-        y = self.text_cnn(y.unsqueeze(dim=1)).squeeze(dim=3)  # Text CNN layer
-        y = self.news_att_layer(self.dropouts(torch.relu(y)).transpose(1, 2))[0]
+        # y = self.text_cnn(y.unsqueeze(dim=1)).squeeze(dim=3)  # Text CNN layer
+        y = self.text_cnn(y.transpose(1, 2)).transpose(1, 2)
+        # y = self.news_att_layer(self.dropouts(torch.relu(y)).transpose(1, 2))[0]
+        y = self.news_att_layer(y)[0]
         return y
 
     def news_encoder(self, input_feat):

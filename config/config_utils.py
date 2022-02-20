@@ -38,6 +38,7 @@ def custom_args(args=None):
         CustomArgs(["-r", "--resume"], type=str, target=None),  # resume path
         CustomArgs(["-l", "--loss"], type=str, target=None),  # loss function
         CustomArgs(["-se", "--sentence_embed_method"], type=str, target=None),  # sentence embedding method: distilbert
+        CustomArgs(["-ue", "--user_embed_method"], type=str, target=None),  # user embed method: init or cat
 
         CustomArgs(["-ng", "--n_gpu"], type=int, target=None),
         CustomArgs(["-s", "--seed"], type=int, target=None),

@@ -24,6 +24,14 @@ class MindNRSBase(BaseModel):
         else:
             self.click_predictor = DNNClickPredictor(self.document_embedding_dim * 2, self.attention_hidden_dim)
 
+    def load_news_feat(self, input_feat, **kwargs):
+        """the order of news info: title(abstract), category, sub-category, sentence embedding, entity feature"""
+        use_category, use_sent_embed = kwargs.get("use_category", 0), kwargs.get("use_sent_embed", 0)
+        news_info = [input_feat["news"][:, :self.title_len]]  # default only use title
+        if use_category:
+            news_info.append(input_feat["news"][:, self.title_len:self.title_len + 2])  # add category and sub category
+        return news_info
+
     def news_encoder(self, input_feat):
         """
         input_feat["news"]: [N * H, S],

@@ -189,7 +189,7 @@ class MindRSDataset(Dataset):
         input_feat = {
             "history_length": torch.tensor(len(history), dtype=torch.int8),
             # "padding": torch.tensor(self.tokenizer.tokenize("", 0), dtype=torch.int8),  # TODO padding sentence
-            "label": torch.tensor(label, dtype=torch.long),
+            "label": torch.tensor(label, dtype=torch.long), "uid": torch.tensor(user_index, dtype=torch.long),
         }
         input_feat.update(self.load_news_feat(history, "history"))
         input_feat.update(self.load_news_feat(candidate, "candidate"))
