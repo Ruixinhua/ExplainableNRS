@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torch.nn.utils.rnn import pack_padded_sequence
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 from models.general import AttLayer
 from models.nrs.rs_base import MindNRSBase
@@ -30,6 +30,7 @@ class LSTURRSModel(MindNRSBase):
         if self.user_embed_method == "init" or self.user_embed_method == "cat":
             self.user_embedding = nn.Embedding(self.user_num, output_dim)
         self.user_encode_layer = nn.GRU(input_dim, output_dim, batch_first=True, bidirectional=False)
+        self.user_att_layer = AttLayer(output_dim, self.attention_hidden_dim)
         self.dropouts = nn.Dropout(self.dropout_rate)
 
     def text_encode(self, news):
@@ -60,6 +61,10 @@ class LSTURRSModel(MindNRSBase):
             user_embed = self.user_embedding(user_ids)
             _, y = self.user_encode_layer(packed_y)
             y = torch.cat((y.squeeze(dim=0), user_embed), dim=1)
+        elif self.user_embed_method == "att":
+            y = self.user_encode_layer(packed_y)[0]
+            y, _ = pad_packed_sequence(y, batch_first=True)
+            y = self.user_att_layer(y)[0]  # additive attention layer
         else:  # default use last hidden output
             y = self.user_encode_layer(packed_y)[1].squeeze(dim=0)
             # y = self.user_att_layer(y)[0]  # additive attention layer
