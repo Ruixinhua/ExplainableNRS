@@ -21,11 +21,11 @@ class LSTURRSModel(MindNRSBase):
         self.news_att_layer = AttLayer(self.num_filters, self.attention_hidden_dim)
         if self.use_category or self.use_sub:
             self.category_embedding = nn.Embedding(self.category_num, self.num_filters)
-        input_dim = self.num_filters * 3 if self.use_category or self.use_sub else self.num_filters
+        input_dim = self.num_filters * 3 if self.use_category and self.use_sub else self.num_filters
         output_dim = self.num_filters
         if self.user_embed_method == "cat":
             output_dim = int(self.num_filters * 1.5)
-        elif self.user_embed_method == "init":
+        elif self.user_embed_method == "init" or (self.use_category and self.use_sub):
             output_dim = self.num_filters * 3
         if self.user_embed_method == "init" or self.user_embed_method == "cat":
             self.user_embedding = nn.Embedding(self.user_num, output_dim)

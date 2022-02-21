@@ -9,36 +9,43 @@ from utils.graph_untils import construct_entity_embedding
 class DKNRSModel(MindNRSBase):
     def __init__(self, **kwargs):
         super(DKNRSModel, self).__init__(**kwargs)
-        entity_embedding, _ = construct_entity_embedding(**kwargs)
-        self.entity_embedding = nn.Embedding.from_pretrained(entity_embedding.cuda())
         self.num_filters, self.layer_dim = kwargs.get("num_filters", 50), kwargs.get("layer_dim", 50)
         self.window_sizes = kwargs.get("window_sizes", [2, 3, 4])
-        self.news_entity_num = kwargs.get("news_entity_num", 10)
+        self.news_entity_num = kwargs.get("news_entity_num", None)
         self.entity_embedding_dim = kwargs.get("entity_embedding_dim", 100)
 
+        if self.news_entity_num:
+            entity_embedding, _ = construct_entity_embedding(**kwargs)
+            self.entity_embedding = nn.Embedding.from_pretrained(entity_embedding.cuda())
+            self.trans_weight = nn.Parameter(  # init weight of linear function
+                torch.empty(self.entity_embedding_dim, self.embedding_dim).uniform_(-0.1, 0.1))
+            self.trans_bias = nn.Parameter(torch.empty(self.embedding_dim).uniform_(-0.1, 0.1))
+
         self.additive_attention = AttLayer(self.num_filters, self.layer_dim)
-        self.trans_weight = nn.Parameter(torch.empty(self.entity_embedding_dim, self.embedding_dim).uniform_(-0.1, 0.1))
-        self.trans_bias = nn.Parameter(torch.empty(self.embedding_dim).uniform_(-0.1, 0.1))
         self.conv_filters = nn.ModuleDict({
-            str(x): nn.Conv2d(2, self.num_filters, (x, self.embedding_dim))
+            str(x): nn.Conv2d(2 if self.news_entity_num else 1, self.num_filters, (x, self.embedding_dim))
             for x in self.window_sizes
         })
-        self.user_att = nn.Sequential(nn.Linear(len(self.window_sizes) * 2 * self.num_filters, 16), nn.Linear(16, 1))
-        self.click_predictor = DNNClickPredictor(len(self.window_sizes) * 2 * self.num_filters, self.layer_dim)
+        news_embed_dim = len(self.window_sizes) * self.num_filters * 2
+        self.user_att = nn.Sequential(nn.Linear(news_embed_dim, 16), nn.Linear(16, 1))
+        self.click_predictor = DNNClickPredictor(news_embed_dim, self.layer_dim)
 
-    def kcnn(self, title_embed, entity_embed):
+    def kcnn(self, title_embed, entity_embed=None):
         """
         Knowledge-aware CNN (KCNN) based on Kim CNN.
         Input a news sentence (e.g. its title), produce its embedding vector.
         """
-        # batch_size, num_words_title, word_embedding_dim
-        entity_vector_trans = torch.tanh(torch.add(torch.matmul(entity_embed, self.trans_weight), self.trans_bias))
-        # batch_size, 2, num_words_title, word_embedding_dim
-        multi_channel_vector = torch.stack([title_embed, entity_vector_trans], dim=1)
+        if entity_embed:
+            # batch_size, num_words_title, word_embedding_dim
+            entity_vector_trans = torch.tanh(torch.add(torch.matmul(entity_embed, self.trans_weight), self.trans_bias))
+            # batch_size, 2, num_words_title, word_embedding_dim
+            news_vector = torch.stack([title_embed, entity_vector_trans], dim=1)
+        else:
+            news_vector = torch.unsqueeze(title_embed, dim=1)
         pooled_vectors = []
         for x in self.window_sizes:
             # batch_size, num_filters, num_words_title + 1 - x
-            convoluted = self.conv_filters[str(x)](multi_channel_vector).squeeze(dim=3)
+            convoluted = self.conv_filters[str(x)](news_vector).squeeze(dim=3)
             # batch_size, num_filters, num_words_title + 1 - x
             activated = torch.relu(convoluted)
             # batch_size, num_filters
@@ -74,10 +81,13 @@ class DKNRSModel(MindNRSBase):
         return user_vector
 
     def news_encoder(self, input_feat):
-        title, entity = input_feat["news"][:, :self.title_len], input_feat["news"][:, self.title_len:]
-        entity_ids = entity.reshape(-1, 4, self.news_entity_num)[:, 0]  # (B, 4, EN)
-        title_embed, entity_embed = self.embedding_layer(title), self.entity_embedding(entity_ids)
-        news_vector = self.kcnn(title_embed, entity_embed)
+        if self.news_entity_num:
+            title, entity = input_feat["news"][:, :self.title_len], input_feat["news"][:, self.title_len:]
+            entity_ids = entity.reshape(-1, 4, self.news_entity_num)[:, 0]  # (B, 4, EN)
+            title_embed, entity_embed = self.embedding_layer(title), self.entity_embedding(entity_ids)
+            news_vector = self.kcnn(title_embed, entity_embed)
+        else:
+            news_vector = self.kcnn(self.embedding_layer(input_feat["news"]))
         return news_vector
 
     def user_encoder(self, input_feat):

@@ -70,6 +70,7 @@ def custom_args(args=None):
         CustomArgs(["-hd", "--head_dim"], type=int, target="arch_config"),
         CustomArgs(["-ee", "--entity_embedding_dim"], type=int, target="arch_config"),  # pretrained default is 100,
         CustomArgs(["-ze", "--freeze_embedding"], type=int, target="arch_config"),  # freeze embedding params
+        CustomArgs(["-nf", "--num_filters"], type=int, target="arch_config"),  # freeze embedding params
 
         CustomArgs(["-al", "--alpha"], type=float, target="arch_config"),
         CustomArgs(["-dr", "--dropout_rate"], type=float, target="arch_config"),
