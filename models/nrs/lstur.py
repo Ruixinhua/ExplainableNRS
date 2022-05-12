@@ -31,7 +31,6 @@ class LSTURRSModel(MindNRSBase):
             self.user_embedding = nn.Embedding(self.user_num, output_dim)
         self.user_encode_layer = nn.GRU(input_dim, output_dim, batch_first=True, bidirectional=False)
         self.user_att_layer = AttLayer(output_dim, self.attention_hidden_dim)
-        self.dropouts = nn.Dropout(self.dropout_rate)
 
     def text_encode(self, news):
         y = self.dropouts(self.embedding_layer(news))

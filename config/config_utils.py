@@ -46,8 +46,12 @@ def custom_args(args=None):
         CustomArgs(["-sm", "--save_model"], type=int, target=None),
         CustomArgs(["-ne", "--news_entity_num"], type=int, target=None),
         CustomArgs(["-de", "--document_embedding_dim"], type=int, target=None),
+        CustomArgs(["-tl", "--title"], type=int, target=None),
         CustomArgs(["-uc", "--use_category"], type=int, target=None),
         CustomArgs(["-us", "--use_subcategory"], type=int, target=None),
+        CustomArgs(["-du", "--dkn_utils"], type=int, target=None),  # use dkn utils
+        CustomArgs(["-un", "--use_entity"], type=int, target=None),
+        CustomArgs(["-ut", "--use_context"], type=int, target=None),
 
         # architecture params
         CustomArgs(["-at", "--arch_type"], type=str, target="arch_config"),  # setup architecture type(default params)

@@ -19,6 +19,7 @@ class MindNRSBase(BaseModel):
         self.title_len, self.body_len = kwargs.get("title", 30), kwargs.get("body", None)
         self.news_att_layer = AttLayer(self.embedding_dim, self.attention_hidden_dim)
         self.user_att_layer = AttLayer(self.embedding_dim, self.attention_hidden_dim)
+        self.dropouts = nn.Dropout(self.dropout_rate)
         if self.out_layer == "product":
             self.click_predictor = DotProduct()
         else:
@@ -43,12 +44,14 @@ class MindNRSBase(BaseModel):
         # y = nn.ReLU()(y)  # [N * H, D]
         return self.news_att_layer(y)[0]
 
-    def time_distributed(self, news_index, news_mask=None):
+    def time_distributed(self, news_index, news_mask=None, **kwargs):
         # calculate news features across multiple input news: [N * H, S]
         x_shape = torch.Size([-1]) + news_index.size()[2:]
         news_reshape = news_index.contiguous().view(x_shape)  # [N * H, S]
         mask_reshape = news_mask.contiguous().view(x_shape) if news_mask is not None else news_mask
-        y = self.news_encoder({"news": news_reshape, "news_mask": mask_reshape})
+        feat = {"news": news_reshape, "news_mask": mask_reshape}
+        feat.update(kwargs)
+        y = self.news_encoder(feat)
         y = y.contiguous().view(news_index.size(0), -1, y.size(-1))  # change size to (N, H, D)
         return y
 

@@ -95,3 +95,15 @@ def news_sampling(news, ratio):
         return news + [0] * (ratio - len(news))
     else:
         return random.sample(news, ratio)
+
+
+def init_obj(module_name: str, module: object, *args, **kwargs):
+    """
+    Finds a function handle with the name given as 'type' in config, and returns the
+    instance initialized with corresponding arguments given.
+
+    `object = config.init_obj('trainer_config', module, a, b=1)`
+    is equivalent to
+    `object = module.module_name(a, b=1)`
+    """
+    return getattr(module, module_name)(*args, **kwargs)

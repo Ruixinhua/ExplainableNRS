@@ -1,15 +1,17 @@
 import torch
 import torch.distributed
+import experiment.dataset as module_dataset
 
 from collections import defaultdict
 from pathlib import Path
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DistributedSampler
 from torch.utils.data.dataloader import DataLoader
-from base.mind_rs_dataset import MindRSDataset, NewsDataset, UserDataset, ImpressionDataset
 from config.configuration import Configuration
 from config.default_config import default_values
-from utils import load_dict, Tokenizer, read_json, get_project_root, get_mind_file_path
+from experiment.dataset import NewsDataset, UserDataset, ImpressionDataset, MindRSDataset
+from utils import load_dict, Tokenizer, read_json, get_project_root, get_mind_root_path
+from config.default_config import arch_default_config
 
 
 def bert_collate_fn(data):
@@ -49,24 +51,26 @@ def collate_fn(data):
 
 
 class MindDataLoader:
-    def __init__(self, data_path, mind_type, **kwargs):
+    def __init__(self, **kwargs):
         # load word and user dictionary
+        data_path = kwargs.get("data_path", Path(get_project_root()) / "dataset/MIND")
         word_dict = load_dict(Path(data_path) / "utils" / "word_dict.pkl")
         uid2index = load_dict(Path(data_path) / "utils" / "uid2index.pkl")
         kwargs.update({"word_dict": word_dict, "uid2index": uid2index})
+        arch_default = arch_default_config(kwargs.get("arch_config").get("type"))  # get default Dataset class type
+        module_dataset_name = arch_default["dataset_type"] if "dataset_type" in arch_default else "MindRSDataset"
+        self.use_dkn_utils = kwargs.get("dkn_utils", None)
         # set tokenizer
         self.tokenizer = Tokenizer(**kwargs)
         bs, sampler = kwargs.get("batch_size", 64), None
         fn = bert_collate_fn if self.tokenizer.embedding_type in default_values["bert_embedding"] else collate_fn
-        train_news, train_behaviors = get_mind_file_path(data_path, mind_type, "train")
-        self.train_set = self.set_dataset(train_news, train_behaviors, "train", **kwargs)
+        self.train_set = getattr(module_dataset, module_dataset_name)(self.tokenizer, phase="train", **kwargs)
         if torch.distributed.is_initialized():
             sampler = DistributedSampler(self.train_set)
         self.train_loader = DataLoader(self.train_set, bs, pin_memory=True, sampler=sampler, collate_fn=fn)
         # setup news and user dataset
         news_sampler = None
-        valid_news, valid_behaviors = get_mind_file_path(data_path, mind_type, "valid")
-        self.valid_set = self.set_dataset(valid_news, valid_behaviors, "valid", **kwargs)
+        self.valid_set = getattr(module_dataset, module_dataset_name)(self.tokenizer, phase="valid", **kwargs)
         news_set, user_set = NewsDataset(self.valid_set), UserDataset(self.valid_set)
         impression_set = ImpressionDataset(self.valid_set)
         self.valid_loader = DataLoader(impression_set, 1, pin_memory=True, sampler=sampler, collate_fn=fn)
@@ -75,8 +79,8 @@ class MindDataLoader:
         self.news_loader = DataLoader(news_set, bs, pin_memory=True, sampler=news_sampler)
         self.user_loader = DataLoader(user_set, bs, pin_memory=True, sampler=sampler, collate_fn=fn)
 
-    def set_dataset(self, news_file, behaviors_file, phase, **kwargs):
-        return MindRSDataset(news_file, behaviors_file, self.tokenizer, phase=phase, **kwargs)
+    def set_dataset(self, phase, **kwargs):
+        return MindRSDataset(self.tokenizer, phase=phase, **kwargs)
 
 
 if __name__ == "__main__":

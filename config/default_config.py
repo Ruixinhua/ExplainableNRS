@@ -41,7 +41,11 @@ default_configs = {
         "head_num": 10, "head_dim": 30, "entity_embedding_dim": 100, "attention_hidden_dim": 64
     },
     "DKNRSModel": {
-        "num_filters": 50, "layer_dim": 50, "window_sizes": [2, 3, 4], "entity_embedding_dim": 100
+        "num_filters": 50, "layer_dim": 50, "window_sizes": [2, 3, 4], "entity_embedding_dim": 100,
+        "dataset_type": "DKNRSDataset",
+    },
+    "NPARSModel": {
+
     }
 }
 

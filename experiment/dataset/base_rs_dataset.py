@@ -1,36 +1,62 @@
 import os
-from collections import OrderedDict, defaultdict
-from pathlib import Path
+import torch
 
 import numpy as np
-import torch
-import torch.distributed
+import pandas as pd
+from pathlib import Path
+
 from torch.utils.data.dataset import Dataset
 
-from utils import read_json, news_sampling, Tokenizer, get_project_root
+from collections import OrderedDict, defaultdict
+from utils import read_json, news_sampling, Tokenizer, get_project_root, get_mind_root_path
 from utils.graph_untils import load_entities, load_entity_feature
 
 
 class MindRSDataset(Dataset):
     """Load dataset from file and organize data for training"""
 
-    def __init__(self, news_file, behaviors_file, tokenizer: Tokenizer, **kwargs):
+    def __init__(self, tokenizer: Tokenizer, **kwargs):
         # setup some default configurations for MindRSDataset
         self.tokenizer = tokenizer
         self.flatten_article = kwargs.get("flatten_article", True)
         self.phase = kwargs.get("phase", "train")  # RS phase: train, valid, test
         self.history_size = kwargs.get("history_size", 50)
         self.neg_pos_ratio = kwargs.get("neg_pos_ratio", 4)  # negative sampling ratio, default is 20% positive ratio
-        self.uid2index = kwargs.get("uid2index", {})  # get user id to index dictionary
+        self.uid2index = kwargs.get("uid2index", {})  # map user id to index dictionary
+        self.nid2index = kwargs.get("nid2index", {})  # map news id to index dictionary
         self.train_strategy = kwargs.get("train_strategy", "pair_wise")  # pair wise uses negative sampling strategy
+
+        self._load_news_matrix(**kwargs)  # load news matrix
+        self._load_behaviors(**kwargs)  # load behavior file, default use mind dataset
+
+    def convert_category(self, cat):
+        if cat not in self.category2id:
+            self.category2id[cat] = len(self.category2id) + 1
+        return self.category2id[cat]
+
+    def _load_news_from_file(self, news_file):
+        head = ["news_id", "category", "subcategory", "title", "abstract", "url", "title_entity", "abstract_entity"]
+        self.news_content = pd.read_csv(news_file, sep="\t", names=head)  # load news information from file
+        if self.use_body:  # use news articles
+            body_file = Path(os.path.dirname(news_file)) / "msn.json"
+            self.news_articles = read_json(body_file) if body_file.exists() else None
+
+    def _load_news_text(self, **kwargs):
+        """
+        Load news from news file
+        """
+        news_file = get_mind_root_path(**kwargs) / "news.tsv"  # define news file path
         self.news_attr = {"title": kwargs.get("title", 30), "body": kwargs.get("body", None)}  # default only use title
         # initial data of corresponding news attributes, such as: title, entity, vert, subvert, abstract
         self.news_text = OrderedDict({"title": [""]})  # default use title only
+        self.news_entity_num = kwargs.get("news_entity_num", None)  # default not use entity
         self.use_category, self.use_sub_cat = kwargs.get("use_category", 0), kwargs.get("use_subcategory", 0)
+        if self.news_entity_num:
+            self.entity2id = load_entities(**kwargs)  # load wikidata id to entity id mapping
+            self.news_entity_feature, self.entity_type_dict = [np.zeros(4 * self.news_entity_num)], defaultdict()
         if self.use_category or self.use_sub_cat:
             self.category2id = OrderedDict()
             self.category_index = [np.array([0, 0])] if self.use_category and self.use_sub_cat else [np.array([0])]
-        self.nid2index = {}
         # load news articles text from a json file
         body_file = Path(os.path.dirname(news_file)) / "msn.json"
         self.use_body = self.news_attr["body"] and body_file.exists()  # boolean value for use article or not
@@ -47,32 +73,6 @@ class MindRSDataset(Dataset):
             if not embed_file.exists():
                 raise FileNotFoundError("Sentence embedding file is not found")
             self.sentence_embed_dict = torch.load(embed_file)
-        self.news_entity_num = kwargs.get("news_entity_num", None)  # default not use entity
-        if self.news_entity_num:
-            self.entity2id = load_entities(**kwargs)  # load wikidata id to entity id mapping
-            self.news_entity_feature, self.entity_type_dict = [np.zeros(4 * self.news_entity_num)], defaultdict()
-        self._load_news(news_file)  # load news from file and save to news_text object
-        self.news_matrix = OrderedDict({  # init news text matrix
-            k: np.stack([self.tokenizer.tokenize(news, self.news_attr[k]) for news in news_text])
-            for k, news_text in self.news_text.items()
-        })  # the order of news info: title(abstract), category, sub-category, sentence embedding, entity feature
-        if self.use_category or self.use_sub_cat:
-            self.news_matrix["category"] = np.array(self.category_index, dtype=np.int)
-        if self.use_sent_embed:
-            self.news_matrix["sentence_embed"] = np.array(self.sentence_embed, dtype=np.float)
-        if self.news_entity_num:  # after load news from file
-            self.news_matrix["entity_feature"] = np.array(self.news_entity_feature, dtype=np.int)
-        self._load_behaviors(behaviors_file)
-
-    def convert_category(self, cat):
-        if cat not in self.category2id:
-            self.category2id[cat] = len(self.category2id) + 1
-        return self.category2id[cat]
-
-    def _load_news(self, news_file):
-        """
-        Load news from news file
-        """
         with open(news_file, "r", encoding="utf-8") as rd:
             for text in rd:
                 # news id, category, subcategory, title, abstract, url
@@ -111,12 +111,26 @@ class MindRSDataset(Dataset):
                 self.nid2index[nid] = len(self.nid2index) + 1
         rd.close()
 
-    def _load_behaviors(self, behaviors_file, col_spl="\t"):
+    def _load_news_matrix(self, **kwargs):
+        self._load_news_text(**kwargs)  # load news text from file first before made up news matrix
+        self.news_matrix = OrderedDict({  # init news text matrix
+            k: np.stack([self.tokenizer.tokenize(news, self.news_attr[k]) for news in news_text])
+            for k, news_text in self.news_text.items()
+        })  # the order of news info: title(abstract), category, sub-category, sentence embedding, entity feature
+        if self.use_category or self.use_sub_cat:
+            self.news_matrix["category"] = np.array(self.category_index, dtype=np.int)
+        if self.use_sent_embed:
+            self.news_matrix["sentence_embed"] = np.array(self.sentence_embed, dtype=np.float)
+        if self.news_entity_num:  # after load news from file
+            self.news_matrix["entity_feature"] = np.array(self.news_entity_feature, dtype=np.int)
+
+    def _load_behaviors(self, **kwargs):
         """"
         Create global variants for behaviors:
         behaviors: The behaviors of the user, includes: history clicked news, impression news, and labels
         positive_news: The index of news that clicked by users in impressions
         """
+        behaviors_file = get_mind_root_path(**kwargs) / "behaviors.tsv"  # define behavior file path
         # initial behaviors attributes
         attributes = ["uid", "impression_index", "history_news", "history_length", "candidate_news", "labels"]
         self.behaviors = {attr: [] for attr in attributes}
@@ -125,7 +139,7 @@ class MindRSDataset(Dataset):
             imp_index = 0
             for index in rd:
                 # read line of behaviors file
-                uid, time, history, candidates = index.strip("\n").split(col_spl)[-4:]
+                uid, time, history, candidates = index.strip("\n").split("\t")[-4:]
                 # deal with behavior data
                 history = [self.nid2index[i] for i in history.split()] if len(history) > 1 else [0]  # TODO history
                 his_length = min(len(history), self.history_size)
@@ -152,7 +166,7 @@ class MindRSDataset(Dataset):
         """
 
         :param indices: index of news
-        :param name: corresponding name of feat
+        :param name: corresponding saved name of feat
         :return: a default dictionary with keys called name.
         """
         # get the matrix of corresponding news features with index

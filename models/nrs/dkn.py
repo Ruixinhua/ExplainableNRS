@@ -1,31 +1,60 @@
+import os
+import numpy as np
 import torch
 import torch.nn as nn
+from pathlib import Path
 
 from models.nrs.rs_base import MindNRSBase
 from models.general import AttLayer, DNNClickPredictor
+from utils import get_project_root, download_resources
 from utils.graph_untils import construct_entity_embedding
 
 
 class DKNRSModel(MindNRSBase):
     def __init__(self, **kwargs):
         super(DKNRSModel, self).__init__(**kwargs)
-        self.num_filters, self.layer_dim = kwargs.get("num_filters", 50), kwargs.get("layer_dim", 50)
+        self.num_filters, self.layer_dim = kwargs.get("num_filters", 128), kwargs.get("layer_dim", 50)
         self.window_sizes = kwargs.get("window_sizes", [2, 3, 4])
-        self.news_entity_num = kwargs.get("news_entity_num", None)
-        self.entity_embedding_dim = kwargs.get("entity_embedding_dim", 100)
+        self.use_entity, self.use_context = kwargs.get("use_entity", None), kwargs.get("use_context", None)
+        self.news_entity_num = self.title_len if self.use_entity else None
+        self.entity_embedding_dim = kwargs.get("entity_embedding_dim", 100)  # default is 100
+        self.use_dkn_utils = kwargs.get("dkn_utils", None)
 
-        if self.news_entity_num:
-            entity_embedding, _ = construct_entity_embedding(**kwargs)
-            self.entity_embedding = nn.Embedding.from_pretrained(entity_embedding.cuda())
+        if self.use_entity:
+            if self.use_dkn_utils:
+                mind_type = kwargs.get("data_config").get("mind_type")
+                utils_path = Path(get_project_root()) / "dataset/utils/dkn_utils" / f"mind-{mind_type}-dkn"
+                os.makedirs(utils_path, exist_ok=True)
+                yaml_file = utils_path / "dkn.yaml"
+                if not yaml_file.exists():
+                    download_resources(r"https://recodatasets.z20.web.core.windows.net/deeprec/",
+                                       str(utils_path.parent), f"mind-{mind_type}-dkn.zip")
+                word_embed_file = utils_path / "word_embeddings_100.npy"
+                entity_embed_file = utils_path / "TransE_entity2vec_100.npy"
+                word_embedding = torch.FloatTensor(np.load(str(word_embed_file))).cuda()
+                entity_embedding = torch.FloatTensor(np.load(str(entity_embed_file)))  # load entity embedding
+                self.embedding_layer = nn.Embedding.from_pretrained(word_embedding, freeze=False)
+                self.embedding_dim = 100
+                if self.use_context:
+                    context_embed_file = utils_path / "TransE_context2vec_100.npy"
+                    context_embedding = torch.FloatTensor(np.load(str(context_embed_file))).cuda()
+                    self.context_embedding = nn.Embedding.from_pretrained(context_embedding, freeze=False)
+            else:
+                entity_embedding, _ = construct_entity_embedding(**kwargs)  # TODO: modify entity embedding
+            self.entity_embedding = nn.Embedding.from_pretrained(entity_embedding.cuda(), freeze=False)
             self.trans_weight = nn.Parameter(  # init weight of linear function
                 torch.empty(self.entity_embedding_dim, self.embedding_dim).uniform_(-0.1, 0.1))
             self.trans_bias = nn.Parameter(torch.empty(self.embedding_dim).uniform_(-0.1, 0.1))
-
+            self.conv_filters = nn.ModuleDict({
+                str(x): nn.Conv2d(3 if self.use_context else 2, self.num_filters, (x, self.embedding_dim))
+                for x in self.window_sizes
+            })
+        else:
+            self.conv_filters = nn.ModuleDict({
+                str(x): nn.Conv1d(self.embedding_dim, self.num_filters, x)
+                for x in self.window_sizes
+            })
         self.additive_attention = AttLayer(self.num_filters, self.layer_dim)
-        self.conv_filters = nn.ModuleDict({
-            str(x): nn.Conv2d(2 if self.news_entity_num else 1, self.num_filters, (x, self.embedding_dim))
-            for x in self.window_sizes
-        })
         news_embed_dim = len(self.window_sizes) * self.num_filters * 2
         self.user_att = nn.Sequential(nn.Linear(news_embed_dim, 16), nn.Linear(16, 1))
         self.click_predictor = DNNClickPredictor(news_embed_dim, self.layer_dim)
@@ -35,17 +64,21 @@ class DKNRSModel(MindNRSBase):
         Knowledge-aware CNN (KCNN) based on Kim CNN.
         Input a news sentence (e.g. its title), produce its embedding vector.
         """
-        if entity_embed:
+        if entity_embed is not None:
             # batch_size, num_words_title, word_embedding_dim
             entity_vector_trans = torch.tanh(torch.add(torch.matmul(entity_embed, self.trans_weight), self.trans_bias))
             # batch_size, 2, num_words_title, word_embedding_dim
             news_vector = torch.stack([title_embed, entity_vector_trans], dim=1)
         else:
-            news_vector = torch.unsqueeze(title_embed, dim=1)
+            # batch_size, word_embedding_dim, num_words_title
+            news_vector = title_embed.transpose(1, 2)
         pooled_vectors = []
         for x in self.window_sizes:
             # batch_size, num_filters, num_words_title + 1 - x
-            convoluted = self.conv_filters[str(x)](news_vector).squeeze(dim=3)
+            if self.news_entity_num:
+                convoluted = self.conv_filters[str(x)](news_vector).squeeze(dim=3)
+            else:
+                convoluted = self.conv_filters[str(x)](news_vector)
             # batch_size, num_filters, num_words_title + 1 - x
             activated = torch.relu(convoluted)
             # batch_size, num_filters
@@ -63,7 +96,7 @@ class DKNRSModel(MindNRSBase):
     def user_attention(self, candidate_news_vector, clicked_news_vector):
         """
         Attention Net.
-        Input embedding vectors (produced by KCNN) of a candidate news and all of user's clicked news,
+        Input embedding vectors (produced by KCNN) of a candidate news and all of user"s clicked news,
         produce final user embedding vectors with respect to the candidate news.
         Args:
             candidate_news_vector: batch_size, len(window_sizes) * num_filters

@@ -43,6 +43,21 @@ class AttLayer(nn.Module):
         return y, attention_weight
 
 
+class PersonalizedAttentivePooling(nn.Module):
+    def __init__(self, value_emb_dim, attention_hidden_dim, dropout_rate=0.2):
+        super().__init__()
+        self.dropouts = nn.Dropout(dropout_rate)
+        # build attention network
+        self.vector_att = nn.Sequential(nn.Linear(value_emb_dim, attention_hidden_dim), nn.Tanh())
+
+    def forward(self, vec_input, query_input):
+        vectors = self.dropouts(vec_input)
+        vec_att = self.vector_att(vectors)
+        vec_att2 = torch.softmax(torch.bmm(vec_att, query_input.unsqueeze(dim=-1)).squeeze(-1), dim=-1)
+        y = torch.bmm(vec_att2.unsqueeze(1), vectors).squeeze(1)
+        return y, vec_att2
+
+
 class MultiHeadedAttention(nn.Module):
     """
     MultiheadedAttention:
