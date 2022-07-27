@@ -8,8 +8,8 @@ from pathlib import Path
 from torch.utils.data.dataset import Dataset
 
 from collections import OrderedDict, defaultdict
-from utils import read_json, news_sampling, Tokenizer, get_project_root, get_mind_root_path
-from utils.graph_untils import load_entities, load_entity_feature
+from news_recommendation.utils import read_json, news_sampling, Tokenizer, get_project_root, get_mind_root_path
+from news_recommendation.utils.graph_untils import load_entities, load_entity_feature
 
 
 class MindRSDataset(Dataset):

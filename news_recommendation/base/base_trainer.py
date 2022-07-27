@@ -1,14 +1,14 @@
 import copy
 import os
-import utils.loss_utils as module_loss
-import utils.metric_utils as module_metric
-from utils import prepare_device
+from news_recommendation import utils as module_loss
+import news_recommendation.utils.metric_utils as module_metric
+from news_recommendation.utils import prepare_device
 import torch
 import torch.distributed
 import pandas as pd
 from abc import abstractmethod
 from numpy import inf
-from logger import TensorboardWriter
+from news_recommendation.logger import TensorboardWriter
 from pathlib import Path
 
 
@@ -16,10 +16,9 @@ class BaseTrainer:
     """
     Base class for all trainers
     """
-    def __init__(self, model, config):
-        self.config = config.config
-        cfg_trainer = config["trainer_config"]
-        self.logger = config.get_logger("trainer", cfg_trainer["verbosity"])
+    def __init__(self, model, config, **kwargs):
+        self.config = config
+        self.logger = config.get_logger("trainer", config["verbosity"])
         # prepare for (multi-device) GPU training
         self.device, device_ids = prepare_device(config["n_gpu"])
         self.model = model.to(self.device)
@@ -27,42 +26,54 @@ class BaseTrainer:
         if len(device_ids) > 1:
             self.model = torch.nn.DataParallel(self.model, device_ids=device_ids)
         # set up model parameters
-        self.best_model = model
+        self.best_model = copy.deepcopy(model)
         # get function handles of loss and metrics
         self.criterion = getattr(module_loss, config["loss"])
         self.metric_ftns = [getattr(module_metric, met) for met in config["metrics"]]
         # build optimizer, learning rate scheduler. delete every lines containing lr_scheduler for disabling scheduler
-        trainable_params = filter(lambda p: p.requires_grad, model.parameters())
-        self.optimizer = config.init_obj("optimizer_config", torch.optim, False, trainable_params)
-        self.lr_scheduler = config.init_obj("scheduler_config", torch.optim.lr_scheduler, False, self.optimizer)
+        self.optimizer = self._build_optimizer()
+        self.lr_scheduler = self._build_lr_scheduler()
         # set up trainer parameters
-        self.epochs = cfg_trainer["epochs"]
-        self.save_model = config["save_model"]
-        self.monitor = cfg_trainer.get("monitor", "off")
         self.last_best_path = None
         self.not_improved_count = 0
 
         # configuration to monitor model performance and save best
-        if self.monitor == "off":
+        if self.config.monitor == "off":
             self.mnt_mode = "off"
             self.mnt_best = 0
         else:
-            self.mnt_mode, self.mnt_metric = self.monitor.split()
+            self.mnt_mode, self.mnt_metric = self.config.monitor.split()
             assert self.mnt_mode in ["min", "max"]
 
             self.mnt_best = inf if self.mnt_mode == "min" else -inf
-            self.early_stop = cfg_trainer.get("early_stop", inf)
+            self.early_stop = self.config.get("early_stop", inf)
             if self.early_stop <= 0:
                 self.early_stop = inf
 
         self.start_epoch = 1
-        self.checkpoint_dir = config.save_dir
+        self.checkpoint_dir = config.model_dir
 
         # setup visualization writer instance                
-        self.writer = TensorboardWriter(config.log_dir, self.logger, cfg_trainer["tensorboard"])
+        self.writer = TensorboardWriter(config.log_dir, self.logger, config["tensorboard"])
 
         if config["resume"] is not None:
             self._resume_checkpoint(config["resume"])
+
+    def _build_optimizer(self, **kwargs):
+        # build optimizer according to specified optimizer config
+        trainable_params = filter(lambda p: p.requires_grad, self.model.parameters())
+        learner = kwargs.pop("learner", self.config.get("learner", "Adam"))
+        learning_rate = kwargs.pop("learning_rate", self.config.get("learning_rate", 0.001))
+        weight_decay = kwargs.pop("weight_decay", self.config.get("weight_decay", 0))
+        optimizer = getattr(torch.optim, learner)(trainable_params, lr=learning_rate, weight_decay=weight_decay)
+        return optimizer
+
+    def _build_lr_scheduler(self, **kwargs):
+        # build learning rate scheduler according to specified scheduler config
+        scheduler = kwargs.pop("scheduler", self.config.get("scheduler", "StepLR"))
+        step_size = kwargs.pop("step_size", self.config.get("step_size", 50))
+        gamma = kwargs.pop("gamma", self.config.get("gamma", 0.1))
+        return getattr(torch.optim.lr_scheduler, scheduler)(self.optimizer, step_size=step_size, gamma=gamma)
 
     @abstractmethod
     def _train_epoch(self, epoch):
@@ -80,15 +91,13 @@ class BaseTrainer:
 
     def save_log(self, log, **kwargs):
         log["seed"] = self.config["seed"]
-        for key, item in self.config.log_args.items():
+        for key, item in self.config.cmd_args.items():  # record all command line arguments
             if isinstance(item, dict):
                 log.update(item)
+            elif isinstance(item, tuple) or isinstance(item, list):
+                pass
             else:
                 log[key] = item
-        arch_log = kwargs.get("arch_log", "").split(",")
-        arch_config = self.config["arch_config"]
-        for extra in arch_log:
-            log[extra] = arch_config.get(extra, None)
         log["run_name"] = self.config["run_name"]
         saved_path = kwargs.get("saved_path", Path(self.checkpoint_dir) / "model_best.csv")
         log_df = pd.DataFrame(log, index=[0])
@@ -113,7 +122,7 @@ class BaseTrainer:
                 self.mnt_best = log[self.mnt_metric]
                 self.not_improved_count = 0
                 self.best_model = copy.deepcopy(self.model)
-                if self.save_model:
+                if self.config.save_model:
                     self._save_checkpoint(epoch, log[self.mnt_metric])
             else:
                 self.not_improved_count += 1
@@ -121,11 +130,11 @@ class BaseTrainer:
             self.save_log(log)
             self._log_info(log)
 
-    def train(self):
+    def fit(self):
         """
         Full training logic
         """
-        for epoch in range(self.start_epoch, self.epochs + 1):
+        for epoch in range(self.start_epoch, self.config.epochs + 1):
             result = self._train_epoch(epoch)
 
             # save logged information into log dict
@@ -173,7 +182,7 @@ class BaseTrainer:
         self.mnt_best = checkpoint["monitor_best"]
 
         # load architecture params from checkpoint.
-        if checkpoint["config"]["arch_config"] != self.config["arch_config"]:
+        if checkpoint["config"] != self.config:
             self.logger.warning("Warning: Architecture configuration given in config file is different from that of "
                                 "checkpoint. This may yield an exception while state_dict is being loaded.")
         # if torch.distributed.is_initialized():
