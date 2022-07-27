@@ -1,10 +1,9 @@
 import torch
 import torch.nn as nn
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
-from models import PersonalizedAttentivePooling
-from models.general import AttLayer
-from models.nrs.rs_base import MindNRSBase
+from news_recommendation.models import PersonalizedAttentivePooling
+from news_recommendation.models.general import AttLayer
+from news_recommendation.models.nrs.rs_base import MindNRSBase
 
 
 class NPARSModel(MindNRSBase):

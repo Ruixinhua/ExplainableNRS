@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-from base.base_model import BaseModel
-from utils.graph_untils import construct_entity_embedding, construct_adj
+from news_recommendation.base.base_model import BaseModel
+from news_recommendation.utils.graph_untils import construct_entity_embedding, construct_adj
 
 
 class KGAT(BaseModel):

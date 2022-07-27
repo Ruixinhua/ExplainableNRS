@@ -1,19 +1,20 @@
 import torch.nn as nn
 
-from models.general import AttLayer
-from models.general import MultiHeadedAttention
-from models.nrs.rs_base import MindNRSBase
+from news_recommendation.models.general import AttLayer
+from news_recommendation.models.general import MultiHeadedAttention
+from news_recommendation.models.nrs.rs_base import MindNRSBase
 
 
 class NRMSRSModel(MindNRSBase):
     def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         # define document embedding dim before inherit super class
         self.head_num, self.head_dim = kwargs.get("head_num", 20), kwargs.get("head_dim", 20)
         self.document_embedding_dim = kwargs.get("document_embedding_dim", self.head_num * self.head_dim)
-        super().__init__(**kwargs)
         self.news_att_layer = AttLayer(self.document_embedding_dim, self.attention_hidden_dim)
         self.user_att_layer = AttLayer(self.document_embedding_dim, self.attention_hidden_dim)
         self.news_encode_layer = MultiHeadedAttention(self.head_num, self.head_dim, self.embedding_dim)
+        self.user_layer = kwargs.get("user_layer", "mha")
         if self.user_layer == "mha":
             self.user_encode_layer = MultiHeadedAttention(self.head_num, self.head_dim, self.document_embedding_dim)
         elif self.user_layer == "gru":

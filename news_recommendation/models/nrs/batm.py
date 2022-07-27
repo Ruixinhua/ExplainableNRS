@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from models.nrs.rs_base import MindNRSBase
+from news_recommendation.models.nrs.rs_base import MindNRSBase
 
 
 class BATMRSModel(MindNRSBase):
@@ -11,10 +11,16 @@ class BATMRSModel(MindNRSBase):
         topic_dim = self.head_num * self.head_dim
         # the structure of basic model
         self.final = nn.Linear(self.embedding_dim, self.embedding_dim)
-        if self.variant_name == "base":
+        if self.variant_name == "base" or self.variant_name == "base_att":
             self.topic_layer = nn.Sequential(nn.Linear(self.embedding_dim, topic_dim), nn.Tanh(),
                                              nn.Linear(topic_dim, self.head_num))
-        self.user_encode_layer = nn.GRU(self.embedding_dim, self.embedding_dim, batch_first=True, bidirectional=False)
+            self.user_encode_layer = nn.GRU(self.embedding_dim, self.embedding_dim, batch_first=True, bidirectional=False)
+        elif self.variant_name == "bi_batm":
+            self.topic_layer = nn.Sequential(nn.Linear(self.embedding_dim, topic_dim), nn.Tanh(),
+                                             nn.Linear(topic_dim, self.head_num))
+            self.user_encode_layer = nn.Sequential(nn.Linear(self.embedding_dim, topic_dim), nn.Tanh(),
+                                                   nn.Linear(topic_dim, self.head_num))
+            self.user_final = nn.Linear(self.embedding_dim, self.embedding_dim)
         self.dropouts = nn.Dropout(self.dropout_rate)
 
     def extract_topic(self, input_feat):
@@ -35,6 +41,15 @@ class BATMRSModel(MindNRSBase):
 
     def user_encoder(self, input_feat):
         y = input_feat["history_news"]
-        y = self.user_encode_layer(y)[0]
-        y = self.user_att_layer(y)[0]  # additive attention layer
+        if self.variant_name == "base":
+            y = self.user_encode_layer(y)[0]
+            y = self.user_att_layer(y)[0]  # additive attention layer
+        elif self.variant_name == "bi_batm":
+            user_weight = self.user_encode_layer(y).transpose(1, 2)
+            # mask = input_feat["news_mask"].expand(self.head_num, y.size(0), -1).transpose(0, 1) == 0
+            # user_weight = torch.softmax(user_weight.masked_fill(mask, -1e9), dim=-1)  # fill zero entry with -INF
+            user_vec = self.user_final(torch.matmul(user_weight, y))
+            y = self.user_att_layer(user_vec)[0]  # additive attention layer
+        elif self.variant_name == "base_att":
+            y = self.user_att_layer(y)[0]  # additive attention layer
         return y

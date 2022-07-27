@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
 
-from models.general import MultiHeadedAttention, AttLayer, DNNClickPredictor
-from models.nrs.rs_base import MindNRSBase
-from models.general.kgat import KGAT
+from news_recommendation.models.general import MultiHeadedAttention, AttLayer, DNNClickPredictor
+from news_recommendation.models.nrs.rs_base import MindNRSBase
+from news_recommendation.models.general.kgat import KGAT
 
 
 class KREDRSModel(MindNRSBase):

@@ -4,10 +4,10 @@ import torch
 import torch.nn as nn
 from pathlib import Path
 
-from models.nrs.rs_base import MindNRSBase
-from models.general import AttLayer, DNNClickPredictor
-from utils import get_project_root, download_resources
-from utils.graph_untils import construct_entity_embedding
+from news_recommendation.models.nrs.rs_base import MindNRSBase
+from news_recommendation.models.general import AttLayer, DNNClickPredictor
+from news_recommendation.utils import get_project_root, download_resources
+from news_recommendation.utils.graph_untils import construct_entity_embedding
 
 
 class DKNRSModel(MindNRSBase):
@@ -22,7 +22,7 @@ class DKNRSModel(MindNRSBase):
 
         if self.use_entity:
             if self.use_dkn_utils:
-                mind_type = kwargs.get("data_config").get("mind_type")
+                mind_type = kwargs.get("mind_type")
                 utils_path = Path(get_project_root()) / "dataset/utils/dkn_utils" / f"mind-{mind_type}-dkn"
                 os.makedirs(utils_path, exist_ok=True)
                 yaml_file = utils_path / "dkn.yaml"

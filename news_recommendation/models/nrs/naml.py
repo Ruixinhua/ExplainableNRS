@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 
-from models.general import AttLayer
-from models.nrs.rs_base import MindNRSBase
+from news_recommendation.models.general import AttLayer
+from news_recommendation.models.nrs.rs_base import MindNRSBase
 
 
 class NAMLRSModel(MindNRSBase):
