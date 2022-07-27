@@ -1,12 +1,13 @@
+import copy
+import importlib
 import json
 import os
 import pickle
 import random
+import torch
 from collections import OrderedDict
 from pathlib import Path
 from typing import Union, Dict
-
-import torch
 
 
 def read_json(file: Union[str, os.PathLike]):
@@ -97,13 +98,29 @@ def news_sampling(news, ratio):
         return random.sample(news, ratio)
 
 
-def init_obj(module_name: str, module: object, *args, **kwargs):
+def init_obj(module_name: str, module_config: dict, module: object, *args, **kwargs):
     """
     Finds a function handle with the name given as 'type' in config, and returns the
     instance initialized with corresponding arguments given.
 
-    `object = config.init_obj('trainer_config', module, a, b=1)`
+    `object = init_obj('Baseline', module, a, b=1)`
     is equivalent to
     `object = module.module_name(a, b=1)`
     """
-    return getattr(module, module_name)(*args, **kwargs)
+    module_args = copy.deepcopy(module_config)
+    module_args.update(kwargs)  # update extra configuration
+    return getattr(module, module_name)(*args, **module_args)
+
+
+def init_data_loader(config, *args, **kwargs):
+    # setup data_loader instances
+    module_data = importlib.import_module("news_recommendation.data_loader")
+    data_loader = init_obj(config.dataloader_type, config.final_configs, module_data, *args, **kwargs)
+    return data_loader
+
+
+def init_model_class(config, *args, **kwargs):
+    # setup model class
+    module_model = importlib.import_module("news_recommendation.models")
+    model_class = init_obj(config.arch_type, config.final_configs, module_model, *args, **kwargs)
+    return model_class

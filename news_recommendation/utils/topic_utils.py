@@ -7,7 +7,7 @@ import numpy as np
 from gensim.corpora import Dictionary
 from gensim.models import CoherenceModel
 from scipy.stats import entropy
-from utils.general_utils import write_to_file
+from news_recommendation.utils.general_utils import write_to_file
 
 
 def get_topic_dist(trainer, word_seq, voc_size=None):
@@ -18,7 +18,7 @@ def get_topic_dist(trainer, word_seq, voc_size=None):
         num = bs * (len(word_seq) // bs)
         word_feat = np.array(word_seq[:num]).reshape(-1, bs).tolist() + [word_seq[num:]]
         for words in word_feat:
-            input_feat = {"data": torch.tensor(words).unsqueeze(0), "mask": torch.ones(len(words)).unsqueeze(0)}
+            input_feat = {"news": torch.tensor(words).unsqueeze(0), "news_mask": torch.ones(len(words)).unsqueeze(0)}
             input_feat = trainer.load_batch_data(input_feat)
             _, topic_weight = trainer.best_model.extract_topic(input_feat)  # (B, H, N)
             topic_dist[:, words] = topic_weight.squeeze().cpu().data
@@ -48,7 +48,7 @@ def topic_evaluation(trainer, word_dict, path: Union[str, os.PathLike], ref_text
     topic_dist = get_topic_dist(trainer, list(word_dict.values()), voc_size)  # get distribution for the given words
     topic_list = get_topic_list(topic_dist, top_n, reverse_dict)  # convert to tokens list
     if ref_texts is None:
-        from utils.dataset_utils import load_docs
+        from news_recommendation.utils.dataset_utils import load_docs
         ref_texts = load_docs("MIND15", "aggressive")
     os.makedirs(path, exist_ok=True)
     topic_result = save_topic_info(path, topic_list, ref_texts, top_n=top_n)
@@ -57,7 +57,7 @@ def topic_evaluation(trainer, word_dict, path: Union[str, os.PathLike], ref_text
     return topic_result
 
 
-def save_topic_info(path, topic_list, ref_texts, top_n=25, methods="c_v,c_npmi,c_uci"):
+def save_topic_info(path, topic_list, ref_texts, top_n=25, methods="c_v,c_npmi"):
     write_to_file(os.path.join(path, "topic_list.txt"), [" ".join(topics) for topics in topic_list])
     topic_scores = {m: evaluate_topic(topic_list, ref_texts, m, top_n) for m in methods.split(",")}
     topic_result = {m: np.round(np.mean(c), 4) for m, c in topic_scores.items()}

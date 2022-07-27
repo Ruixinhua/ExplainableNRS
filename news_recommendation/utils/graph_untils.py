@@ -6,7 +6,7 @@ import logging
 
 from pathlib import Path
 from collections import defaultdict
-from utils import get_project_root
+from news_recommendation.utils import get_project_root
 
 
 def kg_default_root():

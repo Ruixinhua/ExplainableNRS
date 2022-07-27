@@ -2,11 +2,11 @@ import os
 import numpy as np
 from pathlib import Path
 
-from utils import get_project_root, download_resources
+from news_recommendation.utils import get_project_root, download_resources
 
 
 def load_utils_file(**kwargs):
-    mind_type = kwargs.get("data_config").get("mind_type")
+    mind_type = kwargs.get("mind_type")
     utils_path = Path(get_project_root()) / "dataset/utils/dkn_utils" / f"mind-{mind_type}-dkn"
     os.makedirs(utils_path, exist_ok=True)
     yaml_file = utils_path / "dkn.yaml"
