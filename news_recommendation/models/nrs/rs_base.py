@@ -2,8 +2,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from base.base_model import BaseModel
-from models.general import AttLayer, DotProduct, DNNClickPredictor
+from news_recommendation.base.base_model import BaseModel
+from news_recommendation.models.general import AttLayer, DotProduct, DNNClickPredictor
 
 
 class MindNRSBase(BaseModel):

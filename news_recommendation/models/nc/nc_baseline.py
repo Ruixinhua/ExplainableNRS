@@ -3,8 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
-from models.general.layers import MultiHeadedAttention, AttLayer
-from models.nc_models import BaseClassifyModel
+from news_recommendation.models.general.layers import MultiHeadedAttention, AttLayer
+from news_recommendation.models.nc.nc_models import BaseClassifyModel
 
 
 class TextCNNClassifyModel(BaseClassifyModel):

@@ -1,17 +1,17 @@
 import torch
 import torch.distributed
-import experiment.dataset as module_dataset
+import news_recommendation.dataset as module_dataset
 
 from collections import defaultdict
 from pathlib import Path
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DistributedSampler
 from torch.utils.data.dataloader import DataLoader
-from config.configuration import Configuration
-from config.default_config import default_values
-from experiment.dataset import NewsDataset, UserDataset, ImpressionDataset, MindRSDataset
-from utils import load_dict, Tokenizer, read_json, get_project_root, get_mind_root_path
-from config.default_config import arch_default_config
+from news_recommendation.config.configuration import Configuration
+from news_recommendation.config.default_config import TEST_CONFIGS
+from news_recommendation.dataset import NewsDataset, UserDataset, ImpressionDataset, MindRSDataset
+from news_recommendation.utils import load_dict, Tokenizer, read_json, get_project_root
+from news_recommendation.config.default_config import arch_default_config
 
 
 def bert_collate_fn(data):
@@ -54,16 +54,16 @@ class MindDataLoader:
     def __init__(self, **kwargs):
         # load word and user dictionary
         data_path = kwargs.get("data_path", Path(get_project_root()) / "dataset/MIND")
-        word_dict = load_dict(Path(data_path) / "utils" / "word_dict.pkl")
+        self.word_dict = load_dict(Path(data_path) / "utils" / "word_dict.pkl")
+        self.word_dict["UNK"] = 0
         uid2index = load_dict(Path(data_path) / "utils" / "uid2index.pkl")
-        kwargs.update({"word_dict": word_dict, "uid2index": uid2index})
-        arch_default = arch_default_config(kwargs.get("arch_config").get("type"))  # get default Dataset class type
-        module_dataset_name = arch_default["dataset_type"] if "dataset_type" in arch_default else "MindRSDataset"
+        kwargs.update({"word_dict": self.word_dict, "uid2index": uid2index})
+        module_dataset_name = kwargs["dataset_class"] if "dataset_class" in kwargs else "MindRSDataset"
         self.use_dkn_utils = kwargs.get("dkn_utils", None)
         # set tokenizer
         self.tokenizer = Tokenizer(**kwargs)
         bs, sampler = kwargs.get("batch_size", 64), None
-        fn = bert_collate_fn if self.tokenizer.embedding_type in default_values["bert_embedding"] else collate_fn
+        fn = bert_collate_fn if self.tokenizer.embedding_type in TEST_CONFIGS["bert_embedding"] else collate_fn
         self.train_set = getattr(module_dataset, module_dataset_name)(self.tokenizer, phase="train", **kwargs)
         if torch.distributed.is_initialized():
             sampler = DistributedSampler(self.train_set)
@@ -85,9 +85,9 @@ class MindDataLoader:
 
 if __name__ == "__main__":
     config = Configuration()
-    default_config = read_json(Path(get_project_root()) / "config" / "mind_rs_default.json")
+    default_config = read_json(Path(get_project_root()) / "news_recommendation" / "config" / "mind_rs_default.json")
     config.update(default_config)
-    config.data_config["batch_size"] = 10
-    train_loader = MindDataLoader(**config.data_config).train_loader
+    config["batch_size"] = 10
+    train_loader = MindDataLoader(**config.final_configs).train_loader
     for batch in train_loader:
         break

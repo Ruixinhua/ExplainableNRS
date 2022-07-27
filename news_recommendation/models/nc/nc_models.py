@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from transformers import AutoConfig, AutoModelForSequenceClassification, AutoModel
 
-from base.base_model import BaseModel
+from news_recommendation.base.base_model import BaseModel
 
 
 class BaseClassifyModel(BaseModel):
@@ -39,10 +39,10 @@ class BaseClassifyModel(BaseModel):
 
     def embedding_layer(self, input_feat):
         if self.embedding_type in ["glove", "init"]:
-            embedding = self.embedding(input_feat["data"])
+            embedding = self.embedding(input_feat["news"])
         else:
             input_feat["embedding"] = input_feat["embedding"] if "embedding" in input_feat else None
-            output = self.embedding(input_feat["data"], input_feat["mask"], inputs_embeds=input_feat["embedding"])
+            output = self.embedding(input_feat["news"], input_feat["news_mask"], inputs_embeds=input_feat["embedding"])
             self.att_weight = output[-1]
             embedding = output[0]
         embedding = nn.Dropout(self.dropout_rate)(embedding)
@@ -88,9 +88,9 @@ class PretrainedBaseline(BaseModel):
             self.model = AutoModelForSequenceClassification.from_config(config=config)
 
     def forward(self, input_feat, **kwargs):
-        feat_dict = {"input_ids": input_feat["data"], "attention_mask": input_feat["mask"]}
+        feat_dict = {"input_ids": input_feat["news"], "attention_mask": input_feat["news_mask"]}
         if self.embedding_type == "transfo-xl-wt103":
-            outputs = self.model(input_feat["data"])
+            outputs = self.model(input_feat["news"])
         else:
             outputs = self.model(**feat_dict)
         outputs = (outputs.logits,)

@@ -6,7 +6,7 @@ import torch
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
 
-from utils import text2index
+from news_recommendation.utils import text2index
 
 
 class NCDataset(Dataset):
@@ -25,7 +25,7 @@ class NCDataset(Dataset):
         data = torch.tensor(data, dtype=torch.long)
         label = torch.tensor(self.label_dict.get(self.labels[i], -1), dtype=torch.long).squeeze(0)
         mask = torch.tensor(np.where(data == 0, 0, 1), dtype=torch.long)
-        return {"data": data, "label": label, "mask": mask}
+        return {"news": data, "label": label, "news_mask": mask}
 
     def __len__(self):
         return len(self.labels)
@@ -71,7 +71,7 @@ class NCDatasetBert(Dataset):
         mask_pad = torch.zeros_like(pad_ids, dtype=torch.int8)
         mask = torch.cat((mask, mask_pad))
 
-        output_dict = {"data": x_tensor, 'mask': mask}
+        output_dict = {"news": x_tensor, "news_mask": mask}
 
         if self.labels is not None:
             y = self.labels[index]

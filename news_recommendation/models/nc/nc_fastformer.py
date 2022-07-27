@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 from transformers import BertConfig
-from models.general.fastformer import FastformerEncoder
-from models.nc_models import BaseClassifyModel
+from news_recommendation.models.general.fastformer import FastformerEncoder
+from news_recommendation.models.nc.nc_models import BaseClassifyModel
 
 
 class FastformerClassifyModel(BaseClassifyModel):
@@ -34,7 +34,7 @@ class FastformerClassifyModel(BaseClassifyModel):
             module.bias.data.zero_()
 
     def forward(self, input_feat, **kwargs):
-        mask = input_feat["data"].bool().float()
+        mask = input_feat["news"].bool().float()
         embedding = self.embedding_layer(input_feat)
         text_vec = self.fastformer_model(embedding, mask)
         output = self.classify_layer(text_vec)

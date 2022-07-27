@@ -1,6 +1,6 @@
-from experiment.dataset.base_rs_dataset import MindRSDataset
-from utils import Tokenizer
-from utils.dkn_utils import load_news_feature, load_utils_file
+from news_recommendation.dataset.base_rs_dataset import MindRSDataset
+from news_recommendation.utils import Tokenizer
+from news_recommendation.utils import load_news_feature, load_utils_file
 
 
 class DKNRSDataset(MindRSDataset):

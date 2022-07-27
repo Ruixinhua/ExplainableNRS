@@ -1,8 +1,8 @@
 import numpy as np
 import torch
 import torch.distributed
-from base.base_trainer import BaseTrainer
-from utils import MetricTracker
+from news_recommendation.base.base_trainer import BaseTrainer
+from news_recommendation.utils import MetricTracker
 from tqdm import tqdm
 
 
@@ -14,10 +14,9 @@ class NCTrainer(BaseTrainer):
         super().__init__(model, config)
         self.config = config
         self.data_loader = data_loader.train_loader
-        arch_config = self.config["arch_config"]
-        self.entropy_constraint = arch_config.get("entropy_constraint", False)
-        self.calculate_entropy = arch_config.get("calculate_entropy", self.entropy_constraint)
-        self.alpha = arch_config.get("alpha", 0.001)
+        self.entropy_constraint = config.get("entropy_constraint", False)
+        self.calculate_entropy = config.get("calculate_entropy", self.entropy_constraint)
+        self.alpha = config.get("alpha", 0.001)
         self.len_epoch = len(self.data_loader)
         self.valid_loader = data_loader.valid_loader
         self.do_validation = self.valid_loader is not None
@@ -40,7 +39,7 @@ class NCTrainer(BaseTrainer):
     def run_model(self, batch_dict, model=None):
         """
         run model with the batch data
-        :param batch_dict: the dictionary of data with format like {"data": Tensor(), "label": Tensor()}
+        :param batch_dict: the dictionary of data with format like {"news": Tensor(), "label": Tensor()}
         :param model: by default we use the self model
         :return: the output of running, label used for evaluation, and loss item
         """

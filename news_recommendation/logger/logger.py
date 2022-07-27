@@ -1,5 +1,6 @@
 import logging
 import logging.config
+import os
 
 
 def setup_logging(save_dir):
@@ -40,6 +41,5 @@ def setup_logging(save_dir):
     # modify logging paths based on run config
     for _, handler in log_config['handlers'].items():
         if 'filename' in handler:
-            handler['filename'] = str(save_dir / handler['filename'])
-
+            handler['filename'] = os.path.join(save_dir, handler['filename'])
     logging.config.dictConfig(log_config)

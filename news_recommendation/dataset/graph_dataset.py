@@ -1,5 +1,5 @@
-from experiment.dataset.base_rs_dataset import MindRSDataset
-from utils import Tokenizer
+from news_recommendation.dataset.base_rs_dataset import MindRSDataset
+from news_recommendation.utils import Tokenizer
 
 
 class GraphDataset(MindRSDataset):

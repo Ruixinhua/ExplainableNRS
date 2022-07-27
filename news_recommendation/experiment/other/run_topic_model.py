@@ -5,8 +5,8 @@ from pathlib import Path
 import pandas as pd
 from gensim.models import LdaModel
 
-from experiment import init_args
-from utils import get_project_root, write_to_file, evaluate_entropy, del_index_column, load_docs, get_bow_corpus, \
+from news_recommendation.config.config_utils import init_args
+from news_recommendation.utils import get_project_root, write_to_file, evaluate_entropy, del_index_column, load_docs, get_bow_corpus, \
     filter_tokens
 
 

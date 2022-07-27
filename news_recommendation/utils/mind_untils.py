@@ -8,7 +8,7 @@ from tqdm import tqdm
 import torch.nn as nn
 from pathlib import Path
 
-from utils import get_project_root
+from news_recommendation.utils import get_project_root
 
 
 def load_entity(entity: str):
@@ -21,7 +21,9 @@ def load_entity(entity: str):
 
 
 def get_mind_root_path(**kwargs):
-    data_path = kwargs.get("data_path", Path(get_project_root()) / "dataset/MIND")
+    data_path = Path(kwargs.get("data_path", None))
+    if data_path is None:
+        data_path = Path(get_project_root()) / "dataset/MIND"
     mind_type, phase = kwargs.get("mind_type", "demo"), kwargs.get("phase")  # options are train, valid, test
     mind_root = Path(data_path) / mind_type / phase  # define mind root path
     if not mind_root.exists():
@@ -89,7 +91,7 @@ def download_resources(download_url, data_path, remote_resource_name):
 
     Args:
         download_url (str): URL of Azure container.
-        data_path (str): Path to download the resources.
+        data_path: Path to download the resources.
         remote_resource_name (str): Name of the resource.
     """
     os.makedirs(data_path, exist_ok=True)

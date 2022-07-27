@@ -1,13 +1,13 @@
 from pathlib import Path
 from torch.utils.data import DataLoader
-from base.nc_dataset import NCDatasetBert, NCDataset
-from utils import load_dataset_df, load_word_dict, load_glove_embeddings
+from news_recommendation.base.nc_dataset import NCDatasetBert, NCDataset
+from news_recommendation.utils import load_dataset_df, load_word_dict, load_glove_embeddings
 
 
 class NewsDataLoader:
     def load_dataset(self, df):
-        from config.default_config import default_values
-        pretrained_models = default_values["bert_embedding"]
+        from news_recommendation.config.default_config import TEST_CONFIGS
+        pretrained_models = TEST_CONFIGS["bert_embedding"]
         if self.embedding_type in pretrained_models:
             dataset = NCDatasetBert(texts=df["data"].values.tolist(), labels=df["category"].values.tolist(),
                                     label_dict=self.label_dict, max_length=self.max_length,
@@ -24,8 +24,9 @@ class NewsDataLoader:
             raise ValueError(f"Embedding type should be one of {','.join(pretrained_models)} or glove and init")
         return dataset
 
-    def __init__(self, batch_size=32, shuffle=True, num_workers=1, max_length=128, name="MIND15/keep", **kwargs):
-        self.set_name, self.method = name.split("/")[0], name.split("/")[1]
+    def __init__(self, batch_size=32, shuffle=True, num_workers=1, max_length=128, dataset_name="News26/keep_all",
+                 **kwargs):
+        self.set_name, self.method = dataset_name.split("/")[0], dataset_name.split("/")[1]
         self.max_length, self.embedding_type = max_length, kwargs.get("embedding_type", "glove")
         self.data_root = kwargs.get("data_root", "../../dataset")
         data_path = Path(self.data_root) / "data" / f"{self.set_name}.csv"

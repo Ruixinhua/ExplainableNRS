@@ -3,9 +3,9 @@ import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from pathlib import Path
 
-from models.nc_models import BaseClassifyModel
-from models.general.layers import AttLayer, MultiHeadedAttention
-from utils import get_project_root, load_embedding_from_path, load_embedding_from_dict
+from news_recommendation.models.nc.nc_models import BaseClassifyModel
+from news_recommendation.models.general.layers import AttLayer, MultiHeadedAttention
+from news_recommendation.utils import get_project_root, load_embedding_from_path, load_embedding_from_dict
 
 
 class BiAttentionClassifyModel(BaseClassifyModel):
@@ -52,11 +52,11 @@ class BiAttentionClassifyModel(BaseClassifyModel):
     def extract_topic(self, input_feat):
         embedding = self.embedding_layer(input_feat)  # (N, S, E) topic layer -> (N, S, H)
         if self.variant_name == "topic_embed":
-            topic_weight = self.topic_layer(input_feat["data"]).transpose(1, 2)  # (N, H, S)
+            topic_weight = self.topic_layer(input_feat["news"]).transpose(1, 2)  # (N, H, S)
         else:
             topic_weight = self.topic_layer(embedding).transpose(1, 2)  # (N, H, S)
         # expand mask to the same size as topic weights
-        mask = input_feat["mask"].expand(self.head_num, embedding.size(0), -1).transpose(0, 1) == 0
+        mask = input_feat["news_mask"].expand(self.head_num, embedding.size(0), -1).transpose(0, 1) == 0
         topic_weight = torch.softmax(topic_weight.masked_fill(mask, -1e9), dim=-1)  # fill zero entry with -INF
         if self.variant_name == "combined_mha":
             # context_vec = torch.matmul(topic_weight, embedding)  # (N, H, E)

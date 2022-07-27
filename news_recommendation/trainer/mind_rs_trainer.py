@@ -5,8 +5,8 @@ import torch
 import torch.distributed
 from tqdm import tqdm
 
-from config.parse_config import ConfigParser
-from experiment.trainer import NCTrainer
+from config.configuration import Configuration
+from trainer import NCTrainer
 
 
 class MindRSTrainer(NCTrainer):
@@ -14,13 +14,12 @@ class MindRSTrainer(NCTrainer):
     Trainer class
     """
 
-    def __init__(self, model, config: ConfigParser, data_loader, **kwargs):
+    def __init__(self, model, config: Configuration, data_loader, **kwargs):
         super().__init__(model, config, data_loader, **kwargs)
-        self.valid_interval = config["trainer_config"].get("valid_interval", 0.1)
-        data_config = config["data_config"]
-        self.fast_evaluation = data_config.get("fast_evaluation", True)
-        self.train_strategy = data_config.get("train_strategy", "pair_wise")
-        self.news_loader, self.user_loader = data_loader.news_loader, data_loader.user_loader
+        self.valid_interval = config.get("valid_interval", 0.1)
+        self.fast_evaluation = config.get("fast_evaluation", True)
+        self.train_strategy = config.get("train_strategy", "pair_wise")
+        self.loader = data_loader
         self.behaviors = data_loader.valid_set.behaviors
 
     def _validation(self, epoch, batch_idx, do_monitor=True):
@@ -32,6 +31,20 @@ class MindRSTrainer(NCTrainer):
         self.model.train()  # reset to training mode
         self.train_metrics.reset()
         return log
+
+    def run_model(self, batch_dict, model=None, evaluate=False):
+        """
+        run model with the batch data
+        :param batch_dict: the dictionary of data with format like {"news": Tensor(), "label": Tensor()}
+        :param model: by default we use the self model
+        :param evaluate: if eval is True, we will use the model in eval mode
+        :return: the output of running, label used for evaluation, and loss item
+        """
+        batch_dict = self.load_batch_data(batch_dict)
+        output = model(batch_dict) if model is not None else self.model(batch_dict)
+        loss = self.criterion(output[0], batch_dict["label"])
+        out_dict = {"label": batch_dict["label"], "loss": loss, "predict": output[0]}
+        return out_dict
 
     def _train_epoch(self, epoch):
         """
@@ -70,9 +83,10 @@ class MindRSTrainer(NCTrainer):
             self.lr_scheduler.step()
         return self._validation(epoch, length, False)
 
-    def _run_news_data(self, model):
+    def _run_news_data(self, model, data_loader=None):
         news_vectors = {}
-        for batch_dict in tqdm(self.news_loader, total=len(self.news_loader)):
+        data_loader = self.loader if data_loader is None else data_loader
+        for batch_dict in tqdm(data_loader.news_loader, total=len(data_loader.news_loader)):
             # load data to device
             batch_dict = self.load_batch_data(batch_dict)
             # run news encoder
@@ -81,7 +95,7 @@ class MindRSTrainer(NCTrainer):
             news_vectors.update(dict(zip(batch_dict["index"].cpu().tolist(), news_vec.cpu().numpy())))
         return news_vectors
 
-    def _run_user_data(self, model, news_vectors):
+    def _run_user_data(self, model, news_vectors, data_loader=None):
         """
         run user model and return user vectors
         :param model: a model with a user encoder
@@ -89,7 +103,8 @@ class MindRSTrainer(NCTrainer):
         :return: user vectors dictionary using impression index as the key of dictionary
         """
         user_vectors = {}
-        for batch_dict in tqdm(self.user_loader, total=len(self.user_loader)):
+        data_loader = self.loader if data_loader is None else data_loader
+        for batch_dict in tqdm(data_loader.user_loader, total=len(data_loader.user_loader)):
             # load data to device
             input_feat = {
                 "history_news": torch.tensor(np.array(
@@ -104,7 +119,7 @@ class MindRSTrainer(NCTrainer):
             user_vectors.update(dict(zip(batch_dict["impression_index"].cpu().tolist(), user_vec.cpu().numpy())))
         return user_vectors
 
-    def _valid_epoch(self):
+    def _valid_epoch(self, model=None, data_loader=None):
         """
         Validate after training an epoch
         :return: A log that contains information about validation
@@ -113,20 +128,20 @@ class MindRSTrainer(NCTrainer):
         news_object, user_object = [{} for _ in range(2)], [{} for _ in range(2)]
         group_label, group_pred = [], []
         if torch.distributed.is_initialized():
-            model = self.model.module
+            model = self.model.module if model is None else model.module
         else:
-            model = self.model
+            model = self.model if model is None else model
         model.eval()
         self.valid_metrics.reset()
         with torch.no_grad():
-            news_vectors = self._run_news_data(model)
+            news_vectors = self._run_news_data(model, data_loader)
             if torch.distributed.is_initialized():
                 torch.distributed.barrier()
                 torch.distributed.all_gather_object(news_object, news_vectors)
                 for i in range(2):
                     news_vectors.update(news_object[i])
             if self.fast_evaluation:
-                user_vectors = self._run_user_data(model, news_vectors)
+                user_vectors = self._run_user_data(model, news_vectors, data_loader)
                 if torch.distributed.is_initialized():
                     torch.distributed.barrier()
                     torch.distributed.all_gather_object(user_object, user_vectors)
@@ -139,7 +154,7 @@ class MindRSTrainer(NCTrainer):
                     history_news = np.array(
                             [user_vectors[index.tolist()] for index in batch_dict["impression_index"]]
                     )
-                    if self.config["arch_config"]["out_layer"] == "product":
+                    if self.config["out_layer"] == "product":
                         pred = np.dot(candidate_news.squeeze(0), history_news.squeeze(0))
                     else:
                         input_feat = {
@@ -152,9 +167,10 @@ class MindRSTrainer(NCTrainer):
                     group_pred.append(pred)
                     group_label.append(batch_dict["label"].squeeze().cpu().tolist())
             else:
+                behaviors = data_loader.valid_set.behaviors
                 # TODO: slow evaluation
-                behaviors = zip(*[self.behaviors[attr] for attr in ["history_news", "candidate_news", "labels"]])
-                for history, candidate, label in tqdm(behaviors, total=len(self.behaviors["labels"])):
+                behaviors = zip(*[behaviors[attr] for attr in ["history_news", "candidate_news", "labels"]])
+                for history, candidate, label in tqdm(behaviors, total=len(behaviors["labels"])):
                     # setup input feat of history news and candidate news
                     input_feat = {
                         "history_news": torch.tensor(np.array([[news_vectors[i] for i in history]])),
@@ -168,3 +184,11 @@ class MindRSTrainer(NCTrainer):
             for met in self.metric_ftns:
                 self.valid_metrics.update(met.__name__, met(group_label, group_pred))
         return self.valid_metrics.result()
+
+    def evaluate(self, loader, model, epoch=0, prefix="val"):
+        model.eval()
+        self.valid_metrics.reset()
+        log = self._valid_epoch(model, loader)
+        for name, p in model.named_parameters():  # add histogram of model parameters to the tensorboard
+            self.writer.add_histogram(name, p, bins='auto')
+        return {f"{prefix}_{k}": v for k, v in log.items()}  # return log with prefix

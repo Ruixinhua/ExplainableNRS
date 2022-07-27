@@ -4,7 +4,7 @@ from typing import Union
 
 import torch
 import numpy as np
-from config.default_config import default_values
+import config.default_config as default_config
 
 
 def word_tokenize(sent):
@@ -86,7 +86,7 @@ class Tokenizer:
             self.ignore = kwargs.get("ignore", True)  # default skip unknown words
             self.tokenize = self.text2token
             self.pad_id = 0
-        elif self.embedding_type in default_values["bert_embedding"]:
+        elif self.embedding_type in default_config.TEST_CONFIGS["bert_embedding"]:
             from transformers import AutoTokenizer
             self.word_dict = AutoTokenizer.from_pretrained(self.embedding_type)
             self.tokenize = self.encode
