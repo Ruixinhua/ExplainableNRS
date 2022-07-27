@@ -1,5 +1,17 @@
-# setup default configures for models
-default_configs = {
+import logging
+
+DEFAULT_CONFIGS = {
+    "n_gpu": 1, "embedding_type": "glove", "embedding_dim": 300, "max_length": 100, "loss": "cross_entropy",
+    "metrics": ["accuracy", "macro_f"], "save_model": False, "resume_path": None, "project_name": "bi_attention",
+    "seed": 42, "arch_type": "BiAttentionClassifyModel", "dropout_rate": 0.2, "dataloader_type": "NewsDataLoader",
+    "batch_size": 32, "num_workers": 1, "dataset_name": "News26/keep_all", "trainer_type": "NCTrainer",
+    "log_levels": {0: logging.WARNING, 1: logging.INFO, 2: logging.DEBUG},  # configure logging module
+    # Trainer parameters
+    "epochs": 10, "early_stop": 3, "monitor": "max val_accuracy", "verbosity": 2, "tensorboard": False,
+}
+
+# setup default architecture configures for models
+ARCH_CONFIGS = {
     "PretrainedBaseline": {
         "n_layers": 1,
     },
@@ -13,11 +25,11 @@ default_configs = {
         "variant_name": "gru_att"
     },
     "BiAttentionClassifyModel": {
-        "head_num": None, "head_dim": 20, "entropy_constraint": False, "alpha": 0.01, "n_layers": 1,
+        "head_num": 20, "head_dim": 20, "entropy_constraint": False, "alpha": 0.01, "n_layers": 1,
         "variant_name": "base", "topic_embed": None, "calculate_entropy": True,
     },
     "TopicExtractorClassifyModel": {
-        "head_num": None, "head_dim": 20, "entropy_constraint": False, "alpha": 0.01, "n_layers": 1
+        "head_num": 20, "head_dim": 20, "entropy_constraint": False, "alpha": 0.01, "n_layers": 1
     },
     "FastformerClassifyModel": {
         "embedding_dim": 300, "n_layers": 2, "hidden_act": "gelu", "head_num": 15, "type_vocab_size": 2,
@@ -50,7 +62,7 @@ default_configs = {
 }
 
 # setup default values
-default_values = {
+TEST_CONFIGS = {
     "seeds": [42, 2020, 2021, 25, 4],
     "head_num": [10, 30, 50, 70, 100, 150, 180, 200],
     "embedding_type": ["distilbert-base-uncased", "bert-base-uncased", "roberta-base", "xlnet-base-cased",
@@ -61,7 +73,4 @@ default_values = {
 
 
 def arch_default_config(arch_type: str):
-    arch_config = {"type": arch_type}
-    if arch_type in default_configs:
-        arch_config.update(default_configs[arch_type])
-    return arch_config
+    return ARCH_CONFIGS[arch_type] if arch_type in ARCH_CONFIGS else {}
