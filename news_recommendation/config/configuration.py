@@ -75,7 +75,7 @@ class Configuration:
             config_dict (:obj:`Dict[str, Any]`): Dictionary of attributes that should be updated for this class.
         """
         if "arch_type" in config_dict:
-            self.final_configs.update(arch_default_config(self.final_configs["arch_type"]))
+            self.final_configs.update(arch_default_config(config_dict["arch_type"]))
         self.final_configs.update(config_dict)
 
     def save_config(self, save_dir: Union[str, os.PathLike], config_name: str = "config.json"):
