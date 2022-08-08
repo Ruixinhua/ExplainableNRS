@@ -4,7 +4,7 @@ from news_recommendation import utils as module_loss
 import news_recommendation.utils.metric_utils as module_metric
 from news_recommendation.utils import prepare_device
 import torch
-import torch.distributed
+# import torch.distributed
 import pandas as pd
 from abc import abstractmethod
 from numpy import inf
@@ -21,10 +21,18 @@ class BaseTrainer:
         self.logger = config.get_logger("trainer", config["verbosity"])
         # prepare for (multi-device) GPU training
         self.device, device_ids = prepare_device(config["n_gpu"])
+        if len(device_ids) > 1:
+            # set up accelerator
+            try:
+                from accelerate import Accelerator
+                self.accelerator = Accelerator()
+                self.device = self.accelerator.device
+            except ImportError:
+                self.logger.info("Accelerator is not installed. Please install it if you want to use it.")
+
+            # self.model = torch.nn.DataParallel(self.model, device_ids=device_ids)
         self.model = model.to(self.device)
         self.logger.info(f"load device {self.device}")
-        if len(device_ids) > 1:
-            self.model = torch.nn.DataParallel(self.model, device_ids=device_ids)
         # set up model parameters
         self.best_model = copy.deepcopy(model)
         # get function handles of loss and metrics

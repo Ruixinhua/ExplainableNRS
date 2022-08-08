@@ -41,8 +41,8 @@ class MindRSTrainer(NCTrainer):
         self.model.train()
         self.train_metrics.reset()
         length = len(self.train_loader)
-        if torch.distributed.is_initialized():
-            self.train_loader.sampler.set_epoch(epoch)
+        # if torch.distributed.is_initialized():
+        #     self.train_loader.sampler.set_epoch(epoch)
         bar = tqdm(enumerate(self.train_loader), total=length)
         # self._validation(epoch, 0)
         for batch_idx, batch_dict in bar:
@@ -51,8 +51,8 @@ class MindRSTrainer(NCTrainer):
             # setup model and train model
             self.optimizer.zero_grad()
             output = self.model(batch_dict)
-            if torch.distributed.is_initialized():
-                torch.distributed.barrier()
+            # if torch.distributed.is_initialized():
+            #     torch.distributed.barrier()
             loss = self.criterion(output, batch_dict["label"])
             if hasattr(self, "accelerator"):
                 self.accelerator.backward(loss)
@@ -124,18 +124,18 @@ class MindRSTrainer(NCTrainer):
         self.valid_metrics.reset()
         with torch.no_grad():
             news_vectors = self._run_news_data(model, data_loader)
-            if torch.distributed.is_initialized():
-                torch.distributed.barrier()
-                torch.distributed.all_gather_object(news_object, news_vectors)
-                for i in range(2):
-                    news_vectors.update(news_object[i])
+            # if torch.distributed.is_initialized():
+            #     torch.distributed.barrier()
+            #     torch.distributed.all_gather_object(news_object, news_vectors)
+            #     for i in range(2):
+            #         news_vectors.update(news_object[i])
             if self.fast_evaluation:
                 user_vectors = self._run_user_data(model, news_vectors, data_loader)
-                if torch.distributed.is_initialized():
-                    torch.distributed.barrier()
-                    torch.distributed.all_gather_object(user_object, user_vectors)
-                    for i in range(2):
-                        user_vectors.update(user_object[i])
+                # if torch.distributed.is_initialized():
+                #     torch.distributed.barrier()
+                #     torch.distributed.all_gather_object(user_object, user_vectors)
+                #     for i in range(2):
+                #         user_vectors.update(user_object[i])
                 for batch_dict in tqdm(self.valid_loader, total=len(self.valid_loader)):
                     candidate_news = np.array([[
                             news_vectors[i.tolist()] for i in cans] for cans in batch_dict["candidate_index"]

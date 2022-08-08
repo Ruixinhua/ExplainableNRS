@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-import torch.distributed
+# import torch.distributed
 from news_recommendation.base.base_trainer import BaseTrainer
 from news_recommendation.utils import MetricTracker
 from tqdm import tqdm
@@ -26,23 +26,20 @@ class NCTrainer(BaseTrainer):
             metrics.extend(["doc_entropy"])
         self.train_metrics = MetricTracker(*metrics, writer=self.writer)
         self.valid_metrics = MetricTracker(*metrics, writer=self.writer)
-        # set up accelerator
-        try:
-            from accelerate import Accelerator
-            self.accelerator = Accelerator()
+        if hasattr(self, "accelerator"):
             self.model, self.optimizer, self.train_loader, self.lr_scheduler = self.accelerator.prepare(
                 self.model, self.optimizer, self.train_loader, self.lr_scheduler)
-        except ImportError:
-            self.logger.info("Accelerator is not installed. Please install it if you want to use it.")
 
     def load_batch_data(self, batch_dict):
         """
         load batch data to default device
         """
-        if torch.distributed.is_initialized():
-            return {k: v.cuda(self.device, non_blocking=True) for k, v in batch_dict.items()}
-        else:
-            return {k: v.to(self.device) for k, v in batch_dict.items()}
+        if hasattr(self, "accelerator"):
+            return batch_dict
+        # if torch.distributed.is_initialized():
+        #     return {k: v.cuda(self.device, non_blocking=True) for k, v in batch_dict.items()}
+        # else:
+        return {k: v.to(self.device) for k, v in batch_dict.items()}
 
     def run_model(self, batch_dict, model=None):
         """

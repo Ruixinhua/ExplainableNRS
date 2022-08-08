@@ -4,7 +4,7 @@ from pathlib import Path
 import torch
 import torch.backends.cudnn
 import torch.backends.cudnn as cudnn
-import torch.distributed as dist
+# import torch.distributed as dist
 import torch.nn.parallel
 from news_recommendation.experiment.quick_run import run
 from news_recommendation.config import Configuration
