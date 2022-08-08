@@ -32,20 +32,6 @@ class MindRSTrainer(NCTrainer):
         self.train_metrics.reset()
         return log
 
-    def run_model(self, batch_dict, model=None, evaluate=False):
-        """
-        run model with the batch data
-        :param batch_dict: the dictionary of data with format like {"news": Tensor(), "label": Tensor()}
-        :param model: by default we use the self model
-        :param evaluate: if eval is True, we will use the model in eval mode
-        :return: the output of running, label used for evaluation, and loss item
-        """
-        batch_dict = self.load_batch_data(batch_dict)
-        output = model(batch_dict) if model is not None else self.model(batch_dict)
-        loss = self.criterion(output[0], batch_dict["label"])
-        out_dict = {"label": batch_dict["label"], "loss": loss, "predict": output[0]}
-        return out_dict
-
     def _train_epoch(self, epoch):
         """
         Training logic for an epoch
@@ -54,10 +40,10 @@ class MindRSTrainer(NCTrainer):
         """
         self.model.train()
         self.train_metrics.reset()
-        length = len(self.data_loader)
+        length = len(self.train_loader)
         if torch.distributed.is_initialized():
-            self.data_loader.sampler.set_epoch(epoch)
-        bar = tqdm(enumerate(self.data_loader), total=length)
+            self.train_loader.sampler.set_epoch(epoch)
+        bar = tqdm(enumerate(self.train_loader), total=length)
         # self._validation(epoch, 0)
         for batch_idx, batch_dict in bar:
             # load data to device
@@ -68,7 +54,10 @@ class MindRSTrainer(NCTrainer):
             if torch.distributed.is_initialized():
                 torch.distributed.barrier()
             loss = self.criterion(output, batch_dict["label"])
-            loss.backward()
+            if hasattr(self, "accelerator"):
+                self.accelerator.backward(loss)
+            else:
+                loss.backward()
             self.optimizer.step()
             # record loss
             self.writer.set_step((epoch - 1) * self.len_epoch + batch_idx)

@@ -13,19 +13,27 @@ class NCTrainer(BaseTrainer):
     def __init__(self, model, config, data_loader, **kwargs):
         super().__init__(model, config)
         self.config = config
-        self.data_loader = data_loader.train_loader
+        self.train_loader = data_loader.train_loader
         self.entropy_constraint = config.get("entropy_constraint", False)
         self.calculate_entropy = config.get("calculate_entropy", self.entropy_constraint)
         self.alpha = config.get("alpha", 0.001)
-        self.len_epoch = len(self.data_loader)
+        self.len_epoch = len(self.train_loader)
         self.valid_loader = data_loader.valid_loader
         self.do_validation = self.valid_loader is not None
-        self.log_step = int(np.sqrt(self.data_loader.batch_size))
+        self.log_step = int(np.sqrt(self.train_loader.batch_size))
         metrics = ["loss"] + [m.__name__ for m in self.metric_ftns]
         if self.calculate_entropy:
             metrics.extend(["doc_entropy"])
         self.train_metrics = MetricTracker(*metrics, writer=self.writer)
         self.valid_metrics = MetricTracker(*metrics, writer=self.writer)
+        # set up accelerator
+        try:
+            from accelerate import Accelerator
+            self.accelerator = Accelerator()
+            self.model, self.optimizer, self.train_loader, self.lr_scheduler = self.accelerator.prepare(
+                self.model, self.optimizer, self.train_loader, self.lr_scheduler)
+        except ImportError:
+            self.logger.info("Accelerator is not installed. Please install it if you want to use it.")
 
     def load_batch_data(self, batch_dict):
         """
@@ -69,7 +77,7 @@ class NCTrainer(BaseTrainer):
         """
         self.model.train()
         self.train_metrics.reset()
-        bar = tqdm(enumerate(self.data_loader), total=len(self.data_loader))
+        bar = tqdm(enumerate(self.train_loader), total=len(self.train_loader))
         for batch_idx, batch_dict in bar:
             self.optimizer.zero_grad()  # setup gradient to zero
             out_dict = self.run_model(batch_dict, self.model)  # run model
