@@ -46,7 +46,7 @@ class MindRSTrainer(NCTrainer):
         # if torch.distributed.is_initialized():
         #     self.train_loader.sampler.set_epoch(epoch)
         bar = tqdm(enumerate(self.train_loader), total=length)
-        # self._validation(epoch, 0)
+        self._validation(epoch, 0)
         for batch_idx, batch_dict in bar:
             # load data to device
             batch_dict = self.load_batch_data(batch_dict)

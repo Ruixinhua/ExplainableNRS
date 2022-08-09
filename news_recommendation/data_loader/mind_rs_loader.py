@@ -5,13 +5,12 @@ import news_recommendation.dataset as module_dataset
 from collections import defaultdict
 from pathlib import Path
 from torch.nn.utils.rnn import pad_sequence
-from torch.utils.data import DistributedSampler
+# from torch.utils.data import DistributedSampler
 from torch.utils.data.dataloader import DataLoader
 from news_recommendation.config.configuration import Configuration
 from news_recommendation.config.default_config import TEST_CONFIGS
 from news_recommendation.dataset import NewsDataset, UserDataset, ImpressionDataset, MindRSDataset
 from news_recommendation.utils import load_dict, Tokenizer, read_json, get_project_root
-from news_recommendation.config.default_config import arch_default_config
 
 
 def bert_collate_fn(data):
