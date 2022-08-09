@@ -63,21 +63,21 @@ class MindDataLoader:
         # set tokenizer
         self.tokenizer = Tokenizer(**kwargs)
         bs, sampler = kwargs.get("batch_size", 64), None
-        fn = bert_collate_fn if self.tokenizer.embedding_type in TEST_CONFIGS["bert_embedding"] else collate_fn
+        self.fn = bert_collate_fn if self.tokenizer.embedding_type in TEST_CONFIGS["bert_embedding"] else collate_fn
         self.train_set = getattr(module_dataset, module_dataset_name)(self.tokenizer, phase="train", **kwargs)
         # if torch.distributed.is_initialized():
         #     sampler = DistributedSampler(self.train_set)
-        self.train_loader = DataLoader(self.train_set, bs, pin_memory=True, sampler=sampler, collate_fn=fn)
+        self.train_loader = DataLoader(self.train_set, bs, pin_memory=True, sampler=sampler, collate_fn=self.fn)
         # setup news and user dataset
         news_sampler = None
         self.valid_set = getattr(module_dataset, module_dataset_name)(self.tokenizer, phase="valid", **kwargs)
         news_set, user_set = NewsDataset(self.valid_set), UserDataset(self.valid_set)
         impression_set = ImpressionDataset(self.valid_set)
-        self.valid_loader = DataLoader(impression_set, 1, pin_memory=True, sampler=sampler, collate_fn=fn)
+        self.valid_loader = DataLoader(impression_set, 1, pin_memory=True, sampler=sampler, collate_fn=self.fn)
         # if torch.distributed.is_initialized():
         #     news_sampler, sampler = DistributedSampler(news_set), DistributedSampler(user_set)
         self.news_loader = DataLoader(news_set, bs, pin_memory=True, sampler=news_sampler)
-        self.user_loader = DataLoader(user_set, bs, pin_memory=True, sampler=sampler, collate_fn=fn)
+        self.user_loader = DataLoader(user_set, bs, pin_memory=True, sampler=sampler, collate_fn=self.fn)
 
     def set_dataset(self, phase, **kwargs):
         return MindRSDataset(self.tokenizer, phase=phase, **kwargs)

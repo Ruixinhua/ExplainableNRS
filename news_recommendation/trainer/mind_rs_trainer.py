@@ -3,9 +3,11 @@ import math
 import numpy as np
 import torch
 import torch.distributed
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from config.configuration import Configuration
+from dataset import UserDataset
 from trainer import NCTrainer
 
 
@@ -19,7 +21,7 @@ class MindRSTrainer(NCTrainer):
         self.valid_interval = config.get("valid_interval", 0.1)
         self.fast_evaluation = config.get("fast_evaluation", True)
         self.train_strategy = config.get("train_strategy", "pair_wise")
-        self.loader = data_loader
+        self.mind_loader = data_loader
         self.behaviors = data_loader.valid_set.behaviors
 
     def _validation(self, epoch, batch_idx, do_monitor=True):
@@ -74,8 +76,12 @@ class MindRSTrainer(NCTrainer):
 
     def _run_news_data(self, model, data_loader=None):
         news_vectors = {}
-        data_loader = self.loader if data_loader is None else data_loader
-        for batch_dict in tqdm(data_loader.news_loader, total=len(data_loader.news_loader)):
+        data_loader = self.mind_loader if data_loader is None else data_loader
+        if hasattr(self, "accelerator"):
+            news_loader = self.accelerator.prepare_data_loader(data_loader.news_loader)
+        else:
+            news_loader = data_loader.news_loader
+        for batch_dict in tqdm(news_loader, total=len(news_loader)):
             # load data to device
             batch_dict = self.load_batch_data(batch_dict)
             # run news encoder
@@ -92,15 +98,13 @@ class MindRSTrainer(NCTrainer):
         :return: user vectors dictionary using impression index as the key of dictionary
         """
         user_vectors = {}
-        data_loader = self.loader if data_loader is None else data_loader
-        for batch_dict in tqdm(data_loader.user_loader, total=len(data_loader.user_loader)):
+        data_loader = self.mind_loader if data_loader is None else data_loader
+        user_loader = DataLoader(UserDataset(data_loader.valid_set, news_vectors), self.config["batch_size"],
+                                 pin_memory=True, collate_fn=data_loader.fn)
+        if hasattr(self, "accelerator"):
+            user_loader = self.accelerator.prepare_data_loader(user_loader)
+        for batch_dict in tqdm(user_loader, total=len(user_loader)):
             # load data to device
-            input_feat = {
-                "history_news": torch.tensor(np.array(
-                    [[news_vectors[i.tolist()] for i in history] for history in batch_dict["history_index"]]
-                ))
-            }
-            batch_dict.update(input_feat)
             batch_dict = self.load_batch_data(batch_dict)
             # run news encoder
             user_vec = model.user_encoder(batch_dict)
@@ -124,18 +128,18 @@ class MindRSTrainer(NCTrainer):
         self.valid_metrics.reset()
         with torch.no_grad():
             news_vectors = self._run_news_data(model, data_loader)
-            # if torch.distributed.is_initialized():
-            #     torch.distributed.barrier()
-            #     torch.distributed.all_gather_object(news_object, news_vectors)
-            #     for i in range(2):
-            #         news_vectors.update(news_object[i])
+            if torch.distributed.is_initialized():
+                torch.distributed.barrier()
+                torch.distributed.all_gather_object(news_object, news_vectors)
+                for i in range(2):
+                    news_vectors.update(news_object[i])
             if self.fast_evaluation:
                 user_vectors = self._run_user_data(model, news_vectors, data_loader)
-                # if torch.distributed.is_initialized():
-                #     torch.distributed.barrier()
-                #     torch.distributed.all_gather_object(user_object, user_vectors)
-                #     for i in range(2):
-                #         user_vectors.update(user_object[i])
+                if torch.distributed.is_initialized():
+                    torch.distributed.barrier()
+                    torch.distributed.all_gather_object(user_object, user_vectors)
+                    for i in range(2):
+                        user_vectors.update(user_object[i])
                 for batch_dict in tqdm(self.valid_loader, total=len(self.valid_loader)):
                     candidate_news = np.array([[
                             news_vectors[i.tolist()] for i in cans] for cans in batch_dict["candidate_index"]

@@ -1,5 +1,6 @@
 import os
 import ast
+import time
 from pathlib import Path
 from itertools import product
 
@@ -11,6 +12,7 @@ from news_recommendation.utils import topic_evaluation, load_docs, filter_tokens
 
 
 def evaluate_run():
+    start_time = time.time()
     data_loader = init_data_loader(config)
     set_seed(config["seed"])
     trainer = run(config, data_loader=data_loader)
@@ -29,6 +31,7 @@ def evaluate_run():
         log["#Ref Voc"] = len(topic_dict)
         scores = topic_evaluation(trainer, topic_dict, topic_path, ref_texts, config.get("top_n", 25), log["#Voc"])
         log.update(scores)
+    log["Total Time"] = time.time() - start_time
     trainer.save_log(log, saved_path=saved_dir / f'{saved_name}.csv')
 
 

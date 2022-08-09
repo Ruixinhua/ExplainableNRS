@@ -214,9 +214,10 @@ class MindRSDataset(Dataset):
 
 
 class UserDataset(Dataset):
-    def __init__(self, dataset: MindRSDataset):
+    def __init__(self, dataset: MindRSDataset, news_vectors: dict = None):
         self.dataset = dataset
         self.behaviors = dataset.behaviors
+        self.news_vectors = news_vectors
 
     def __getitem__(self, i):
         # get the matrix of corresponding news features with index
@@ -225,7 +226,8 @@ class UserDataset(Dataset):
         input_feat.update({
             "impression_index": torch.tensor(i), "uid": torch.tensor(self.behaviors["uid"][i]),
             # "padding": self.tokenizer.pad_id,  # TODO: pad sentence
-            "history_length": torch.tensor(len(history_index))
+            "history_length": torch.tensor(len(history_index)),
+            "history_news": torch.tensor(np.array([self.news_vectors[history] for history in history_index]))
         })
         return input_feat
 
