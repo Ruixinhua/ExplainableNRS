@@ -7,7 +7,7 @@ from pathlib import Path
 from torch.nn.utils.rnn import pad_sequence
 # from torch.utils.data import DistributedSampler
 from torch.utils.data.dataloader import DataLoader
-from news_recommendation.config.configuration import Configuration
+# from news_recommendation.config.configuration import Configuration
 from news_recommendation.config.default_config import TEST_CONFIGS
 from news_recommendation.dataset import NewsDataset, UserDataset, ImpressionDataset, MindRSDataset
 from news_recommendation.utils import load_dict, Tokenizer, read_json, get_project_root
@@ -30,6 +30,7 @@ def bert_collate_fn(data):
 
 
 def pad_feat(input_feat):
+    padded_list = {"news_index", "news_mask", "history_index", "history_mask", "candidate_index", "candidate_mask"}
     input_pad = {}
     for k, v in input_feat.items():
         try:
@@ -75,18 +76,9 @@ class MindDataLoader:
         self.valid_loader = DataLoader(impression_set, 1, pin_memory=True, sampler=sampler, collate_fn=self.fn)
         # if torch.distributed.is_initialized():
         #     news_sampler, sampler = DistributedSampler(news_set), DistributedSampler(user_set)
-        self.news_loader = DataLoader(news_set, bs, pin_memory=True, sampler=news_sampler)
-        self.user_loader = DataLoader(user_set, bs, pin_memory=True, sampler=sampler, collate_fn=self.fn)
+        news_batch_size = kwargs.get("news_batch_size", 2048)
+        self.news_loader = DataLoader(news_set, news_batch_size, sampler=news_sampler)
+        self.user_loader = DataLoader(user_set, bs, sampler=sampler, collate_fn=self.fn)
 
     def set_dataset(self, phase, **kwargs):
         return MindRSDataset(self.tokenizer, phase=phase, **kwargs)
-
-
-if __name__ == "__main__":
-    config = Configuration()
-    default_config = read_json(Path(get_project_root()) / "news_recommendation" / "config" / "mind_rs_default.json")
-    config.update(default_config)
-    config["batch_size"] = 10
-    train_loader = MindDataLoader(**config.final_configs).train_loader
-    for batch in train_loader:
-        break

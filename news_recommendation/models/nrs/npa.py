@@ -43,9 +43,13 @@ class NPARSModel(MindNRSBase):
         return y
 
     def user_encoder(self, input_feat):
-        news_emb, user_ids = input_feat["history_news"], input_feat["uid"]
+        if "history_news" in input_feat:
+            news_emb = input_feat["history_news"]
+        else:
+            news_emb = self.time_distributed(input_feat["history"], input_feat["history_mask"],
+                                             uid=input_feat["uid"])  # [N, H, E]
         if self.user_embed_method == "init":
-            user_emb = self.user_transform(self.user_embedding(user_ids))
+            user_emb = self.user_transform(self.user_embedding(input_feat["uid"]))
             y = self.user_att_layer(news_emb, user_emb)[0]
         else:  # default use last hidden output
             y = self.user_att_layer(news_emb)[0]
@@ -69,11 +73,11 @@ class NPARSModel(MindNRSBase):
         :param input_feat: should include two keys, candidate and history
         :return: prediction result in softmax possibility
         """
-        # [N, C, E]
-        input_feat["candidate_news"] = self.time_distributed(input_feat["candidate"], input_feat["candidate_mask"],
-                                                             uid=input_feat["uid"])
-        # [N, H, E]
-        input_feat["history_news"] = self.time_distributed(input_feat["history"], input_feat["history_mask"],
-                                                           uid=input_feat["uid"])
-        input_feat["history_news"] = self.user_encoder(input_feat)  # user modeling: [N, E]
+        if "candidate_news" not in input_feat:  # pass news embeddings cache in evaluation stage
+            input_feat["candidate_news"] = self.time_distributed(input_feat["candidate"], input_feat["candidate_mask"],
+                                                                 uid=input_feat["uid"])  # [N, C, E]
+        if "user_embeds" not in input_feat:  # no cache found
+            input_feat["history_news"] = self.time_distributed(input_feat["history"], input_feat["history_mask"],
+                                                               uid=input_feat["uid"])  # [N, H, E]
+            input_feat["user_embeds"] = self.user_encoder(input_feat)  # user modeling: [N, E]
         return self.predict(input_feat)

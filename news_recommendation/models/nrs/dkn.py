@@ -136,8 +136,8 @@ class DKNRSModel(MindNRSBase):
         :param input_feat: should include encoded candidate news and user representations (history_news)
         :return: softmax possibility of click candidate news
         """
-        candidate_news, user_vector = input_feat["candidate_news"], input_feat["history_news"]
+        candidate_news, user_embeds = input_feat["candidate_news"], input_feat["user_embeds"]
         shape = candidate_news.shape
         pred = self.click_predictor(
-            candidate_news.view(shape[0]*shape[1], shape[2]), user_vector.view(shape[0]*shape[1], shape[2]))
+            candidate_news.view(shape[0]*shape[1], shape[2]), user_embeds.view(shape[0]*shape[1], shape[2]))
         return pred.view(shape[0], shape[1])

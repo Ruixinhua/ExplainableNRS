@@ -1,5 +1,5 @@
 import math
-
+import time
 import numpy as np
 import torch
 import torch.distributed
@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from config.configuration import Configuration
-from dataset import UserDataset
+from dataset import UserDataset, ImpressionDataset
 from trainer import NCTrainer
 
 
@@ -74,52 +74,75 @@ class MindRSTrainer(NCTrainer):
             self.lr_scheduler.step()
         return self._validation(epoch, length, False)
 
-    def _run_news_data(self, model, data_loader=None):
-        news_vectors = {}
+    @staticmethod
+    def gather_vectors(vectors, process_num=2):
+        """
+        gather vectors from all processes
+        :param process_num: number of process
+        :param vectors: vectors to gather
+        :return: gathered numpy array vectors
+        """
+        vectors_object = [{} for _ in range(process_num)]  # used for distributed inference
+        if torch.distributed.is_initialized():
+            torch.distributed.barrier()
+            torch.distributed.all_gather_object(vectors_object, vectors)
+            for i in range(process_num):
+                vectors.update(vectors_object[i])
+        return np.array([vectors[i] for i in range(len(vectors))])
+
+    def get_news_embeds(self, model, data_loader=None):
+        """
+        run news model and return news vectors (numpy matrix)
+        :param model: target running model
+        :param data_loader: data loader object used to load news data
+        :return: numpy matrix of news vectors (each row is a news vector)
+        """
+        news_embeds = {}
         data_loader = self.mind_loader if data_loader is None else data_loader
-        if hasattr(self, "accelerator"):
-            news_loader = self.accelerator.prepare_data_loader(data_loader.news_loader)
-        else:
-            news_loader = data_loader.news_loader
+        news_loader = self.prepare_loader(data_loader.news_loader)
         for batch_dict in tqdm(news_loader, total=len(news_loader)):
             # load data to device
             batch_dict = self.load_batch_data(batch_dict)
             # run news encoder
             news_vec = model.news_encoder(batch_dict)
             # update news vectors
-            news_vectors.update(dict(zip(batch_dict["index"].cpu().tolist(), news_vec.cpu().numpy())))
-        return news_vectors
+            news_embeds.update(dict(zip(batch_dict["index"].cpu().tolist(), news_vec.cpu().numpy())))
+        return self.gather_vectors(news_embeds)
 
-    def _run_user_data(self, model, news_vectors, data_loader=None):
+    def prepare_loader(self, data_loader):
+        if hasattr(self, "accelerator"):
+            data_loader = self.accelerator.prepare_data_loader(data_loader)
+        return data_loader
+
+    def get_user_embeds(self, model, news_embeds, data_loader=None):
         """
         run user model and return user vectors
+        :param data_loader: data loader object used to load user data
         :param model: a model with a user encoder
-        :param news_vectors: cached news vectors dictionary
+        :param news_embeds: cached news vectors dictionary
         :return: user vectors dictionary using impression index as the key of dictionary
         """
-        user_vectors = {}
+        user_embeds = {}
         data_loader = self.mind_loader if data_loader is None else data_loader
-        user_loader = DataLoader(UserDataset(data_loader.valid_set, news_vectors), self.config["batch_size"],
-                                 pin_memory=True, collate_fn=data_loader.fn)
-        if hasattr(self, "accelerator"):
-            user_loader = self.accelerator.prepare_data_loader(user_loader)
+        user_batch_size = self.config.get("user_batch_size", 4096)
+        user_dataset = UserDataset(data_loader.valid_set, news_embeds)
+        user_loader = self.prepare_loader(DataLoader(user_dataset,  user_batch_size, collate_fn=data_loader.fn))
         for batch_dict in tqdm(user_loader, total=len(user_loader)):
             # load data to device
             batch_dict = self.load_batch_data(batch_dict)
             # run news encoder
             user_vec = model.user_encoder(batch_dict)
             # update news vectors
-            user_vectors.update(dict(zip(batch_dict["impression_index"].cpu().tolist(), user_vec.cpu().numpy())))
-        return user_vectors
+            user_embeds.update(dict(zip(batch_dict["impression_index"].cpu().tolist(), user_vec.cpu().numpy())))
+        return self.gather_vectors(user_embeds)
 
     def _valid_epoch(self, model=None, data_loader=None):
         """
         Validate after training an epoch
         :return: A log that contains information about validation
         """
-        # used for distributed validation
-        news_object, user_object = [{} for _ in range(2)], [{} for _ in range(2)]
         group_label, group_pred = [], []
+        impression_bs = self.config.get("impression_batch_size", 1024)
         if torch.distributed.is_initialized():
             model = self.model.module if model is None else model.module
         else:
@@ -127,53 +150,23 @@ class MindRSTrainer(NCTrainer):
         model.eval()
         self.valid_metrics.reset()
         with torch.no_grad():
-            news_vectors = self._run_news_data(model, data_loader)
-            if torch.distributed.is_initialized():
-                torch.distributed.barrier()
-                torch.distributed.all_gather_object(news_object, news_vectors)
-                for i in range(2):
-                    news_vectors.update(news_object[i])
-            if self.fast_evaluation:
-                user_vectors = self._run_user_data(model, news_vectors, data_loader)
-                if torch.distributed.is_initialized():
-                    torch.distributed.barrier()
-                    torch.distributed.all_gather_object(user_object, user_vectors)
-                    for i in range(2):
-                        user_vectors.update(user_object[i])
-                for batch_dict in tqdm(self.valid_loader, total=len(self.valid_loader)):
-                    candidate_news = np.array([[
-                            news_vectors[i.tolist()] for i in cans] for cans in batch_dict["candidate_index"]
-                    ])
-                    history_news = np.array(
-                            [user_vectors[index.tolist()] for index in batch_dict["impression_index"]]
-                    )
-                    if self.config["out_layer"] == "product":
-                        pred = np.dot(candidate_news.squeeze(0), history_news.squeeze(0))
-                    else:
-                        input_feat = {
-                            "candidate_news": torch.tensor(candidate_news),
-                            "history_news": torch.tensor(history_news)
-                        }
-                        batch_dict.update(input_feat)
-                        batch_dict = self.load_batch_data(batch_dict)
-                        pred = model.predict(batch_dict, evaluate=True).cpu().squeeze().tolist()
-                    group_pred.append(pred)
-                    group_label.append(batch_dict["label"].squeeze().cpu().tolist())
-            else:
-                behaviors = data_loader.valid_set.behaviors
-                # TODO: slow evaluation
-                behaviors = zip(*[behaviors[attr] for attr in ["history_news", "candidate_news", "labels"]])
-                for history, candidate, label in tqdm(behaviors, total=len(behaviors["labels"])):
-                    # setup input feat of history news and candidate news
-                    input_feat = {
-                        "history_news": torch.tensor(np.array([[news_vectors[i] for i in history]])),
-                        "candidate_news": torch.tensor(np.array([[news_vectors[i] for i in candidate]])),
-                        "history_length": torch.tensor([len(history)]),
-                    }
-                    input_feat = self.load_batch_data(input_feat)
-                    input_feat["history_news"] = model.user_encoder(input_feat)
-                    group_pred.append(model.predict(input_feat).squeeze().cpu().tolist())
-                    group_label.append(label)
+            try:  # try to do fast evaluation: cache news embeddings 
+                news_embeds = self.get_news_embeds(model, data_loader)
+            except KeyError or RuntimeError:  # slow evaluation: re-calculate news embeddings every time
+                news_embeds = None
+            try:  # try to do fast evaluation: cache user embeddings 
+                user_embeds = self.get_user_embeds(model, news_embeds, data_loader)
+            except KeyError or RuntimeError:  # slow evaluation
+                user_embeds = None
+            imp_set = ImpressionDataset(self.mind_loader.valid_set, news_embeds, user_embeds)
+            valid_loader = self.prepare_loader(DataLoader(imp_set, impression_bs, collate_fn=self.mind_loader.fn))
+            for batch_dict in tqdm(valid_loader, total=len(valid_loader)):  # run model
+                batch_dict = self.load_batch_data(batch_dict)
+                label = batch_dict["label"].cpu().tolist()
+                pred = model(batch_dict).cpu().tolist()
+                candidate_length = batch_dict["candidate_length"].cpu().tolist()
+                group_pred.extend([pred[i][:candidate_length[i]] for i in range(len(pred))])
+                group_label.extend([label[i][:candidate_length[i]] for i in range(len(label))])
             for met in self.metric_ftns:
                 self.valid_metrics.update(met.__name__, met(group_label, group_pred))
         return self.valid_metrics.result()

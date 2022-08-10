@@ -65,10 +65,10 @@ class MindNRSBase(BaseModel):
         :param input_feat: should include encoded candidate news and user representations (history_news)
         :return: softmax possibility of click candidate news
         """
-        candidate_news, user_vector = input_feat["candidate_news"], input_feat["history_news"]
-        if self.out_layer == "mlp" and len(candidate_news.shape) != len(user_vector.shape):
-            user_vector = torch.unsqueeze(user_vector, 1).expand([user_vector.shape[0], candidate_news.shape[1], -1])
-        pred = self.click_predictor(candidate_news, user_vector)
+        candidate_news, user_embeds = input_feat["candidate_news"], input_feat["user_embeds"]
+        if self.out_layer == "mlp" and len(candidate_news.shape) != len(user_embeds.shape):
+            user_embeds = torch.unsqueeze(user_embeds, 1).expand([user_embeds.shape[0], candidate_news.shape[1], -1])
+        pred = self.click_predictor(candidate_news, user_embeds)
         return pred
 
     def forward(self, input_feat):
@@ -77,9 +77,11 @@ class MindNRSBase(BaseModel):
         :param input_feat: should include two keys, candidate and history
         :return: prediction result in softmax possibility
         """
-        # [N, C, E]
-        input_feat["candidate_news"] = self.time_distributed(input_feat["candidate"], input_feat["candidate_mask"])
-        # [N, H, E]
-        input_feat["history_news"] = self.time_distributed(input_feat["history"], input_feat["history_mask"])
-        input_feat["history_news"] = self.user_encoder(input_feat)  # user modeling: [N, E]
+        if "candidate_news" not in input_feat:  # pass news embeddings cache in evaluation stage
+            input_feat["candidate_news"] = self.time_distributed(input_feat["candidate"], input_feat["candidate_mask"])
+            # output candidate news embedding shape: [N, C, E], C is the number of candidate news
+        if "user_embeds" not in input_feat:  # no cache found
+            input_feat["history_news"] = self.time_distributed(input_feat["history"], input_feat["history_mask"])
+            # output history news embedding shape: [N, H, E], H is the number of history news
+            input_feat["user_embeds"] = self.user_encoder(input_feat)  # user embedding shape: [N, E]
         return self.predict(input_feat)

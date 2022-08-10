@@ -162,22 +162,22 @@ class MindRSDataset(Dataset):
                 imp_index += 1
         rd.close()
 
-    def load_news_feat(self, indices, name):
+    def load_news_index(self, indices, input_name):
         """
 
         :param indices: index of news
-        :param name: corresponding saved name of feat
+        :param input_name: corresponding saved name of feat
         :return: a default dictionary with keys called name.
         """
         # get the matrix of corresponding news features with index
         news = [self.news_matrix[k][indices] for k in self.news_matrix.keys()]
         input_feat = {
-            name: torch.tensor(np.concatenate(news, axis=-1), dtype=torch.long),
-            f"{name}_index": torch.tensor(indices, dtype=torch.long),
+            input_name: torch.tensor(np.concatenate(news, axis=-1), dtype=torch.long),
+            f"{input_name}_index": torch.tensor(indices, dtype=torch.long),
         }
         # pass news mask to the model
-        mask = np.where(input_feat[name] == self.tokenizer.pad_id, self.tokenizer.pad_id, 1)
-        input_feat[f"{name}_mask"] = torch.tensor(mask, dtype=torch.int8)
+        mask = np.where(input_feat[input_name] == self.tokenizer.pad_id, self.tokenizer.pad_id, 1)
+        input_feat[f"{input_name}_mask"] = torch.tensor(mask, dtype=torch.int32)
         return input_feat
 
     def __getitem__(self, index):
@@ -201,12 +201,12 @@ class MindRSDataset(Dataset):
             candidate = [can_news]
         # define input feat
         input_feat = {
-            "history_length": torch.tensor(len(history), dtype=torch.int8),
-            # "padding": torch.tensor(self.tokenizer.tokenize("", 0), dtype=torch.int8),  # TODO padding sentence
+            "history_length": torch.tensor(len(history), dtype=torch.int32),
+            # "padding": torch.tensor(self.tokenizer.tokenize("", 0), dtype=torch.int32),  # TODO padding sentence
             "label": torch.tensor(label, dtype=torch.long), "uid": torch.tensor(user_index, dtype=torch.long),
         }
-        input_feat.update(self.load_news_feat(history, "history"))
-        input_feat.update(self.load_news_feat(candidate, "candidate"))
+        input_feat.update(self.load_news_index(history, "history"))
+        input_feat.update(self.load_news_index(candidate, "candidate"))
         return input_feat
 
     def __len__(self):
@@ -214,21 +214,23 @@ class MindRSDataset(Dataset):
 
 
 class UserDataset(Dataset):
-    def __init__(self, dataset: MindRSDataset, news_vectors: dict = None):
+    def __init__(self, dataset: MindRSDataset, news_vectors=None):
         self.dataset = dataset
         self.behaviors = dataset.behaviors
-        self.news_vectors = news_vectors
+        self.news_vectors = news_vectors  # news vectors are in the form of a numpy matrix
 
     def __getitem__(self, i):
         # get the matrix of corresponding news features with index
-        history_index = self.behaviors["history_news"][i]
-        input_feat = self.dataset.load_news_feat(history_index, "history")
-        input_feat.update({
+        history = self.behaviors["history_news"][i]
+        input_feat = {
             "impression_index": torch.tensor(i), "uid": torch.tensor(self.behaviors["uid"][i]),
             # "padding": self.tokenizer.pad_id,  # TODO: pad sentence
-            "history_length": torch.tensor(len(history_index)),
-            "history_news": torch.tensor(np.array([self.news_vectors[history] for history in history_index]))
-        })
+            "history_length": torch.tensor(len(history)),
+        }
+        if self.news_vectors is not None:  # if news vectors are provided, use them
+            input_feat["history_news"] = torch.tensor(self.news_vectors[history])
+        else:  # otherwise, load from news feat
+            input_feat.update(self.dataset.load_news_index(history, "history"))
         return input_feat
 
     def __len__(self):
@@ -241,7 +243,7 @@ class NewsDataset(Dataset):
 
     def __getitem__(self, i):
         input_feat = {"index": torch.tensor(i)}
-        input_feat.update(self.dataset.load_news_feat(i, "news"))
+        input_feat.update(self.dataset.load_news_index(i, "news"))
         return input_feat
 
     def __len__(self):
@@ -249,15 +251,31 @@ class NewsDataset(Dataset):
 
 
 class ImpressionDataset(Dataset):
-    def __init__(self, dataset: MindRSDataset):
+    def __init__(self, dataset: MindRSDataset, news_embeds=None, user_embeds=None):
         self.dataset = dataset
         self.behaviors = dataset.behaviors
+        self.news_embeds = news_embeds  # news embeddings (numpy matrix)
+        self.user_embeds = user_embeds  # user embeddings (numpy matrix)
 
     def __getitem__(self, index):
         candidate = self.behaviors["candidate_news"][index]
-        input_feat = {"impression_index": torch.tensor(index), "candidate_index": torch.tensor(candidate)}
+        history = self.behaviors["history_news"][index]
+        input_feat = {
+            "impression_index": torch.tensor(index, dtype=torch.int32),  # index of impression and for user history
+            "candidate_length": torch.tensor(len(candidate), dtype=torch.int32),  # length of candidate news
+            "history_length": torch.tensor(len(history), dtype=torch.int32),  # length of user history news
+            "uid": torch.tensor(self.behaviors["uid"][index], dtype=torch.long)
+        }
         if self.dataset.phase != "test":
-            input_feat.update({"label": torch.tensor(self.behaviors["labels"][index])})
+            input_feat.update({"label": torch.tensor(self.behaviors["labels"][index])})  # load true label of behaviors
+        if self.news_embeds is not None:
+            input_feat["candidate_news"] = torch.tensor(self.news_embeds[candidate])  # load news embed from cache
+        else:
+            input_feat.update(self.dataset.load_news_index(candidate, "candidate"))  # load candidate news input
+        if self.user_embeds is not None:
+            input_feat["user_embeds"] = torch.tensor(self.user_embeds[index])  # load user embed from cache
+        else:
+            input_feat.update(self.dataset.load_news_index(history, "history"))  # load history news input
         return input_feat
 
     def __len__(self):
