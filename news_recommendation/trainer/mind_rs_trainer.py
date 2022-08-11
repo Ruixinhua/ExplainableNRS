@@ -43,18 +43,14 @@ class MindRSTrainer(NCTrainer):
         self.model.train()
         self.train_metrics.reset()
         length = len(self.train_loader)
-        # if torch.distributed.is_initialized():
-        #     self.train_loader.sampler.set_epoch(epoch)
         bar = tqdm(enumerate(self.train_loader), total=length)
-        self._validation(epoch, 0)
+        # self._validation(epoch, 0)
         for batch_idx, batch_dict in bar:
             # load data to device
             batch_dict = self.load_batch_data(batch_dict)
             # setup model and train model
             self.optimizer.zero_grad()
             output = self.model(batch_dict)
-            # if torch.distributed.is_initialized():
-            #     torch.distributed.barrier()
             loss = self.criterion(output, batch_dict["label"])
             if hasattr(self, "accelerator"):
                 self.accelerator.backward(loss)

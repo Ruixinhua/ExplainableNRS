@@ -36,9 +36,6 @@ class NCTrainer(BaseTrainer):
         """
         if hasattr(self, "accelerator"):
             return batch_dict
-        # if torch.distributed.is_initialized():
-        #     return {k: v.cuda(self.device, non_blocking=True) for k, v in batch_dict.items()}
-        # else:
         return {k: v.to(self.device) for k, v in batch_dict.items()}
 
     def run_model(self, batch_dict, model=None):
