@@ -5,6 +5,8 @@ import os
 import pickle
 import random
 import torch
+import torch.distributed
+import numpy as np
 from collections import OrderedDict
 from pathlib import Path
 from typing import Union, Dict
@@ -124,3 +126,28 @@ def init_model_class(config, *args, **kwargs):
     module_model = importlib.import_module("news_recommendation.models")
     model_class = init_obj(config.arch_type, config.final_configs, module_model, *args, **kwargs)
     return model_class
+
+
+def gather_dict(dict_object, process_num=2):
+    """
+    gather vectors from all processes
+    :param process_num: number of process
+    :param dict_object: vectors to gather
+    :return: gathered numpy array vectors
+    """
+    if torch.distributed.is_initialized():
+        dicts_object = [{} for _ in range(process_num)]  # used for distributed inference
+        torch.distributed.barrier()
+        torch.distributed.all_gather_object(dicts_object, dict_object)
+        for i in range(process_num):
+            dict_object.update(dicts_object[i])
+    return dict_object
+
+
+def convert_dict_to_numpy(dict_object):
+    """
+    convert dict to numpy array
+    :param dict_object: dict to convert
+    :return: numpy array
+    """
+    return np.array([dict_object[i] for i in range(len(dict_object))])

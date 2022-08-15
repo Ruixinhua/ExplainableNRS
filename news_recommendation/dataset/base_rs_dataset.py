@@ -251,11 +251,10 @@ class NewsDataset(Dataset):
 
 
 class ImpressionDataset(Dataset):
-    def __init__(self, dataset: MindRSDataset, news_embeds=None, user_embeds=None):
+    def __init__(self, dataset: MindRSDataset, news_embeds=None):
         self.dataset = dataset
         self.behaviors = dataset.behaviors
         self.news_embeds = news_embeds  # news embeddings (numpy matrix)
-        self.user_embeds = user_embeds  # user embeddings (numpy matrix)
 
     def __getitem__(self, index):
         candidate = self.behaviors["candidate_news"][index]
@@ -270,12 +269,9 @@ class ImpressionDataset(Dataset):
             input_feat.update({"label": torch.tensor(self.behaviors["labels"][index])})  # load true label of behaviors
         if self.news_embeds is not None:
             input_feat["candidate_news"] = torch.tensor(self.news_embeds[candidate])  # load news embed from cache
+            input_feat["history_news"] = torch.tensor(self.news_embeds[history])  # load news embed from cache
         else:
             input_feat.update(self.dataset.load_news_index(candidate, "candidate"))  # load candidate news input
-        if self.user_embeds is not None:
-            input_feat["user_embeds"] = torch.tensor(self.user_embeds[index])  # load user embed from cache
-        else:
-            input_feat.update(self.dataset.load_news_index(history, "history"))  # load history news input
         return input_feat
 
     def __len__(self):

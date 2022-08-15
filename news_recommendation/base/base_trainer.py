@@ -4,7 +4,6 @@ from news_recommendation import utils as module_loss
 import news_recommendation.utils.metric_utils as module_metric
 from news_recommendation.utils import prepare_device
 import torch
-# import torch.distributed
 import pandas as pd
 from abc import abstractmethod
 from numpy import inf
@@ -37,7 +36,7 @@ class BaseTrainer:
         self.best_model = copy.deepcopy(model)
         # get function handles of loss and metrics
         self.criterion = getattr(module_loss, config["loss"])
-        self.metric_ftns = [getattr(module_metric, met) for met in config["metrics"]]
+        self.metric_funcs = [getattr(module_metric, met) for met in config["metrics"]]
         # build optimizer, learning rate scheduler. delete every lines containing lr_scheduler for disabling scheduler
         self.optimizer = self._build_optimizer()
         self.lr_scheduler = self._build_lr_scheduler()
@@ -193,10 +192,6 @@ class BaseTrainer:
         if checkpoint["config"] != self.config:
             self.logger.warning("Warning: Architecture configuration given in config file is different from that of "
                                 "checkpoint. This may yield an exception while state_dict is being loaded.")
-        # if torch.distributed.is_initialized():
-        #     self.model.load_state_dict(checkpoint["state_dict"])
-        # else:
-        #     self.model.load_state_dict(checkpoint["state_dict"])
         self.model.load_state_dict(checkpoint["state_dict"])
         # load optimizer state from checkpoint only when optimizer type is not changed.
         if checkpoint["config"]["optimizer_config"] != self.config["optimizer_config"]:

@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 import pandas as pd
 import numpy as np
 import torch
@@ -5,18 +7,32 @@ from sklearn.metrics import roc_auc_score, f1_score
 
 
 class MetricTracker:
-    def __init__(self, *keys, writer=None):
+    def __init__(self, *funcs, writer=None):
         self.writer = writer
+        self.funcs = funcs
+        keys = [m.__name__ for m in funcs]
         self._data = pd.DataFrame(index=keys, columns=["total", "counts", "average"])
+        self.result_dict = defaultdict(lambda: {})
         self.reset()
 
     def reset(self):
+        self.result_dict = defaultdict(lambda: {})
         for col in self._data.columns:
             self._data[col].values[:] = 0
+
+    def compute(self, batch_dict):
+        for m in self.funcs:
+            if not isinstance(batch_dict["label"][0], list):
+                self.result_dict[batch_dict["index"]] = m(batch_dict["label"], batch_dict["pred"])
+            else:
+                for (i, l, p) in zip(batch_dict["index"], batch_dict["label"], batch_dict["pred"]):
+                    self.result_dict[i] = m(l, p)
 
     def update(self, key, value, n=1):
         if self.writer is not None:
             self.writer.add_scalar(key, value)
+        if key not in self._data.index:
+            self._data.loc[key] = [0, 0, 0]
         self._data.total[key] += value * n
         self._data.counts[key] += n
         self._data.average[key] = round(self._data.total[key] / self._data.counts[key], 6)
@@ -26,6 +42,10 @@ class MetricTracker:
 
     def result(self):
         return dict(self._data.average)
+
+    def average(self):
+        df = pd.DataFrame.from_dict(self.result_dict, orient="index")
+        return dict(np.round(df.mean(), 4))
 
 
 def accuracy(output, target):
@@ -46,8 +66,8 @@ def mrr_score(y_true, y_score):
     """Computing mrr score metric.
 
     Args:
-        y_true (np.ndarray): ground-truth labels.
-        y_score (np.ndarray): predicted labels.
+        y_true (np.ndarray): ground-truth label.
+        y_score (np.ndarray): predicted label.
 
     Returns:
         np.ndarray: mrr scores.
@@ -62,8 +82,8 @@ def dcg_score(y_true, y_score, k=10):
     """Computing dcg score metric at k.
 
     Args:
-        y_true (np.ndarray): ground-truth labels.
-        y_score (np.ndarray): predicted labels.
+        y_true (np.ndarray): ground-truth label.
+        y_score (np.ndarray): predicted label.
         k
 
     Returns:
@@ -81,8 +101,8 @@ def ndcg_score(y_true, y_score, k=10):
     """Computing ndcg score metric at k.
 
     Args:
-        y_true (np.ndarray): ground-truth labels.
-        y_score (np.ndarray): predicted labels.
+        y_true (np.ndarray): ground-truth label.
+        y_score (np.ndarray): predicted label.
         k
 
     Returns:
@@ -93,21 +113,30 @@ def ndcg_score(y_true, y_score, k=10):
     return actual / best
 
 
-def group_auc(labels, pred):
-    return round(np.mean([roc_auc_score(label, p) for label, p in zip(labels, pred)]).item(), 4)
+def group_auc(label, pred):
+    if isinstance(label[0], list):
+        return round(np.mean([roc_auc_score(l, p) for l, p in zip(label, pred)]).item(), 4)
+    else:
+        return roc_auc_score(label, pred)
 
 
-def mean_mrr(labels, pred):
-    return round(np.mean([mrr_score(label, p) for label, p in zip(labels, pred)]).item(), 4)
+def mean_mrr(label, pred):
+    if isinstance(label[0], list):
+        return round(np.mean([mrr_score(l, p) for l, p in zip(label, pred)]).item(), 4)
+    else:
+        return mrr_score(label, pred)
 
 
-def ndcg(labels, pred, k):
-    return round(np.mean([ndcg_score(label, p, k) for label, p in zip(labels, pred)]).item(), 4)
+def ndcg(label, pred, k):
+    if isinstance(label[0], list):
+        return round(np.mean([ndcg_score(l, p, k) for l, p in zip(label, pred)]).item(), 4)
+    else:
+        return ndcg_score(label, pred, k)
 
 
-def ndcg_5(labels, pred):
-    return ndcg(labels, pred, 5)
+def ndcg_5(label, pred):
+    return ndcg(label, pred, 5)
 
 
-def ndcg_10(labels, pred):
-    return ndcg(labels, pred, 10)
+def ndcg_10(label, pred):
+    return ndcg(label, pred, 10)

@@ -76,8 +76,8 @@ class NPARSModel(MindNRSBase):
         if "candidate_news" not in input_feat:  # pass news embeddings cache in evaluation stage
             input_feat["candidate_news"] = self.time_distributed(input_feat["candidate"], input_feat["candidate_mask"],
                                                                  uid=input_feat["uid"])  # [N, C, E]
-        if "user_embeds" not in input_feat:  # no cache found
+        if "history_news" not in input_feat:  # no cache found
             input_feat["history_news"] = self.time_distributed(input_feat["history"], input_feat["history_mask"],
                                                                uid=input_feat["uid"])  # [N, H, E]
-            input_feat["user_embeds"] = self.user_encoder(input_feat)  # user modeling: [N, E]
+        input_feat["user_embeds"] = self.user_encoder(input_feat)  # user modeling: [N, E]
         return self.predict(input_feat)

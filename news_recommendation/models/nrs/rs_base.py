@@ -80,8 +80,8 @@ class MindNRSBase(BaseModel):
         if "candidate_news" not in input_feat:  # pass news embeddings cache in evaluation stage
             input_feat["candidate_news"] = self.time_distributed(input_feat["candidate"], input_feat["candidate_mask"])
             # output candidate news embedding shape: [N, C, E], C is the number of candidate news
-        if "user_embeds" not in input_feat:  # no cache found
+        if "history_news" not in input_feat:  # no cache found
             input_feat["history_news"] = self.time_distributed(input_feat["history"], input_feat["history_mask"])
             # output history news embedding shape: [N, H, E], H is the number of history news
-            input_feat["user_embeds"] = self.user_encoder(input_feat)  # user embedding shape: [N, E]
+        input_feat["user_embeds"] = self.user_encoder(input_feat)  # user embedding shape: [N, E]
         return self.predict(input_feat)

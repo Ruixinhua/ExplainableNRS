@@ -21,11 +21,8 @@ class NCTrainer(BaseTrainer):
         self.valid_loader = data_loader.valid_loader
         self.do_validation = self.valid_loader is not None
         self.log_step = int(np.sqrt(self.train_loader.batch_size))
-        metrics = ["loss"] + [m.__name__ for m in self.metric_ftns]
-        if self.calculate_entropy:
-            metrics.extend(["doc_entropy"])
-        self.train_metrics = MetricTracker(*metrics, writer=self.writer)
-        self.valid_metrics = MetricTracker(*metrics, writer=self.writer)
+        self.train_metrics = MetricTracker(*self.metric_funcs, writer=self.writer)
+        self.valid_metrics = MetricTracker(*self.metric_funcs, writer=self.writer)
         if hasattr(self, "accelerator"):
             self.model, self.optimizer, self.train_loader, self.lr_scheduler = self.accelerator.prepare(
                 self.model, self.optimizer, self.train_loader, self.lr_scheduler)
@@ -60,7 +57,7 @@ class NCTrainer(BaseTrainer):
         metrics.update("loss", out_dict["loss"].item(), n=n)  # update metrix
         if self.calculate_entropy:
             metrics.update("doc_entropy", out_dict["entropy"].item() / n, n=n)
-        for met in self.metric_ftns:  # run metric functions
+        for met in self.metric_funcs:  # run metric functions
             metrics.update(met.__name__, met(out_dict["predict"], out_dict["label"]), n=n)
 
     def _train_epoch(self, epoch):
