@@ -123,15 +123,12 @@ class MindRSTrainer(NCTrainer):
                 pred = model(batch_dict).cpu().tolist()
                 can_len = batch_dict["candidate_length"].cpu().tolist()
                 for i in range(len(label)):
-                    index = batch_dict["impression_index"][i].cpu().tolist()
-                    for m in self.metric_funcs:
-                        result_dict[index] = {m.__name__: m(label[i][:can_len[i]], pred[i][:can_len[i]])}
-                # group_pred.extend([pred[i][:candidate_length[i]] for i in range(len(pred))])
-                # group_label.extend([label[i][:candidate_length[i]] for i in range(len(label))])
+                    index = batch_dict["impression_index"][i].cpu().tolist()  # record impression index
+                    result_dict[index] = {m.__name__: m(label[i][:can_len[i]], pred[i][:can_len[i]])
+                                          for m in self.metric_funcs}
         result_dict = gather_dict(result_dict)  # gather results
-        self.logger.debug(f"length of result_dict: {len(self.valid_metrics.result_dict)}")
-        return dict(np.round(pd.DataFrame.from_dict(result_dict, orient="index").mean(), 4))
-        # return self.valid_metrics.compute({"label": group_label, "pred": group_pred})
+        self.logger.info(f"length of result_dict: {len(result_dict)}")
+        return dict(np.round(pd.DataFrame.from_dict(result_dict, orient="index").mean(), 4))  # average results
 
     def evaluate(self, loader, model, epoch=0, prefix="val"):
         model.eval()
