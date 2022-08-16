@@ -47,7 +47,7 @@ class MindRSTrainer(NCTrainer):
         self.train_metrics.reset()
         length = len(self.train_loader)
         bar = tqdm(enumerate(self.train_loader), total=length)
-        self._validation(epoch, 0)
+        # self._validation(epoch, 0)
         for batch_idx, batch_dict in bar:
             # load data to device
             batch_dict = self.load_batch_data(batch_dict)

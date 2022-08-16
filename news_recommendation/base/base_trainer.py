@@ -111,6 +111,7 @@ class BaseTrainer:
         if os.path.exists(saved_path):
             log_df = log_df.append(pd.read_csv(saved_path, float_precision="round_trip"), ignore_index=True)
         log_df = log_df.loc[:, ~log_df.columns.str.contains("^Unnamed")]
+        log_df.drop_duplicates(inplace=True)
         log_df.to_csv(saved_path)
 
     def _monitor(self, log, epoch):
