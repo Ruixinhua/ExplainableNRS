@@ -1,6 +1,4 @@
 import math
-from collections import defaultdict
-
 import torch
 import torch.distributed
 import pandas as pd
@@ -55,10 +53,7 @@ class MindRSTrainer(NCTrainer):
             self.optimizer.zero_grad()
             output = self.model(batch_dict)
             loss = self.criterion(output, batch_dict["label"])
-            if hasattr(self, "accelerator"):
-                self.accelerator.backward(loss)
-            else:
-                loss.backward()
+            self.accelerator.backward(loss)
             self.optimizer.step()
             # record loss
             self.writer.set_step((epoch - 1) * self.len_epoch + batch_idx)
@@ -82,7 +77,7 @@ class MindRSTrainer(NCTrainer):
         """
         news_embeds = {}
         data_loader = self.mind_loader if data_loader is None else data_loader
-        news_loader = self.prepare_loader(data_loader.news_loader)
+        news_loader = self.accelerator.prepare_data_loader(data_loader.news_loader)
         for batch_dict in tqdm(news_loader, total=len(news_loader)):
             # load data to device
             batch_dict = self.load_batch_data(batch_dict)
@@ -91,11 +86,6 @@ class MindRSTrainer(NCTrainer):
             # update news vectors
             news_embeds.update(dict(zip(batch_dict["index"].cpu().tolist(), news_vec.cpu().numpy())))
         return convert_dict_to_numpy(gather_dict(news_embeds))
-
-    def prepare_loader(self, data_loader):
-        if hasattr(self, "accelerator"):
-            data_loader = self.accelerator.prepare_data_loader(data_loader)
-        return data_loader
 
     def _valid_epoch(self, model=None, data_loader=None):
         """
@@ -116,7 +106,8 @@ class MindRSTrainer(NCTrainer):
             except KeyError or RuntimeError:  # slow evaluation: re-calculate news embeddings every time
                 news_embeds = None
             imp_set = ImpressionDataset(self.mind_loader.valid_set, news_embeds)
-            valid_loader = self.prepare_loader(DataLoader(imp_set, impression_bs, collate_fn=self.mind_loader.fn))
+            valid_loader = DataLoader(imp_set, impression_bs, collate_fn=self.mind_loader.fn)
+            valid_loader = self.accelerator.prepare_data_loader(valid_loader)
             for batch_dict in tqdm(valid_loader, total=len(valid_loader)):  # run model
                 batch_dict = self.load_batch_data(batch_dict)
                 label = batch_dict["label"].cpu().tolist()

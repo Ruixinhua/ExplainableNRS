@@ -12,21 +12,11 @@ class MetricTracker:
         self.funcs = funcs
         keys = [m.__name__ for m in funcs]
         self._data = pd.DataFrame(index=keys, columns=["total", "counts", "average"])
-        self.result_dict = defaultdict(lambda: {})
         self.reset()
 
     def reset(self):
-        self.result_dict = defaultdict(lambda: {})
         for col in self._data.columns:
             self._data[col].values[:] = 0
-
-    def compute(self, batch_dict):
-        for m in self.funcs:
-            if not isinstance(batch_dict["label"][0], list):
-                self.result_dict[batch_dict["index"]] = m(batch_dict["label"], batch_dict["pred"])
-            else:
-                for (i, l, p) in zip(batch_dict["index"], batch_dict["label"], batch_dict["pred"]):
-                    self.result_dict[i] = m(l, p)
 
     def update(self, key, value, n=1):
         if self.writer is not None:

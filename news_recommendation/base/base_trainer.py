@@ -1,14 +1,16 @@
 import copy
 import os
-from news_recommendation import utils as module_loss
-import news_recommendation.utils.metric_utils as module_metric
-from news_recommendation.utils import prepare_device
 import torch
 import pandas as pd
+import news_recommendation.utils.metric_utils as module_metric
+
+from pathlib import Path
 from abc import abstractmethod
 from numpy import inf
+from accelerate import Accelerator
+from news_recommendation import utils as module_loss
+from news_recommendation.utils import prepare_device
 from news_recommendation.logger import TensorboardWriter
-from pathlib import Path
 
 
 class BaseTrainer:
@@ -20,16 +22,8 @@ class BaseTrainer:
         self.logger = config.get_logger("trainer", config["verbosity"])
         # prepare for (multi-device) GPU training
         self.device, device_ids = prepare_device(config["n_gpu"])
-        if len(device_ids) > 1:
-            # set up accelerator
-            try:
-                from accelerate import Accelerator
-                self.accelerator = Accelerator()
-                self.device = self.accelerator.device
-            except ImportError:
-                self.logger.info("Accelerator is not installed. Please install it if you want to use it.")
-
-            # self.model = torch.nn.DataParallel(self.model, device_ids=device_ids)
+        self.accelerator = Accelerator()  # setup accelerator for multi-GPU training
+        self.device = self.accelerator.device  # get device for multi-GPU training
         self.model = model.to(self.device)
         self.logger.info(f"load device {self.device}")
         # set up model parameters
@@ -37,6 +31,9 @@ class BaseTrainer:
         # get function handles of loss and metrics
         self.criterion = getattr(module_loss, config["loss"])
         self.metric_funcs = [getattr(module_metric, met) for met in config["metrics"]]
+        # setup visualization writer instance
+        self.writer = TensorboardWriter(config.log_dir, self.logger, config["tensorboard"])
+
         # build optimizer, learning rate scheduler. delete every lines containing lr_scheduler for disabling scheduler
         self.optimizer = self._build_optimizer()
         self.lr_scheduler = self._build_lr_scheduler()
@@ -59,9 +56,6 @@ class BaseTrainer:
 
         self.start_epoch = 1
         self.checkpoint_dir = config.model_dir
-
-        # setup visualization writer instance                
-        self.writer = TensorboardWriter(config.log_dir, self.logger, config["tensorboard"])
 
         if config["resume"] is not None:
             self._resume_checkpoint(config["resume"])

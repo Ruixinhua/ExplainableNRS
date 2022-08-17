@@ -23,9 +23,8 @@ class NCTrainer(BaseTrainer):
         self.log_step = int(np.sqrt(self.train_loader.batch_size))
         self.train_metrics = MetricTracker(*self.metric_funcs, writer=self.writer)
         self.valid_metrics = MetricTracker(*self.metric_funcs, writer=self.writer)
-        if hasattr(self, "accelerator"):
-            self.model, self.optimizer, self.train_loader, self.lr_scheduler = self.accelerator.prepare(
-                self.model, self.optimizer, self.train_loader, self.lr_scheduler)
+        self.model, self.optimizer, self.train_loader, self.lr_scheduler = self.accelerator.prepare(
+            self.model, self.optimizer, self.train_loader, self.lr_scheduler)
 
     def load_batch_data(self, batch_dict):
         """
