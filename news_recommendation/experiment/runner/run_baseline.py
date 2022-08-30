@@ -22,7 +22,7 @@ def evaluate_run():
     else:
         log.update(trainer.evaluate(data_loader, trainer.best_model, prefix="val"))
     if evaluate_topic:
-        topic_path = Path(config.project_root) / "saved" / "topics" / saved_name / f"{value}_{seed}"
+        topic_path = Path(config.saved_dir) / "topics" / saved_name / f"{value}_{seed}"
         dataset_name, method = config["dataset_name"].split("/")
         ref_texts = load_docs(dataset_name, method)
         topic_dict = filter_tokens(ref_texts, 20, 0.5)
@@ -44,7 +44,7 @@ if __name__ == "__main__":
         config_file = Path(get_project_root()) / "news_recommendation" / "config" / "mind_rs_default.json"
         config = Configuration(config_file=config_file)
     saved_dir_name = cmd_args["saved_dir_name"] if "saved_dir_name" in cmd_args else "performance"
-    saved_dir = Path(config.project_root) / "saved" / "performance"  # init saved directory
+    saved_dir = Path(config.saved_dir) / saved_dir_name  # init saved directory
     os.makedirs(saved_dir, exist_ok=True)  # create empty directory
     arch_attr = config.get("arch_attr", None)  # test an architecture attribute
     saved_name = f'{cmd_args["task"]}-{config["dataset_name"].replace("/", "-")}-{arch_attr}'

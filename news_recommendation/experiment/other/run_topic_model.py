@@ -45,7 +45,7 @@ if __name__ == "__main__":
         {"flags": ["-dn", "--dataset_names"], "type": str, "default": "News26"},
         {"flags": ["-rd", "--ref_dataset"], "type": str, "default": "MIND15"},
         # preprocess parameters
-        {"flags": ["-pm", "--process_method"], "type": str, "default": "keep_all"},
+        {"flags": ["-pm", "--tokenized_method"], "type": str, "default": "keep_all"},
         {"flags": ["-dl", "--do_lemma"], "type": int, "default": 0},
         {"flags": ["-ab", "--add_bi"], "type": int, "default": 0},
         {"flags": ["-mc", "--min_count"], "type": int, "default": 200},
@@ -84,7 +84,7 @@ if __name__ == "__main__":
         topic_model = lda_model(filter_dict, corpus_filter, passes=args.passes, num_topics=int(num_topic))
         save_topic_embed(topic_model, filter_dict, saved_path / f"{saved_name}.txt")
         stat_dict = {
-            "model": model_name, "num_topic": num_topic, "process_method": args.process_method, "topn": args.topn,
+            "model": model_name, "num_topic": num_topic, "tokenized_method": args.process_method, "topn": args.topn,
             "#Vocabulary": len(filter_dict)
         }
         for c_method in args.c_methods.split(","):

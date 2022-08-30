@@ -38,12 +38,16 @@ def load_set_by_type(dataset, set_type: str) -> pd.DataFrame:
     return pd.DataFrame(df)
 
 
-def load_dataset_df(dataset_name, data_path=None):
+def load_dataset_df(dataset_name, data_path=None, **kwargs):
     if dataset_name in ["MIND15", "News26"]:
         if data_path is None:
             data_path = Path(get_project_root()) / "dataset" / "data" / f"{dataset_name}.csv"
         df = clean_df(pd.read_csv(data_path, encoding="utf-8"))
-        df["data"] = df.title + "\n" + df.body
+        tokenized_method = kwargs.get("tokenized_method", "keep_all")
+        if tokenized_method == "use_tokenize":
+            df["data"] = df["tokenized_text"]
+        else:
+            df["data"] = df.title + "\n" + df.body
     elif dataset_name in ["ag_news", "yelp_review_full", "imdb"]:
         # load corresponding dataset from datasets library
         dataset = load_dataset(dataset_name)
@@ -66,16 +70,16 @@ def load_docs(name, method, do_lemma=False, add_bi=False, min_count=200):
     return docs
 
 
-def load_word_dict(data_root, dataset_name, process_method, **kwargs):
+def load_word_dict(data_root, dataset_name, tokenized_method, **kwargs):
     embed_method = kwargs.get("embed_method", "use_all")
-    wd_path = Path(data_root) / "utils" / "word_dict" / f"{dataset_name}_{process_method}_{embed_method}.json"
+    wd_path = Path(data_root) / "utils" / "word_dict" / f"{dataset_name}_{tokenized_method}_{embed_method}.json"
     if os.path.exists(wd_path):
         word_dict = read_json(wd_path)
     else:
         word_dict = {"[UNK]": 0}
         data_path = kwargs.get("data_path", Path(data_root) / "data" / f"{dataset_name}.csv")
         df = kwargs.get("df", load_dataset_df(dataset_name, data_path)[0])
-        df.data.apply(lambda s: text2index(s, word_dict, process_method, False))
+        df.data.apply(lambda s: text2index(s, word_dict, tokenized_method, False))
         os.makedirs(wd_path.parent, exist_ok=True)
         write_json(word_dict, wd_path)
     return word_dict
@@ -117,14 +121,15 @@ def load_embedding_from_dict(embed_dict: dict, word_dict: dict, embed_method: st
     return np.array(embeddings)
 
 
-def load_glove_embeddings(data_root, dataset_name, process_method, word_dict=None, glove_path=None, embed_method="use_all"):
-    embed_path = Path(data_root) / "utils" / "embed_dict" / f"{dataset_name}_{process_method}_{embed_method}.npy"
+def load_glove_embeddings(data_root, dataset_name, tokenized_method, word_dict=None, glove_path=None, **kwargs):
+    embed_method = kwargs.get("embed_method", "use_all")
+    embed_path = Path(data_root) / "utils" / "embed_dict" / f"{dataset_name}_{tokenized_method}_{embed_method}.npy"
     if os.path.exists(embed_path):
         embeddings = np.load(embed_path.__str__())
     else:
         embed_dict = load_embedding_from_path(glove_path)
         if word_dict is None:
-            word_dict = load_word_dict(data_root, dataset_name, process_method, embed_method=embed_method)
+            word_dict = load_word_dict(data_root, dataset_name, tokenized_method, embed_method=embed_method)
         embeddings = load_embedding_from_dict(embed_dict, word_dict, embed_method)
         os.makedirs(embed_path.parent, exist_ok=True)
         np.save(embed_path.__str__(), embeddings)

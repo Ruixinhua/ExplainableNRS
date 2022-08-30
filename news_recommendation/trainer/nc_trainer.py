@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-# import torch.distributed
+import torch.distributed
 from news_recommendation.base.base_trainer import BaseTrainer
 from news_recommendation.utils import MetricTracker
 from tqdm import tqdm
@@ -30,7 +30,7 @@ class NCTrainer(BaseTrainer):
         """
         load batch data to default device
         """
-        if hasattr(self, "accelerator"):
+        if torch.distributed.is_initialized():  # use multi-gpu
             return batch_dict
         return {k: v.to(self.device) for k, v in batch_dict.items()}
 

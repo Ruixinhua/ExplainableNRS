@@ -76,7 +76,7 @@ def pad_sentence(x, max_length, pad_id=0):
 class Tokenizer:
     def __init__(self, **kwargs):
         self.embedding_type = kwargs.get("embedding_type", "glove")
-        self.process_method = kwargs.get("process_method", "keep_all")
+        self.process_method = kwargs.get("tokenized_method", "keep_all")
         if self.embedding_type == "elmo":
             # TODO: need to fix for elmo embeddings
             from allennlp.modules.elmo import batch_to_ids

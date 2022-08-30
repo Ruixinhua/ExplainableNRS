@@ -30,7 +30,7 @@ class NewsDataLoader:
         self.max_length, self.embedding_type = max_length, kwargs.get("embedding_type", "glove")
         self.data_root = kwargs.get("data_root", "../../dataset")
         data_path = Path(self.data_root) / "data" / f"{self.set_name}.csv"
-        df, self.label_dict = load_dataset_df(self.set_name, data_path)
+        df, self.label_dict = load_dataset_df(self.set_name, data_path, tokenized_method=self.method)
         # load index of training, validation and test set
         train_set, valid_set, test_set = df["split"] == "train", df["split"] == "valid", df["split"] == "test"
         if self.embedding_type in ["glove", "init"]:
