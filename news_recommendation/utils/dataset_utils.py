@@ -4,7 +4,7 @@ import os
 import numpy as np
 from pathlib import Path
 from datasets import load_dataset
-from news_recommendation.utils.preprocess_utils import clean_text, text2index, lemmatize, add_bigram
+from news_recommendation.utils.preprocess_utils import clean_text, text2index, lemmatize, add_bigram, word_tokenize
 from news_recommendation.utils.general_utils import read_json, write_json, get_project_root
 
 
@@ -60,10 +60,10 @@ def load_dataset_df(dataset_name, data_path=None, **kwargs):
     return df, label_dict
 
 
-def load_docs(name, method, word_dict, do_lemma=False, add_bi=False, min_count=200, **kwargs):
+def load_docs(name, do_lemma=False, add_bi=False, min_count=200, **kwargs):
     data_path = kwargs.get("data_path", None)
     df, _ = load_dataset_df(name, data_path)
-    docs = [text2index(d, word_dict, method) for d in df["data"].values]
+    docs = [word_tokenize(d) for d in df["data"].values]
     if do_lemma:
         docs = lemmatize(docs)
     if add_bi:

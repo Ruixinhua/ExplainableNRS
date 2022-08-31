@@ -24,7 +24,7 @@ def evaluate_run():
     if evaluate_topic:
         topic_path = Path(config.saved_dir) / "topics" / saved_name / str(seed)
         dataset_name, method = config["dataset_name"].split("/")
-        ref_texts = load_docs(dataset_name, method, data_loader.word_dict, data_path=data_loader.data_path)
+        ref_texts = load_docs(dataset_name, data_path=data_loader.data_path)
         # topic_dict = filter_tokens(ref_texts, 20, 0.5)
         # topic_dict = {token: data_loader.word_dict[token] for token in topic_dict.values()
         #               if token in data_loader.word_dict}

@@ -49,7 +49,7 @@ def topic_evaluation(trainer, word_dict, path: Union[str, os.PathLike], ref_text
     topic_list = get_topic_list(topic_dist, top_n, reverse_dict)  # convert to tokens list
     if ref_texts is None:
         from news_recommendation.utils.dataset_utils import load_docs
-        ref_texts = load_docs("MIND15", "keep_all", word_dict)
+        ref_texts = load_docs("MIND15")
     os.makedirs(path, exist_ok=True)
     topic_result = save_topic_info(path, topic_list, ref_texts, top_n=top_n)
     token_entropy, topic_entropy = evaluate_entropy(topic_dist)
