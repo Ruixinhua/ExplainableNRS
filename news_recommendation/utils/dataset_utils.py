@@ -4,7 +4,7 @@ import os
 import numpy as np
 from pathlib import Path
 from datasets import load_dataset
-from news_recommendation.utils.preprocess_utils import clean_text, text2index, tokenize, lemmatize, add_bigram
+from news_recommendation.utils.preprocess_utils import clean_text, text2index, lemmatize, add_bigram
 from news_recommendation.utils.general_utils import read_json, write_json, get_project_root
 
 

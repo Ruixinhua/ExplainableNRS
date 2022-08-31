@@ -2,7 +2,6 @@ import os
 import torch
 
 import numpy as np
-import pandas as pd
 from pathlib import Path
 
 from torch.utils.data.dataset import Dataset
@@ -33,13 +32,6 @@ class MindRSDataset(Dataset):
         if cat not in self.category2id:
             self.category2id[cat] = len(self.category2id) + 1
         return self.category2id[cat]
-
-    def _load_news_from_file(self, news_file):
-        head = ["news_id", "category", "subcategory", "title", "abstract", "url", "title_entity", "abstract_entity"]
-        self.news_content = pd.read_csv(news_file, sep="\t", names=head)  # load news information from file
-        if self.use_body:  # use news articles
-            body_file = Path(os.path.dirname(news_file)) / "msn.json"
-            self.news_articles = read_json(body_file) if body_file.exists() else None
 
     def _load_news_text(self, **kwargs):
         """
