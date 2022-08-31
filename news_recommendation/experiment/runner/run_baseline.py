@@ -22,9 +22,9 @@ def evaluate_run():
     else:
         log.update(trainer.evaluate(data_loader, trainer.best_model, prefix="val"))
     if evaluate_topic:
-        topic_path = Path(config.saved_dir) / "topics" / saved_name / f"{value}_{seed}"
+        topic_path = Path(config.saved_dir) / "topics" / saved_name / str(seed)
         dataset_name, method = config["dataset_name"].split("/")
-        ref_texts = load_docs(dataset_name, method)
+        ref_texts = load_docs(dataset_name, method, data_path=data_loader.data_path)
         topic_dict = filter_tokens(ref_texts, 20, 0.5)
         topic_dict = {token: data_loader.word_dict[token] for token in topic_dict.values()
                       if token in data_loader.word_dict}
