@@ -76,7 +76,7 @@ def pad_sentence(x, max_length, pad_id=0):
 class Tokenizer:
     def __init__(self, **kwargs):
         self.embedding_type = kwargs.get("embedding_type", "glove")
-        self.process_method = kwargs.get("tokenized_method", "keep_all")
+        self.tokenized_method = kwargs.get("tokenized_method", "keep_all")
         if self.embedding_type == "elmo":
             # TODO: need to fix for elmo embeddings
             from allennlp.modules.elmo import batch_to_ids
@@ -107,10 +107,10 @@ class Tokenizer:
 
     def text2token(self, x: Union[str, list], max_length: int, return_tensors=True):
         if isinstance(x, list):
-            x_token = [text2index(_, self.word_dict, self.process_method, self.ignore) for _ in x]
+            x_token = [text2index(_, self.word_dict, self.tokenized_method, self.ignore) for _ in x]
             x_padded = np.concatenate([pad_sentence(_, max_length) for _ in x_token])
         else:
-            x_padded = pad_sentence(text2index(x, self.word_dict, self.process_method, self.ignore), max_length)
+            x_padded = pad_sentence(text2index(x, self.word_dict, self.tokenized_method, self.ignore), max_length)
         if return_tensors:
             x_padded = torch.tensor(x_padded, dtype=torch.long)
         return x_padded

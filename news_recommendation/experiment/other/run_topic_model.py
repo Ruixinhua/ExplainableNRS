@@ -65,11 +65,11 @@ if __name__ == "__main__":
     docs_token, ref_token = [], []
     datasets = {}
     for dn in dataset_names.split("_"):
-        datasets[dn] = load_docs(dn, args.process_method, args.do_lemma, args.add_bi, args.min_count)
+        datasets[dn] = load_docs(dn, args.tokenized_method, args.do_lemma, args.add_bi, args.min_count)
         docs_token.extend(datasets[dn])
     for dn in args.ref_dataset.split("_"):
         if dn not in datasets:
-            datasets[dn] = load_docs(dn, args.process_method, args.do_lemma, args.add_bi, args.min_count)
+            datasets[dn] = load_docs(dn, args.tokenized_method, args.do_lemma, args.add_bi, args.min_count)
         ref_token.extend(datasets[dn])
 
     filter_dict = filter_tokens(docs_token, no_below=args.no_below, no_above=args.no_above)
@@ -84,7 +84,7 @@ if __name__ == "__main__":
         topic_model = lda_model(filter_dict, corpus_filter, passes=args.passes, num_topics=int(num_topic))
         save_topic_embed(topic_model, filter_dict, saved_path / f"{saved_name}.txt")
         stat_dict = {
-            "model": model_name, "num_topic": num_topic, "tokenized_method": args.process_method, "topn": args.topn,
+            "model": model_name, "num_topic": num_topic, "tokenized_method": args.tokenized_method, "topn": args.topn,
             "#Vocabulary": len(filter_dict)
         }
         for c_method in args.c_methods.split(","):

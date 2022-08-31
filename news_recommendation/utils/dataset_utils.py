@@ -60,10 +60,10 @@ def load_dataset_df(dataset_name, data_path=None, **kwargs):
     return df, label_dict
 
 
-def load_docs(name, method, do_lemma=False, add_bi=False, min_count=200, **kwargs):
+def load_docs(name, method, word_dict, do_lemma=False, add_bi=False, min_count=200, **kwargs):
     data_path = kwargs.get("data_path", None)
     df, _ = load_dataset_df(name, data_path)
-    docs = [tokenize(d, method) for d in df["data"].values]
+    docs = [text2index(d, word_dict, method) for d in df["data"].values]
     if do_lemma:
         docs = lemmatize(docs)
     if add_bi:
