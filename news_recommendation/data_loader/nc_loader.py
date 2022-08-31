@@ -28,6 +28,7 @@ class NewsDataLoader:
                  **kwargs):
         self.set_name, self.method = dataset_name.split("/")[0], dataset_name.split("/")[1]
         self.max_length, self.embedding_type = max_length, kwargs.get("embedding_type", "glove")
+        self.embed_method, self.glove_path = kwargs.get("embed_method", "use_all"), kwargs.get("glove_path", None)
         self.data_root = kwargs.get("data_root", "../../dataset")
         data_path = Path(self.data_root) / "data" / f"{self.set_name}.csv"
         df, self.label_dict = load_dataset_df(self.set_name, data_path, tokenized_method=self.method)
@@ -38,7 +39,7 @@ class NewsDataLoader:
             self.word_dict = load_word_dict(self.data_root, self.set_name, self.method, df=df)
         if self.embedding_type == "glove":
             self.embeds = load_glove_embeddings(self.data_root, self.set_name, self.method, self.word_dict,
-                                                embed_method=kwargs.get("embed_method", "use_all"))
+                                                embed_method=self.embed_method, glove_path=self.glove_path)
         self.init_params = {'batch_size': batch_size, 'shuffle': shuffle, 'num_workers': num_workers}
         # initialize train loader
         self.train_loader = DataLoader(self.load_dataset(df[train_set]), **self.init_params)
