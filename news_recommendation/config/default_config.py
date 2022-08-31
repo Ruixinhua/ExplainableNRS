@@ -1,7 +1,7 @@
 import logging
 import os
 
-from utils import get_project_root
+from news_recommendation.utils import get_project_root
 
 DEFAULT_CONFIGS = {
     "n_gpu": 1, "embedding_type": "glove", "embedding_dim": 300, "max_length": 100, "loss": "cross_entropy",

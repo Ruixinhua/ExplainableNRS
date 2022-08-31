@@ -11,7 +11,6 @@ from enum import Enum
 from torch.backends import cudnn
 from logging import getLogger
 from news_recommendation.logger import setup_logging
-from news_recommendation.utils import get_project_root
 
 
 def setup_project_path(configs):
