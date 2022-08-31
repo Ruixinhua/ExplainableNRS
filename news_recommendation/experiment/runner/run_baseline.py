@@ -16,7 +16,7 @@ def evaluate_run():
     data_loader = init_data_loader(config)
     set_seed(config["seed"])
     trainer = run(config, data_loader=data_loader)
-    if cmd_args["task"].lower() == "nc":
+    if "nc" in cmd_args["task"].lower():
         log["#Voc"] = len(data_loader.word_dict)
         log.update(evaluate(trainer, data_loader))
     else:
@@ -38,7 +38,7 @@ def evaluate_run():
 if __name__ == "__main__":
     # setup arguments used to run baseline models
     cmd_args = load_cmd_line()
-    if cmd_args["task"].lower() == "nc":
+    if "nc" in cmd_args["task"].lower():
         config = Configuration()
     else:
         config_file = Path(get_project_root()) / "news_recommendation" / "config" / "mind_rs_default.json"

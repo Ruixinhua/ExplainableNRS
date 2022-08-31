@@ -18,9 +18,6 @@ def setup_project_path(configs):
     """
     Setup the project path and the corresponding directories
     """
-    configs["project_root"] = get_project_root(project_name=configs["project_name"])
-    configs["data_root"] = os.path.join(configs["project_root"], "dataset")
-    configs["saved_dir"] = os.path.join(configs["project_root"], "saved")
     # identifier of experiment, default is identified by dataset name and architecture type.
     configs["run_name"] = f"{configs['dataset_name']}/{configs['arch_type']}"
     # make directory for saving checkpoints and log
