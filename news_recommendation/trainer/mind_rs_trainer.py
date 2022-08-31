@@ -118,7 +118,7 @@ class MindRSTrainer(NCTrainer):
                     result_dict[index] = {m.__name__: m(label[i][:can_len[i]], pred[i][:can_len[i]])
                                           for m in self.metric_funcs}
         result_dict = gather_dict(result_dict)  # gather results
-        self.logger.info(f"length of result_dict: {len(result_dict)}")
+        # self.logger.info(f"length of result_dict: {len(result_dict)}")
         return dict(np.round(pd.DataFrame.from_dict(result_dict, orient="index").mean(), 4))  # average results
 
     def evaluate(self, loader, model, epoch=0, prefix="val"):

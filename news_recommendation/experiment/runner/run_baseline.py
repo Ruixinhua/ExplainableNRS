@@ -16,15 +16,16 @@ def evaluate_run():
     data_loader = init_data_loader(config)
     set_seed(config["seed"])
     trainer = run(config, data_loader=data_loader)
+    log["#Voc"] = len(data_loader.word_dict)
     if "nc" in cmd_args["task"].lower():
-        log["#Voc"] = len(data_loader.word_dict)
         log.update(evaluate(trainer, data_loader))
     else:
         log.update(trainer.evaluate(data_loader, trainer.best_model, prefix="val"))
     if evaluate_topic:
         topic_path = Path(config.saved_dir) / "topics" / saved_name / str(seed)
         dataset_name, method = config["dataset_name"].split("/")
-        ref_texts = load_docs(dataset_name, data_path=data_loader.data_path)
+        ref_data_path = config.get("ref_data_path", Path(get_project_root()) / "dataset/data/MIND15.csv")
+        ref_texts = load_docs(dataset_name, data_path=ref_data_path)
         # topic_dict = filter_tokens(ref_texts, 20, 0.5)
         # topic_dict = {token: data_loader.word_dict[token] for token in topic_dict.values()
         #               if token in data_loader.word_dict}
@@ -33,7 +34,9 @@ def evaluate_run():
         scores = topic_evaluation(trainer, data_loader.word_dict, topic_path, ref_texts, top_n, log["#Voc"])
         log.update(scores)
     log["Total Time"] = time.time() - start_time
-    trainer.save_log(log, saved_path=saved_dir / f'{saved_name}.csv')
+    saved_path = saved_dir / f"{saved_name}.csv"
+    trainer.save_log(log, saved_path=saved_path)
+    logger.info(f"saved log: {saved_path} finished.")
 
 
 if __name__ == "__main__":
@@ -49,6 +52,7 @@ if __name__ == "__main__":
     os.makedirs(saved_dir, exist_ok=True)  # create empty directory
     arch_attr = config.get("arch_attr", None)  # test an architecture attribute
     saved_name = f'{cmd_args["task"]}-{config["dataset_name"].replace("/", "-")}-{arch_attr}'
+    logger = config.get_logger(saved_name)
     evaluate_topic, entropy_constraint = config.get("evaluate_topic", 0), config.get("entropy_constraint", 0)
     if evaluate_topic:
         saved_name += f"-evaluate_topic"

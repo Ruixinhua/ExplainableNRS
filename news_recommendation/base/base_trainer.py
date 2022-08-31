@@ -24,6 +24,7 @@ class BaseTrainer:
         self.device, device_ids = prepare_device(config["n_gpu"])
         self.accelerator = Accelerator()  # setup accelerator for multi-GPU training
         self.device = self.accelerator.device  # get device for multi-GPU training
+        self.logger.info(f"Device: {self.device}")
         self.model = model.to(self.device)
         self.logger.info(f"load device {self.device}")
         # set up model parameters

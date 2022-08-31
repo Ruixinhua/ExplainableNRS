@@ -64,6 +64,6 @@ def save_topic_info(path, topic_list, ref_texts, top_n=25, methods="c_v,c_npmi")
     for method, scores in topic_scores.items():
         topic_file = os.path.join(path, f"topic_list_{method}_{topic_result[method]}.txt")
         for topics, score in zip(topic_list, scores):
-            write_to_file(topic_file, f"{np.round(score, 4)}: {''.join(topics)}\n", "a+")
+            write_to_file(topic_file, f"{np.round(score, 4)}: {' '.join(topics)}\n", "a+")
         write_to_file(topic_file, f"Average score: {topic_result[method]}\n", "a+")
     return topic_result

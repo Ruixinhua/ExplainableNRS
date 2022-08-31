@@ -28,7 +28,8 @@ class BATMRSModel(MindNRSBase):
         topic_weight = self.topic_layer(embedding).transpose(1, 2)  # (N, H, S)
         # expand mask to the same size as topic weights
         mask = input_feat["news_mask"].expand(self.head_num, embedding.size(0), -1).transpose(0, 1) == 0
-        topic_weight = torch.softmax(topic_weight, dim=-1).masked_fill(mask, 0)  # fill zero entry with zero weight
+        topic_weight = torch.softmax(topic_weight.masked_fill(mask, -1e6), dim=-1)  # fill zero entry with -INF
+        # topic_weight = torch.softmax(topic_weight, dim=-1).masked_fill(mask, 0)  # fill zero entry with zero weight
         topic_vec = self.final(torch.matmul(topic_weight, embedding))  # (N, H, E)
         return topic_vec, topic_weight
 

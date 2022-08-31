@@ -30,7 +30,7 @@ class NCTrainer(BaseTrainer):
         """
         load batch data to default device
         """
-        if torch.distributed.is_initialized():  # use multi-gpu
+        if self.config.n_gpu > 1:  # use multi-gpu
             return batch_dict
         return {k: v.to(self.device) for k, v in batch_dict.items()}
 
