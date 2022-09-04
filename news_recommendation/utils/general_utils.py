@@ -128,22 +128,6 @@ def init_model_class(config, *args, **kwargs):
     return model_class
 
 
-def gather_dict(dict_object, process_num=2):
-    """
-    gather vectors from all processes
-    :param process_num: number of process
-    :param dict_object: vectors to gather
-    :return: gathered numpy array vectors
-    """
-    if torch.distributed.is_initialized():
-        dicts_object = [{} for _ in range(process_num)]  # used for distributed inference
-        torch.distributed.barrier()
-        torch.distributed.all_gather_object(dicts_object, dict_object)
-        for i in range(process_num):
-            dict_object.update(dicts_object[i])
-    return dict_object
-
-
 def convert_dict_to_numpy(dict_object):
     """
     convert dict to numpy array

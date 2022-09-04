@@ -21,7 +21,7 @@ class BaseTrainer:
         self.config = config
         self.logger = config.get_logger("trainer", config["verbosity"])
         # prepare for (multi-device) GPU training
-        self.device, device_ids = prepare_device(config["n_gpu"])
+        # self.device, device_ids = prepare_device(config["n_gpu"])
         self.accelerator = Accelerator()  # setup accelerator for multi-GPU training
         self.device = self.accelerator.device  # get device for multi-GPU training
         self.logger.info(f"Device: {self.device}")

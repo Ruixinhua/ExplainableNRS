@@ -1,4 +1,6 @@
 import math
+from collections import defaultdict
+
 import torch
 import torch.distributed
 import pandas as pd
@@ -9,7 +11,7 @@ from tqdm import tqdm
 from config.configuration import Configuration
 from dataset import ImpressionDataset
 from trainer import NCTrainer
-from utils import gather_dict, convert_dict_to_numpy
+from utils import convert_dict_to_numpy
 
 
 class MindRSTrainer(NCTrainer):
@@ -68,6 +70,22 @@ class MindRSTrainer(NCTrainer):
             self.lr_scheduler.step()
         return self._validation(epoch, length, False)
 
+    @staticmethod
+    def gather_dict(dict_object, process_num=2):
+        """
+        gather vectors from all processes
+        :param process_num: number of process
+        :param dict_object: vectors to gather
+        :return: gathered numpy array vectors
+        """
+        if torch.distributed.is_initialized():
+            dicts_object = [{} for _ in range(process_num)]  # used for distributed inference
+            torch.distributed.barrier()
+            torch.distributed.all_gather_object(dicts_object, dict_object)
+            for i in range(process_num):
+                dict_object.update(dicts_object[i])
+        return dict_object
+
     def get_news_embeds(self, model, data_loader=None):
         """
         run news model and return news vectors (numpy matrix)
@@ -85,7 +103,7 @@ class MindRSTrainer(NCTrainer):
             news_vec = model.news_encoder(batch_dict)
             # update news vectors
             news_embeds.update(dict(zip(batch_dict["index"].cpu().tolist(), news_vec.cpu().numpy())))
-        return convert_dict_to_numpy(gather_dict(news_embeds))
+        return convert_dict_to_numpy(self.gather_dict(news_embeds))
 
     def _valid_epoch(self, model=None, data_loader=None):
         """
@@ -117,7 +135,7 @@ class MindRSTrainer(NCTrainer):
                     index = batch_dict["impression_index"][i].cpu().tolist()  # record impression index
                     result_dict[index] = {m.__name__: m(label[i][:can_len[i]], pred[i][:can_len[i]])
                                           for m in self.metric_funcs}
-        result_dict = gather_dict(result_dict)  # gather results
+        result_dict = self.gather_dict(result_dict)  # gather results
         # self.logger.info(f"length of result_dict: {len(result_dict)}")
         return dict(np.round(pd.DataFrame.from_dict(result_dict, orient="index").mean(), 4))  # average results
 
