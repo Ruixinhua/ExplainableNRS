@@ -54,7 +54,8 @@ class MindDataLoader:
     def __init__(self, **kwargs):
         # load word and user dictionary
         data_path = kwargs.get("data_path", Path(get_project_root()) / "dataset/MIND")
-        self.word_dict = load_dict(Path(data_path) / "utils" / "word_dict.pkl")
+        word_dict_path = kwargs.get("word_dict_path", Path(data_path) / "utils" / "word_dict.pkl")
+        self.word_dict = load_dict(word_dict_path)
         self.word_dict["UNK"] = 0
         uid2index = load_dict(Path(data_path) / "utils" / "uid2index.pkl")
         kwargs.update({"word_dict": self.word_dict, "uid2index": uid2index})
