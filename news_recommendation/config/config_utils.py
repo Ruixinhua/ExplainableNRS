@@ -1,7 +1,8 @@
 import argparse
 import copy
-import importlib
 import os
+from typing import Dict
+
 import torch
 import random
 import sys
@@ -37,7 +38,7 @@ def convert_config_dict(config_dict):
         if not isinstance(param, str):
             continue
         try:
-            value = eval(param)
+            value = eval(param)  # convert str to int, float, list, tuple, dict, bool. use ',' to split integer values
             if value is not None and not isinstance(value, (str, int, float, list, tuple, dict, bool, Enum)):
                 value = param
         except (NameError, SyntaxError, TypeError):
@@ -47,16 +48,17 @@ def convert_config_dict(config_dict):
                 elif param.lower() == "false":
                     value = False
                 else:
-                    value = param
+                    value = param.split(",") if "," in param else param  # split by ',' if it is a string
             else:
                 value = param
         config_dict[key] = value
     return config_dict
 
 
-def load_cmd_line():
+def load_cmd_line() -> Dict:
     """
     Load command line arguments
+    :return: dict
     """
     cmd_config_dict = {}
     unrecognized_args = []

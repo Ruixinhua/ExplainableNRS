@@ -59,8 +59,8 @@ if __name__ == "__main__":
     if entropy_constraint:
         saved_name += "-entropy_constraint"
     # acquires test values for a given arch attribute
-    test_values = config.get("values") if hasattr(config, "values") else TEST_CONFIGS.get(arch_attr, None)
-    seeds = [int(s) for s in config.seeds] if hasattr(config, "seeds") else TEST_CONFIGS.get("seeds")
+    test_values = config.get("values", TEST_CONFIGS.get(arch_attr, None))
+    seeds = [int(s) for s in config.get("seeds", TEST_CONFIGS.get("seeds"))]
     if arch_attr is None or test_values is None:
         for seed in seeds:
             log = {"arch_type": config.arch_type, "seed": config.seed}
