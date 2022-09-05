@@ -1,30 +1,31 @@
 import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
-from pathlib import Path
 
 from news_recommendation.models.nc.nc_models import BaseClassifyModel
 from news_recommendation.models.general.layers import AttLayer, MultiHeadedAttention
-from news_recommendation.utils import get_project_root, load_embedding_from_path, load_embedding_from_dict
+from news_recommendation.utils import load_embedding_from_path, load_embedding_from_dict
 
 
 class BiAttentionClassifyModel(BaseClassifyModel):
     def __init__(self, **kwargs):
         super(BiAttentionClassifyModel, self).__init__(**kwargs)
         self.variant_name = kwargs.pop("variant_name", "base")
+        self.topic_embed_path = kwargs.get("topic_embed_path", None)
         topic_dim = self.head_num * self.head_dim
         # the structure of basic model
-        self.final = nn.Linear(self.embed_dim, self.embed_dim)
+        # self.final = nn.Linear(self.embed_dim, self.embed_dim)
         if self.variant_name in ["base", "reuse"]:
             self.topic_layer = nn.Sequential(nn.Linear(self.embed_dim, topic_dim), nn.Tanh(),
                                              nn.Linear(topic_dim, self.head_num))
         elif self.variant_name == "topic_embed":
             self.topic_layer = nn.Embedding(len(self.word_dict), self.head_num)
-            if self.topic_embed:
-                path = Path(get_project_root()) / "saved" / "topic_model" / f"{self.topic_embed}_{self.head_num}.txt"
-                embed_dict = load_embedding_from_path(path)
+            if self.topic_embed_path is not None:
+                self.freeze_topic = kwargs.get("freeze_topic", True)
+                # path = Path(get_project_root()) / "saved" / "topic_model" / f"{self.topic_embed}_{self.head_num}.txt"
+                embed_dict = load_embedding_from_path(self.topic_embed_path)
                 topic_embeds = load_embedding_from_dict(embed_dict, self.word_dict, "use_part", self.head_num)
-                self.topic_layer.from_pretrained(torch.FloatTensor(topic_embeds), freeze=False)
+                self.topic_layer.from_pretrained(torch.FloatTensor(topic_embeds), freeze=self.freeze_topic)
         else:  # default setting
             self.topic_layer = nn.Linear(self.embed_dim, self.head_num)
         if self.variant_name == "gru" or self.variant_name == "combined_gru":
@@ -71,7 +72,7 @@ class BiAttentionClassifyModel(BaseClassifyModel):
             embedding = self.run_gru(embedding, length)
         elif self.variant_name == "weight_mha":
             embedding = self.sentence_encoder(embedding, embedding, embedding)[0]
-        topic_vec = self.final(torch.matmul(topic_weight, embedding))  # (N, H, E)
+        topic_vec = torch.matmul(topic_weight, embedding)  # (N, H, E)
         return topic_vec, topic_weight
 
     def forward(self, input_feat, inputs_embeds=None, return_attention=False, **kwargs):
