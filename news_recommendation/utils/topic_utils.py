@@ -2,6 +2,7 @@ import heapq
 from typing import Union
 
 import torch
+import torch.distributed
 import os
 import numpy as np
 from gensim.corpora import Dictionary
@@ -12,7 +13,11 @@ from news_recommendation.utils.general_utils import write_to_file
 
 def get_topic_dist(trainer, word_seq, voc_size=None):
     voc_size = len(word_seq) if voc_size is None else voc_size
-    topic_dist = np.zeros((trainer.model.head_num, voc_size))
+    topic_dist = np.zeros((trainer.config.get("head_num", 20), voc_size))
+    if torch.distributed.is_initialized():
+        best_model = trainer.best_model.module
+    else:
+        best_model = trainer.best_model
     with torch.no_grad():
         bs = 512
         num = bs * (len(word_seq) // bs)
@@ -20,7 +25,7 @@ def get_topic_dist(trainer, word_seq, voc_size=None):
         for words in word_feat:
             input_feat = {"news": torch.tensor(words).unsqueeze(0), "news_mask": torch.ones(len(words)).unsqueeze(0)}
             input_feat = trainer.load_batch_data(input_feat)
-            _, topic_weight = trainer.best_model.extract_topic(input_feat)  # (B, H, N)
+            _, topic_weight = best_model.extract_topic(input_feat)  # (B, H, N)
             topic_dist[:, words] = topic_weight.squeeze().cpu().data
         return topic_dist
 
