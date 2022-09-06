@@ -103,7 +103,7 @@ class BaseTrainer:
         log["run_name"] = self.config["run_name"]
         saved_path = kwargs.get("saved_path", Path(self.checkpoint_dir) / "model_best.csv")
         log_df = pd.DataFrame(log, index=[0])
-        if os.path.exists(saved_path):
+        if os.path.exists(saved_path) and Path(saved_path).stat().st_size > 0:
             log_df = log_df.append(pd.read_csv(saved_path, float_precision="round_trip"), ignore_index=True)
         log_df = log_df.loc[:, ~log_df.columns.str.contains("^Unnamed")]
         log_df.drop_duplicates(inplace=True)
