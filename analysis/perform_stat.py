@@ -1,5 +1,4 @@
 import os
-import sys
 import pandas as pd
 import numpy as np
 
@@ -25,11 +24,12 @@ if __name__ == "__main__":
     if input_path is None:
         input_file = cmd_args.get("input_file", "MIND15-keep_all-base.csv")
         input_path = perform_dir / input_file
+    input_file_name = input_path.name
     per_df = pd.read_csv(input_path)
     per_df = del_index_column(per_df.drop_duplicates())
-    group_by = cmd_args.get("group_by", ["arch_type", "mind_type", "variant_name"])
-    # test_args = ["head_num", "embedding_type", "base", "variant_name"]
-    metrics = cmd_args.get("metrics", ["group_auc", "mean_mrr", "ndcg_5", "ndcg_10"])  # For NC: accuracy,macro_f
+    group_by = cmd_args.get("group_by", ["arch_type", "variant_name"])
+    defaults = ["group_auc", "mean_mrr", "ndcg_5", "ndcg_10"] if "RS" in input_file_name else ["accuracy", "macro_f"]
+    metrics = cmd_args.get("metrics", defaults)  # For NC: accuracy,macro_f
     group_set = cmd_args.get("group_set", ["val"])  # For NC: val,test
     extra_stat = cmd_args.get("extra_stat", [])
     metrics_per = [f"{d}_{m}" for d, m in product(group_set, metrics)]
@@ -42,11 +42,13 @@ if __name__ == "__main__":
         stat_df = stat_df.append(mean_series, ignore_index=True)
     output_path = cmd_args.get("output_path", None)
     if output_path is None:  # if not specified, save to default stat file
-        output_file = cmd_args.get("output_file", "stat.csv")
+        output_file = cmd_args.get("output_file", input_file_name)
         output_path = saved_path / output_file
     if os.path.exists(output_path):
         old_stat_df = pd.read_csv(output_path)
         old_stat_df = old_stat_df.append(stat_df, ignore_index=True)
         stat_df = old_stat_df
     stat_df = del_index_column(stat_df).drop_duplicates()
-    stat_df.to_csv(output_path)
+    stat_df.to_csv(output_path)  # save to csv
+    # save to file in latex format
+    write_to_file(latex_dir / input_file_name.replace(".csv", ".txt"), stat_df.to_latex())
