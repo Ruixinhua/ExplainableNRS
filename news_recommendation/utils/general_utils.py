@@ -42,24 +42,6 @@ def write_to_file(file: Union[str, os.PathLike], text: Union[str, list], mode: s
             w.write("\n".join(text))
 
 
-def prepare_device(n_gpu_use):
-    """
-    setup GPU device if available. get gpu device indices which are used for DataParallel
-    """
-    n_gpu = torch.cuda.device_count()
-    if n_gpu_use > 0 and n_gpu == 0:
-        print("Warning: There\'s no GPU available on this machine,"
-              "training will be performed on CPU.")
-        n_gpu_use = 0
-    if n_gpu_use > n_gpu:
-        print(f"Warning: The number of GPU\'s configured to use is {n_gpu_use}, but only {n_gpu} are "
-              "available on this machine.")
-        n_gpu_use = n_gpu
-    device = torch.device('cuda:0' if n_gpu_use > 0 else 'cpu')
-    list_ids = list(range(n_gpu_use))
-    return device, list_ids
-
-
 def del_index_column(df):
     return df.loc[:, ~df.columns.str.contains("^Unnamed")]
 
@@ -126,6 +108,22 @@ def init_model_class(config, *args, **kwargs):
     module_model = importlib.import_module("news_recommendation.models")
     model_class = init_obj(config.arch_type, config.final_configs, module_model, *args, **kwargs)
     return model_class
+
+
+def gather_dict(dict_object, process_num=2):
+    """
+    gather vectors from all processes
+    :param process_num: number of process
+    :param dict_object: vectors to gather
+    :return: gathered numpy array vectors
+    """
+    if torch.distributed.is_initialized():
+        dicts_object = [{} for _ in range(process_num)]  # used for distributed inference
+        torch.distributed.barrier()
+        torch.distributed.all_gather_object(dicts_object, dict_object)
+        for i in range(process_num):
+            dict_object.update(dicts_object[i])
+    return dict_object
 
 
 def convert_dict_to_numpy(dict_object):

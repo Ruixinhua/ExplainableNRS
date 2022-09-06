@@ -9,7 +9,6 @@ from abc import abstractmethod
 from numpy import inf
 from accelerate import Accelerator
 from news_recommendation import utils as module_loss
-from news_recommendation.utils import prepare_device
 from news_recommendation.logger import TensorboardWriter
 
 
@@ -20,8 +19,6 @@ class BaseTrainer:
     def __init__(self, model, config, **kwargs):
         self.config = config
         self.logger = config.get_logger("trainer", config["verbosity"])
-        # prepare for (multi-device) GPU training
-        # self.device, device_ids = prepare_device(config["n_gpu"])
         self.accelerator = Accelerator()  # setup accelerator for multi-GPU training
         self.device = self.accelerator.device  # get device for multi-GPU training
         self.logger.info(f"Device: {self.device}")
