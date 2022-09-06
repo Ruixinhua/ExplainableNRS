@@ -11,23 +11,30 @@ from scipy.stats import entropy
 from news_recommendation.utils.general_utils import write_to_file
 
 
-def get_topic_dist(trainer, word_seq, voc_size=None):
+def extract_topics(trainer, word_seq, device, voc_size=None):
     voc_size = len(word_seq) if voc_size is None else voc_size
     topic_dist = np.zeros((trainer.config.get("head_num", 20), voc_size))
     if torch.distributed.is_initialized():
         best_model = trainer.best_model.module
     else:
         best_model = trainer.best_model
+    best_model = best_model.to(device)
     with torch.no_grad():
-        bs = 512
-        num = bs * (len(word_seq) // bs)
-        word_feat = np.array(word_seq[:num]).reshape(-1, bs).tolist() + [word_seq[num:]]
-        for words in word_feat:
-            input_feat = {"news": torch.tensor(words).unsqueeze(0), "news_mask": torch.ones(len(words)).unsqueeze(0)}
-            input_feat = trainer.load_batch_data(input_feat)
-            _, topic_weight = best_model.extract_topic(input_feat)  # (B, H, N)
-            topic_dist[:, words] = topic_weight.squeeze().cpu().data
-        return topic_dist
+        word_feat = {"news": torch.tensor(word_seq).unsqueeze(0).to(device),
+                     "news_mask": torch.ones(len(word_seq)).unsqueeze(0).to(device)}
+        _, topic_weight = best_model.extract_topic(word_feat)  # (B, H, N)
+        topic_dist[:, word_seq] = topic_weight.squeeze().cpu().data
+    return topic_dist
+
+
+def get_topic_dist(trainer, word_seq: list, voc_size=None):
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")  # only run on one GPU
+    try:
+        topic_dist = extract_topics(trainer, word_seq, device, voc_size)
+    except (RuntimeError, ):  # RuntimeError: CUDA out of memory, change to CPU
+        device = torch.device("cpu")
+        topic_dist = extract_topics(trainer, word_seq, device, voc_size)
+    return topic_dist
 
 
 def get_topic_list(matrix, top_n, reverse_dict):

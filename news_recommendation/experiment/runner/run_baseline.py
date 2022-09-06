@@ -51,13 +51,14 @@ if __name__ == "__main__":
     saved_dir = Path(config.saved_dir) / saved_dir_name  # init saved directory
     os.makedirs(saved_dir, exist_ok=True)  # create empty directory
     arch_attr = config.get("arch_attr", None)  # test an architecture attribute
-    saved_name = f'{cmd_args["task"]}-{config["dataset_name"].replace("/", "-")}-{arch_attr}'
-    logger = config.get_logger(saved_name)
     evaluate_topic, entropy_constraint = config.get("evaluate_topic", 0), config.get("entropy_constraint", 0)
+    default_saved_name = f'{cmd_args["task"]}-{arch_attr}'
     if evaluate_topic:
-        saved_name += f"-evaluate_topic"
+        default_saved_name += f"-evaluate_topic"
     if entropy_constraint:
-        saved_name += "-entropy_constraint"
+        default_saved_name += "-entropy_constraint"
+    saved_name = config.get("saved_name", default_saved_name)
+    logger = config.get_logger(saved_name)
     # acquires test values for a given arch attribute
     test_values = config.get("values", TEST_CONFIGS.get(arch_attr, None))
     seeds = [int(s) for s in config.get("seeds", TEST_CONFIGS.get("seeds"))]

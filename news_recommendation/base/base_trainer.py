@@ -70,7 +70,7 @@ class BaseTrainer:
     def _build_lr_scheduler(self, **kwargs):
         # build learning rate scheduler according to specified scheduler config
         scheduler = kwargs.pop("scheduler", self.config.get("scheduler", "StepLR"))
-        step_size = kwargs.pop("step_size", self.config.get("step_size", 50))
+        step_size = kwargs.pop("step_size", self.config.get("step_size", 50))  # default after 50 epochs lr=0.1*lr
         gamma = kwargs.pop("gamma", self.config.get("gamma", 0.1))
         return getattr(torch.optim.lr_scheduler, scheduler)(self.optimizer, step_size=step_size, gamma=gamma)
 
