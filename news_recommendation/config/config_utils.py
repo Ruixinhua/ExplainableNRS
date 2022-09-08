@@ -1,6 +1,7 @@
 import argparse
 import copy
 import os
+from datetime import datetime
 from typing import Dict
 
 import torch
@@ -18,8 +19,9 @@ def setup_project_path(configs):
     """
     Setup the project path and the corresponding directories
     """
-    # identifier of experiment, default is identified by dataset name and architecture type.
-    configs["run_name"] = f"{configs['dataset_name']}/{configs['arch_type']}"
+    # identifier of experiment, default is identified by dataset name, architecture type, and current time.
+    default_name = f"{configs['dataset_name']}/{configs['arch_type']}/{datetime.now().strftime(r'%m%d_%H%M%S')}"
+    configs["run_name"] = configs.get("run_name", default_name)
     # make directory for saving checkpoints and log
     configs["model_dir"] = os.path.join(configs["saved_dir"], "models", configs["run_name"])
     os.makedirs(configs["model_dir"], exist_ok=True)

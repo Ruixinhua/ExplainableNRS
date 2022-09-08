@@ -1,7 +1,7 @@
 from pathlib import Path
 from torch.utils.data import DataLoader
 from news_recommendation.base.nc_dataset import NCDatasetBert, NCDataset
-from news_recommendation.utils import load_dataset_df, load_word_dict, load_glove_embeddings
+from news_recommendation.utils import load_dataset_df, load_word_dict, load_embeddings
 
 
 class NewsDataLoader:
@@ -34,12 +34,15 @@ class NewsDataLoader:
         df, self.label_dict = load_dataset_df(self.set_name, self.data_path, tokenized_method=self.method)
         # load index of training, validation and test set
         train_set, valid_set, test_set = df["split"] == "train", df["split"] == "valid", df["split"] == "test"
+        wdf = kwargs.get("word_dict_file", f"{dataset_name}_{self.method}_{self.embed_method}.json")
         if self.embedding_type in ["glove", "init"]:
             # setup word dictionary for glove or init embedding
-            self.word_dict = load_word_dict(self.data_root, self.set_name, self.method, df=df)
+            self.word_dict = load_word_dict(self.data_root, self.set_name, self.method, df=df, word_dict_file=wdf)
         if self.embedding_type == "glove":
-            self.embeds = load_glove_embeddings(self.data_root, self.set_name, self.method, self.word_dict,
-                                                embed_method=self.embed_method, glove_path=self.glove_path)
+            embed_file = kwargs.get("embed_file", f"{dataset_name}_{self.method}_{self.embed_method}.npy")
+            self.embeds = load_embeddings(self.data_root, self.set_name, self.method, glove_path=self.glove_path,
+                                          embed_method=self.embed_method, embed_file=embed_file,
+                                          word_dict=self.word_dict, word_dict_file=wdf)
         self.init_params = {'batch_size': batch_size, 'shuffle': shuffle, 'num_workers': num_workers}
         # initialize train loader
         self.train_loader = DataLoader(self.load_dataset(df[train_set]), **self.init_params)

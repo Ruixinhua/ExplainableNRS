@@ -1,10 +1,10 @@
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 from news_recommendation.models.nc.nc_models import BaseClassifyModel
 from news_recommendation.models.general.layers import AttLayer, MultiHeadedAttention
-from news_recommendation.utils import load_embedding_from_path, load_embedding_from_dict
 
 
 class BiAttentionClassifyModel(BaseClassifyModel):
@@ -22,10 +22,8 @@ class BiAttentionClassifyModel(BaseClassifyModel):
             self.topic_layer = nn.Embedding(len(self.word_dict), self.head_num)
             if self.topic_embed_path is not None:
                 self.freeze_topic = kwargs.get("freeze_topic", True)
-                # path = Path(get_project_root()) / "saved" / "topic_model" / f"{self.topic_embed}_{self.head_num}.txt"
-                embed_dict = load_embedding_from_path(self.topic_embed_path)
-                topic_embeds = load_embedding_from_dict(embed_dict, self.word_dict, "use_part", self.head_num)
-                self.topic_layer.from_pretrained(torch.FloatTensor(topic_embeds), freeze=self.freeze_topic)
+                topic_embeds = torch.FloatTensor(np.load(self.topic_embed_path))
+                self.topic_layer = self.topic_layer.from_pretrained(topic_embeds, freeze=self.freeze_topic)
         else:  # default setting
             self.topic_layer = nn.Linear(self.embed_dim, self.head_num)
         if self.variant_name == "gru" or self.variant_name == "combined_gru":
@@ -56,9 +54,12 @@ class BiAttentionClassifyModel(BaseClassifyModel):
             topic_weight = self.topic_layer(input_feat["news"]).transpose(1, 2)  # (N, H, S)
         else:
             topic_weight = self.topic_layer(embedding).transpose(1, 2)  # (N, H, S)
-        # expand mask to the same size as topic weights
-        mask = input_feat["news_mask"].expand(self.head_num, embedding.size(0), -1).transpose(0, 1) == 0
-        topic_weight = torch.softmax(topic_weight, dim=-1).masked_fill(mask, 0)  # fill zero entry with zero weight
+            # expand mask to the same size as topic weights
+            mask = input_feat["news_mask"].expand(self.head_num, embedding.size(0), -1).transpose(0, 1) == 0
+            # fill zero entry with zero weight
+            # topic_weight = torch.softmax(topic_weight.masked_fill(mask, -1e4), dim=-1).masked_fill(mask, 0)
+            topic_weight = torch.softmax(topic_weight, dim=1).masked_fill(mask, 0)
+            topic_weight = topic_weight / torch.sum(topic_weight, dim=-1, keepdim=True)
         if self.variant_name == "combined_mha":
             # context_vec = torch.matmul(topic_weight, embedding)  # (N, H, E)
             query, key = [linear(embedding).view(embedding.size(0), -1, self.head_num, self.head_dim).transpose(1, 2)

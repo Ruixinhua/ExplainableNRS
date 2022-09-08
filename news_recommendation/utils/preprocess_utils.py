@@ -7,24 +7,28 @@ import numpy as np
 import config.default_config as default_config
 
 
-def word_tokenize(sent):
+def word_tokenize(sent, method="keep_all"):
     """ Split sentence into word list using regex.
     Args:
         sent (str): Input sentence
-
+        method (str): Tokenize method, keep_all or use_tokenize.
     Return:
         list: word list
     """
     pat = re.compile(r"[\w]+|[.,!?;|]")
     if isinstance(sent, str):
+        if method == "keep_all":
+            return pat.findall(sent.lower())
+        elif method == "use_tokenize":
+            return sent.lower().split()
         return pat.findall(sent.lower())
     else:
         return []
 
 
-def text2index(text, word_dict, method="keep", ignore=True):
+def text2index(text, word_dict, method="keep_all", ignore=True):
     # TODO: tokenize for compare
-    return word2index(word_dict, word_tokenize(text), ignore)
+    return word2index(word_dict, word_tokenize(text, method), ignore)
 
 
 def clean_text(text):

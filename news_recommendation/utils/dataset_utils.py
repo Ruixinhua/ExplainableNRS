@@ -73,7 +73,8 @@ def load_docs(name, do_lemma=False, add_bi=False, min_count=200, **kwargs):
 
 def load_word_dict(data_root, dataset_name, tokenized_method, **kwargs):
     embed_method = kwargs.get("embed_method", "use_all")
-    wd_path = Path(data_root) / "utils" / "word_dict" / f"{dataset_name}_{tokenized_method}_{embed_method}.json"
+    word_dict_file = kwargs.get("word_dict_file", f"{dataset_name}_{tokenized_method}_{embed_method}.json")
+    wd_path = Path(data_root) / "utils" / "word_dict" / word_dict_file
     if os.path.exists(wd_path):
         word_dict = read_json(wd_path)
     else:
@@ -122,9 +123,10 @@ def load_embedding_from_dict(embed_dict: dict, word_dict: dict, embed_method: st
     return np.array(embeddings)
 
 
-def load_glove_embeddings(data_root, dataset_name, tokenized_method, word_dict=None, glove_path=None, **kwargs):
+def load_embeddings(data_root, dataset_name, tokenized_method, word_dict=None, glove_path=None, **kwargs):
     embed_method = kwargs.get("embed_method", "use_all")
-    embed_path = Path(data_root) / "utils" / "embed_dict" / f"{dataset_name}_{tokenized_method}_{embed_method}.npy"
+    embed_file = kwargs.get("embed_file", f"{dataset_name}_{tokenized_method}_{embed_method}.npy")
+    embed_path = Path(data_root) / "utils" / "embed_dict" / embed_file
     if os.path.exists(embed_path):
         embeddings = np.load(embed_path.__str__())
     else:

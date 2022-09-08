@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import torch.distributed
+
 from news_recommendation.base.base_trainer import BaseTrainer
 from news_recommendation.utils import MetricTracker
 from tqdm import tqdm
@@ -26,22 +27,23 @@ class NCTrainer(BaseTrainer):
         self.model, self.optimizer, self.train_loader, self.lr_scheduler = self.accelerator.prepare(
             self.model, self.optimizer, self.train_loader, self.lr_scheduler)
 
-    def load_batch_data(self, batch_dict):
+    def load_batch_data(self, batch_dict, multi_gpu=True):
         """
         load batch data to default device
         """
-        if self.config.n_gpu > 1:  # use multi-gpu
+        if torch.distributed.is_initialized() and multi_gpu:  # use multi-gpu
             return batch_dict
         return {k: v.to(self.device) for k, v in batch_dict.items()}
 
-    def run_model(self, batch_dict, model=None):
+    def run_model(self, batch_dict, model=None, multi_gpu=True):
         """
         run model with the batch data
+        :param multi_gpu: default use multi-gpu training
         :param batch_dict: the dictionary of data with format like {"news": Tensor(), "label": Tensor()}
         :param model: by default we use the self model
         :return: the output of running, label used for evaluation, and loss item
         """
-        batch_dict = self.load_batch_data(batch_dict)
+        batch_dict = self.load_batch_data(batch_dict, multi_gpu)
         output = model(batch_dict) if model is not None else self.model(batch_dict)
         loss = self.criterion(output[0], batch_dict["label"])
         out_dict = {"label": batch_dict["label"], "loss": loss, "predict": output[0]}
@@ -71,7 +73,7 @@ class NCTrainer(BaseTrainer):
         for batch_idx, batch_dict in bar:
             self.optimizer.zero_grad()  # setup gradient to zero
             out_dict = self.run_model(batch_dict, self.model)  # run model
-            out_dict["loss"].backward()  # backpropagation
+            self.accelerator.backward(out_dict["loss"])  # backpropagation
             self.optimizer.step()  # gradient descent
             self.writer.set_step((epoch - 1) * self.len_epoch + batch_idx, "train")
             self.update_metrics(self.train_metrics, out_dict)
@@ -92,7 +94,7 @@ class NCTrainer(BaseTrainer):
         self.valid_metrics.reset()
         with torch.no_grad():
             for batch_idx, batch_dict in tqdm(enumerate(loader), total=len(loader)):
-                out_dict = self.run_model(batch_dict, model)
+                out_dict = self.run_model(batch_dict, model, multi_gpu=False)
                 self.writer.set_step((epoch - 1) * len(loader) + batch_idx, "evaluate")
                 self.update_metrics(self.valid_metrics, out_dict)
         for name, p in model.named_parameters():  # add histogram of model parameters to the tensorboard

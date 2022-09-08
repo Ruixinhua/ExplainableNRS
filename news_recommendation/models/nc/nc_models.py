@@ -14,9 +14,7 @@ class BaseClassifyModel(BaseModel):
         self.embed_dim = kwargs.pop("embed_dim", 300)
         self.__dict__.update(kwargs)
         if self.embedding_type == "glove":
-            self.embed_dim = self.embeds.shape[1]
-            self.embedding = nn.Embedding(len(self.word_dict), self.embed_dim, padding_idx=0)
-            self.embedding = self.embedding.from_pretrained(torch.FloatTensor(self.embeds), freeze=False)
+            self.embedding = nn.Embedding.from_pretrained(torch.FloatTensor(self.embeds), freeze=False)
         elif self.embedding_type == "init":
             self.embedding = nn.Embedding(len(self.word_dict), self.embed_dim, padding_idx=0)
         else:
