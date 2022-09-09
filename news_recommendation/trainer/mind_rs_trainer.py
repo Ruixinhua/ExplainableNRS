@@ -110,15 +110,15 @@ class MindRSTrainer(NCTrainer):
             valid_loader = self.accelerator.prepare_data_loader(valid_loader)
             for batch_dict in tqdm(valid_loader, total=len(valid_loader)):  # run model
                 batch_dict = self.load_batch_data(batch_dict)
-                label = batch_dict["label"].cpu().tolist()
-                pred = model(batch_dict).cpu().tolist()
-                can_len = batch_dict["candidate_length"].cpu().tolist()
+                label = batch_dict["label"].cpu().numpy()
+                pred = model(batch_dict).cpu().numpy()
+                can_len = batch_dict["candidate_length"].cpu().numpy()
                 for i in range(len(label)):
                     index = batch_dict["impression_index"][i].cpu().tolist()  # record impression index
                     result_dict[index] = {m.__name__: m(label[i][:can_len[i]], pred[i][:can_len[i]])
                                           for m in self.metric_funcs}
         result_dict = gather_dict(result_dict)  # gather results
-        # self.logger.info(f"length of result_dict: {len(result_dict)}")
+        # self.logger.info(f"validation time: {time.time() - start}")
         return dict(np.round(pd.DataFrame.from_dict(result_dict, orient="index").mean(), 4))  # average results
 
     def evaluate(self, loader, model, epoch=0, prefix="val"):

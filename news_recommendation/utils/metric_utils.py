@@ -3,7 +3,8 @@ from collections import defaultdict
 import pandas as pd
 import numpy as np
 import torch
-from sklearn.metrics import roc_auc_score, f1_score
+from sklearn.metrics import f1_score
+from .auc_utils import roc_auc_score
 
 
 class MetricTracker:
@@ -104,22 +105,41 @@ def ndcg_score(y_true, y_score, k=10):
 
 
 def group_auc(label, pred):
-    if isinstance(label[0], list):
-        return round(np.mean([roc_auc_score(l, p) for l, p in zip(label, pred)]).item(), 4)
+    """
+    Compute the area under the ROC curve
+    :param label: List[np.ndarray] or np.ndarray
+    :param pred: List[np.ndarray] or np.ndarray
+    :return: roc auc score
+    """
+    if isinstance(label, list) or len(label.shape) > 1:
+        return np.round(np.mean([roc_auc_score(l, p) for l, p in zip(label, pred)]).item(), 4)
     else:
         return roc_auc_score(label, pred)
 
 
 def mean_mrr(label, pred):
-    if isinstance(label[0], list):
-        return round(np.mean([mrr_score(l, p) for l, p in zip(label, pred)]).item(), 4)
+    """
+    Compute the mean reciprocal rank
+    :param label: List[np.ndarray] or np.ndarray
+    :param pred: List[np.ndarray] or np.ndarray
+    :return: MRR score
+    """
+    if isinstance(label, list) or len(label.shape) > 1:
+        return np.round(np.mean([mrr_score(l, p) for l, p in zip(label, pred)]).item(), 4)
     else:
         return mrr_score(label, pred)
 
 
 def ndcg(label, pred, k):
-    if isinstance(label[0], list):
-        return round(np.mean([ndcg_score(l, p, k) for l, p in zip(label, pred)]).item(), 4)
+    """
+    Compute the normalized discounted cumulative gain
+    :param label: List[np.ndarray] or np.ndarray
+    :param pred: List[np.ndarray] or np.ndarray
+    :param k: the number of evaluated items
+    :return: NDCG score
+    """
+    if isinstance(label, list) or len(label.shape) > 1:
+        return np.round(np.mean([ndcg_score(l, p, k) for l, p in zip(label, pred)]).item(), 4)
     else:
         return ndcg_score(label, pred, k)
 
