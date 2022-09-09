@@ -57,9 +57,9 @@ class BiAttentionClassifyModel(BaseClassifyModel):
             # expand mask to the same size as topic weights
             mask = input_feat["news_mask"].expand(self.head_num, embedding.size(0), -1).transpose(0, 1) == 0
             # fill zero entry with zero weight
-            # topic_weight = torch.softmax(topic_weight.masked_fill(mask, -1e4), dim=-1).masked_fill(mask, 0)
-            topic_weight = torch.softmax(topic_weight, dim=1).masked_fill(mask, 0)
-            topic_weight = topic_weight / torch.sum(topic_weight, dim=-1, keepdim=True)
+            topic_weight = torch.softmax(topic_weight.masked_fill(mask, -1e4), dim=-1).masked_fill(mask, 0)
+            # topic_weight = torch.softmax(topic_weight, dim=1).masked_fill(mask, 0)  # external attention
+            # topic_weight = topic_weight / torch.sum(topic_weight, dim=-1, keepdim=True)
         if self.variant_name == "combined_mha":
             # context_vec = torch.matmul(topic_weight, embedding)  # (N, H, E)
             query, key = [linear(embedding).view(embedding.size(0), -1, self.head_num, self.head_dim).transpose(1, 2)

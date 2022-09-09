@@ -34,10 +34,6 @@ class MetricTracker:
     def result(self):
         return dict(self._data.average)
 
-    def average(self):
-        df = pd.DataFrame.from_dict(self.result_dict, orient="index")
-        return dict(np.round(df.mean(), 4))
-
 
 def accuracy(output, target):
     with torch.no_grad():

@@ -8,7 +8,7 @@ transformers==4.12.5
 datasets==1.16.1
 torchtext==0.11.0
 nltk==3.6.5
-
+* oltt
 torch~=1.10.0+cu111
 gensim~=4.1.2
 plotly~=5.5.0

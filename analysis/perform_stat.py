@@ -27,11 +27,12 @@ if __name__ == "__main__":
     input_file_name = input_path.name
     per_df = pd.read_csv(input_path)
     per_df = del_index_column(per_df.drop_duplicates())
-    group_by = cmd_args.get("group_by", ["arch_type", "variant_name"])
+    defaults = ["mind_type", "arch_type", "variant_name"] if "RS" in input_file_name else ["arch_type", "variant_name"]
+    group_by = cmd_args.get("group_by", defaults)
     defaults = ["group_auc", "mean_mrr", "ndcg_5", "ndcg_10"] if "RS" in input_file_name else ["accuracy", "macro_f"]
     metrics = cmd_args.get("metrics", defaults)  # For NC: accuracy,macro_f
-    group_set = cmd_args.get("group_set", ["val"])  # For NC: val,test
-    extra_stat = cmd_args.get("extra_stat", [])
+    group_set = cmd_args.get("group_set", ["val"] if "RS" in input_file_name else ["val", "test"])  # For NC: val,test
+    extra_stat = cmd_args.get("extra_stat", ["Total Time"])
     metrics_per = [f"{d}_{m}" for d, m in product(group_set, metrics)]
     columns = group_by + metrics_per + extra_stat
     stat_df = pd.DataFrame(columns=columns)

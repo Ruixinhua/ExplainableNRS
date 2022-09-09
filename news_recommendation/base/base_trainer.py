@@ -127,8 +127,9 @@ class BaseTrainer:
             else:
                 self.not_improved_count += 1
             log["monitor_best"] = self.mnt_best
-            self.save_log(log)
-            self._log_info(log)
+            if self.accelerator.is_main_process:  # to avoid duplicated writing
+                self.save_log(log)
+                self._log_info(log)
 
     def fit(self):
         """
