@@ -53,8 +53,9 @@ def evaluate_run():
         log.update(topic_result)
     log["Total Time"] = time.time() - start_time
     saved_path = saved_dir / f"{saved_name}.csv"
-    trainer.save_log(log, saved_path=saved_path)
-    logger.info(f"saved log: {saved_path} finished.")
+    if trainer.accelerator.is_main_process:  # to avoid duplicated writing
+        trainer.save_log(log, saved_path=saved_path)
+        logger.info(f"saved log: {saved_path} finished.")
 
 
 if __name__ == "__main__":
