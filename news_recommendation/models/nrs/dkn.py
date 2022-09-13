@@ -26,7 +26,7 @@ class DKNRSModel(MindNRSBase):
                 utils_path = Path(get_project_root()) / "dataset/utils/dkn_utils" / f"mind-{mind_type}-dkn"
                 os.makedirs(utils_path, exist_ok=True)
                 yaml_file = utils_path / "dkn.yaml"
-                if not yaml_file.exists():
+                if not yaml_file.exists():  # TODO: bug in this part
                     download_resources(r"https://recodatasets.z20.web.core.windows.net/deeprec/",
                                        str(utils_path.parent), f"mind-{mind_type}-dkn.zip")
                 word_embed_file = utils_path / "word_embeddings_100.npy"
@@ -120,7 +120,7 @@ class DKNRSModel(MindNRSBase):
             title_embed, entity_embed = self.embedding_layer(title), self.entity_embedding(entity_ids)
             news_vector = self.kcnn(title_embed, entity_embed)
         else:
-            news_vector = self.kcnn(self.embedding_layer(input_feat["news"]))
+            news_vector = self.kcnn(self.embedding_layer(input_feat))
         return news_vector
 
     def user_encoder(self, input_feat):

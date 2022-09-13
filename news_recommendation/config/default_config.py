@@ -16,6 +16,13 @@ DEFAULT_CONFIGS = {
     "saved_dir": os.path.join(get_project_root(), "saved"),
 }
 
+LAYER_MAPPING = {"distilbert-base-uncased": "n_layers", "xlnet-base-cased": "n_layer",
+                 "bert-base-uncased": "num_hidden_layers", "roberta-base": "num_hidden_layers",
+                 "allenai/longformer-base-4096": "num_hidden_layers",
+                 "transfo-xl-wt103": "n_layer"}
+MAX_LAYERS = {"bert-base-uncased": 12, "distilbert-base-uncased": 6, "allenai/longformer-base-4096": 12,
+              "xlnet-base-cased": 12, "roberta-base": 12}
+
 # setup default architecture configures for models
 ARCH_CONFIGS = {
     "PretrainedBaseline": {
@@ -32,7 +39,7 @@ ARCH_CONFIGS = {
     },
     "BiAttentionClassifyModel": {
         "head_num": 20, "head_dim": 20, "entropy_constraint": False, "alpha": 0.01, "n_layers": 1,
-        "variant_name": "base", "topic_embed": None, "calculate_entropy": True,
+        "variant_name": "base", "topic_embed": None, "calculate_entropy": False,
     },
     "TopicExtractorClassifyModel": {
         "head_num": 20, "head_dim": 20, "entropy_constraint": False, "alpha": 0.01, "n_layers": 1

@@ -6,8 +6,8 @@ import pandas as pd
 from gensim.models import LdaModel
 
 from news_recommendation.config.config_utils import init_args
-from news_recommendation.utils import get_project_root, write_to_file, evaluate_entropy, del_index_column, load_docs, get_bow_corpus, \
-    filter_tokens
+from news_recommendation.utils import get_project_root, write_to_file, evaluate_entropy, del_index_column, \
+    get_bow_corpus, filter_tokens
 
 
 def lda_model(dictionary, corpus, **kwargs):

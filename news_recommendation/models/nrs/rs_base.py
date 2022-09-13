@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 
 from news_recommendation.base.base_model import BaseModel
-from news_recommendation.models.general import AttLayer, DotProduct, DNNClickPredictor
+from news_recommendation.models.general import AttLayer, DotProduct, DNNClickPredictor, NewsEmbedding
 
 
 class MindNRSBase(BaseModel):
@@ -12,10 +12,7 @@ class MindNRSBase(BaseModel):
         super().__init__()
         self.__dict__.update(kwargs)
         self.attention_hidden_dim = kwargs.get("attention_hidden_dim", 200)
-        if self.embedding_type == "glove":
-            self.glove_embedding = np.load(self.word_emb_file)
-            self.embedding_layer = nn.Embedding(self.glove_embedding.shape[0], self.embedding_dim).from_pretrained(
-                torch.FloatTensor(self.glove_embedding), freeze=False)
+        self.embedding_layer = NewsEmbedding(**kwargs)
         self.title_len, self.body_len = kwargs.get("title", 30), kwargs.get("body", None)
         self.news_att_layer = AttLayer(self.embedding_dim, self.attention_hidden_dim)
         self.user_att_layer = AttLayer(self.embedding_dim, self.attention_hidden_dim)
@@ -39,7 +36,7 @@ class MindNRSBase(BaseModel):
         default only use title, and body is added after title.
         Dim S contains: title(30) + body(100) + document_embed(300/768) + entity_feature(4*entity_num)
         """
-        y = self.embedding_layer(input_feat["news"])
+        y = self.embedding_layer(input_feat)
         # add activation function
         # y = nn.ReLU()(y)  # [N * H, D]
         return self.news_att_layer(y)[0]

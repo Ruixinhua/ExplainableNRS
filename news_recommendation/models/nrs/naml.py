@@ -26,8 +26,8 @@ class NAMLRSModel(MindNRSBase):
         self.final_attention = AttLayer(self.document_embedding_dim, self.attention_hidden_dim)
         self.dropouts = nn.Dropout(self.dropout_rate)
 
-    def text_encode(self, news):
-        y = self.dropouts(self.embedding_layer(news))
+    def text_encode(self, input_feat):
+        y = self.dropouts(self.embedding_layer(input_feat))
         # y = self.text_cnn(y.unsqueeze(dim=1)).squeeze(dim=3)  # Text CNN layer
         y = self.text_cnn(y.transpose(1, 2)).transpose(1, 2)
         # y = self.news_att_layer(self.dropouts(torch.relu(y)).transpose(1, 2))[0]
@@ -36,9 +36,10 @@ class NAMLRSModel(MindNRSBase):
 
     def news_encoder(self, input_feat):
         """input_feat contains: news title + news category"""
-        if self.use_category or self.use_sub:
+        if self.use_category or self.use_sub:  # TODO: optimize input format
             news, cat = input_feat["news"][:, :self.title_len], input_feat["news"][:, self.title_len:self.title_len+2]
-            news_embed, cat_embed = self.text_encode(news), self.category_linear(cat)  # encode text and category
+            input_feat["news"] = news
+            news_embed, cat_embed = self.text_encode(input_feat), self.category_linear(cat)  # encode text and category
             y = self.final_attention(torch.cat([torch.unsqueeze(news_embed, 1), cat_embed], dim=1))[0]
         else:
             y = self.text_encode(input_feat["news"])

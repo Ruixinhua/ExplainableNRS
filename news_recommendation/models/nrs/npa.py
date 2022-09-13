@@ -27,14 +27,14 @@ class NPARSModel(MindNRSBase):
             self.news_att_layer = AttLayer(self.embedding_dim, self.attention_hidden_dim)
             self.user_att_layer = AttLayer(self.embedding_dim, self.attention_hidden_dim)
 
-    def text_encode(self, news):
-        y = self.dropouts(self.embedding_layer(news))
+    def text_encode(self, input_feat):
+        y = self.dropouts(self.embedding_layer(input_feat))
         y = self.dropouts(self.news_encode_layer(y.transpose(1, 2)).transpose(1, 2))
         return y
 
     def news_encoder(self, input_feat):
         """input_feat: Size is [N * H, S]"""
-        news_emb = self.text_encode(input_feat["news"])
+        news_emb = self.text_encode(input_feat)
         if self.user_embed_method == "init":
             user_emb = self.user_transform(self.user_embedding(input_feat["uid"]))
             y = self.news_att_layer(news_emb, user_emb)[0]

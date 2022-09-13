@@ -1,16 +1,13 @@
 import torch
-# import torch.distributed
 import news_recommendation.dataset as module_dataset
 
 from collections import defaultdict
 from pathlib import Path
 from torch.nn.utils.rnn import pad_sequence
-# from torch.utils.data import DistributedSampler
 from torch.utils.data.dataloader import DataLoader
-# from news_recommendation.config.configuration import Configuration
 from news_recommendation.config.default_config import TEST_CONFIGS
 from news_recommendation.dataset import NewsDataset, UserDataset, ImpressionDataset, MindRSDataset
-from news_recommendation.utils import load_dict, Tokenizer, read_json, get_project_root
+from news_recommendation.utils import load_word_dict, Tokenizer, get_project_root, read_json
 
 
 def bert_collate_fn(data):
@@ -53,11 +50,10 @@ def collate_fn(data):
 class MindDataLoader:
     def __init__(self, **kwargs):
         # load word and user dictionary
-        data_path = kwargs.get("data_path", Path(get_project_root()) / "dataset/MIND")
-        word_dict_path = kwargs.get("word_dict_path", Path(data_path) / "utils" / "word_dict.pkl")
-        self.word_dict = load_dict(word_dict_path)
-        self.word_dict["UNK"] = 0
-        uid2index = load_dict(Path(data_path) / "utils" / "uid2index.pkl")
+        data_root = kwargs.get("data_root", Path(get_project_root()) / "dataset")  # get root of dataset
+        word_dict_path = kwargs.get("word_dict_path", Path(data_root) / "utils/word_dict/MIND_41059.json")
+        self.word_dict = load_word_dict(data_root=data_root, word_dict_path=word_dict_path)
+        uid2index = read_json(kwargs.get("uid_path", Path(data_root) / "utils/MIND_uid_index.json"))
         kwargs.update({"word_dict": self.word_dict, "uid2index": uid2index})
         module_dataset_name = kwargs["dataset_class"] if "dataset_class" in kwargs else "MindRSDataset"
         self.use_dkn_utils = kwargs.get("dkn_utils", None)

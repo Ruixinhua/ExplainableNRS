@@ -392,6 +392,13 @@ class DNN(nn.Module):
         return deep_input
 
 
+def init_layer(layers, init_std):
+    for name, tensor in layers.named_parameters():
+        if 'weight' in name:
+            nn.init.normal_(tensor, mean=0, std=init_std)
+    return layers
+
+
 class AGRUCell(nn.Module):
     """ Attention based GRU (AGRU)
 

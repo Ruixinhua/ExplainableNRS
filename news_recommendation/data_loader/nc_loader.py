@@ -24,25 +24,20 @@ class NewsDataLoader:
             raise ValueError(f"Embedding type should be one of {','.join(pretrained_models)} or glove and init")
         return dataset
 
-    def __init__(self, batch_size=32, shuffle=True, num_workers=1, max_length=128, dataset_name="News26/keep_all",
-                 **kwargs):
-        self.set_name, self.method = dataset_name.split("/")[0], dataset_name.split("/")[1]
-        self.max_length, self.embedding_type = max_length, kwargs.get("embedding_type", "glove")
-        self.embed_method, self.glove_path = kwargs.get("embed_method", "use_all"), kwargs.get("glove_path", None)
+    def __init__(self, batch_size=32, shuffle=True, num_workers=1, **kwargs):
+        self.method = kwargs.get("tokenized_method", "keep_all")
+        self.set_name = kwargs.get("dataset_name", "MIND15")
+        self.max_length, self.embedding_type = kwargs.get("max_length", 512), kwargs.get("embedding_type", "glove")
         self.data_root = kwargs.get("data_root", "../../dataset")
         self.data_path = Path(self.data_root) / "data" / f"{self.set_name}.csv"
-        df, self.label_dict = load_dataset_df(self.set_name, self.data_path, tokenized_method=self.method)
+        df, self.label_dict = load_dataset_df(data_path=self.data_path, **kwargs)
         # load index of training, validation and test set
         train_set, valid_set, test_set = df["split"] == "train", df["split"] == "valid", df["split"] == "test"
-        wdf = kwargs.get("word_dict_file", f"{dataset_name}_{self.method}_{self.embed_method}.json")
         if self.embedding_type in ["glove", "init"]:
             # setup word dictionary for glove or init embedding
-            self.word_dict = load_word_dict(self.data_root, self.set_name, self.method, df=df, word_dict_file=wdf)
+            self.word_dict = load_word_dict(**kwargs)
         if self.embedding_type == "glove":
-            embed_file = kwargs.get("embed_file", f"{dataset_name}_{self.method}_{self.embed_method}.npy")
-            self.embeds = load_embeddings(self.data_root, self.set_name, self.method, glove_path=self.glove_path,
-                                          embed_method=self.embed_method, embed_file=embed_file,
-                                          word_dict=self.word_dict, word_dict_file=wdf)
+            self.embeds = load_embeddings(**kwargs)
         self.init_params = {'batch_size': batch_size, 'shuffle': shuffle, 'num_workers': num_workers}
         # initialize train loader
         self.train_loader = DataLoader(self.load_dataset(df[train_set]), **self.init_params)

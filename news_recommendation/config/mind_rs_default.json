@@ -1,6 +1,5 @@
 {
     "type": "MindNRSBase",
-    "word_emb_file": "C:\\Users\\Rui\\Documents\\Phd_research_RS\\baseline\\NRHA\\mind_dataset\\utils\\embedding.npy",
     "out_layer": "product",
     "init_std": 0.001,
     "attention_hidden_dim": 200,
@@ -23,7 +22,6 @@
     "early_stop": 3,
     "tensorboard": false,
     "title": 30,
-    "data_path": "C:\\Users\\Rui\\Documents\\Phd_research_RS\\baseline\\NRHA\\mind_dataset",
     "mind_type": "demo",
     "//body news articles": 100,
     "history_size": 50,

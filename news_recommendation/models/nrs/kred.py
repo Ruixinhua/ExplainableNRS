@@ -78,9 +78,10 @@ class KREDRSModel(MindNRSBase):
             entity_index = self.title_len+self.document_embedding_dim
             context_vec = input_feat["news"][:, self.title_len:entity_index]
             entity = input_feat["news"][:, entity_index:]
-        else:
+        else:  # TODO: optimize input format
             title, entity = input_feat["news"][:, :self.title_len], input_feat["news"][:, self.title_len:]
-            y = self.dropouts(self.embedding_layer(title))  # encode document
+            input_feat["news"] = title
+            y = self.dropouts(self.embedding_layer(input_feat))  # encode document
             y = self.dropouts(self.news_encode_layer(y, y, y)[0])
             context_vec = self.news_att_layer(y)[0]
         entity = entity.reshape(-1, 4, self.news_entity_num)  # (B, 4, EN)

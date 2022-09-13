@@ -32,17 +32,18 @@ class LSTURRSModel(MindNRSBase):
         self.user_encode_layer = nn.GRU(input_dim, output_dim, batch_first=True, bidirectional=False)
         self.user_att_layer = AttLayer(output_dim, self.attention_hidden_dim)
 
-    def text_encode(self, news):
-        y = self.dropouts(self.embedding_layer(news))
+    def text_encode(self, input_feat):
+        y = self.dropouts(self.embedding_layer(input_feat))
         y = self.news_encode_layer(y.transpose(1, 2)).transpose(1, 2)
         y = self.news_att_layer(self.dropouts(y))[0]
         return y
 
     def news_encoder(self, input_feat):
         """input_feat: Size is [N * H, S]"""
-        if self.use_category or self.use_sub:
+        if self.use_category or self.use_sub:  # TODO: optimize input format
             news, cat = self.load_news_feat(input_feat, use_category=True)
-            news_embed, cat_embed = self.text_encode(news), self.category_embedding(cat)
+            input_feat["news"] = news
+            news_embed, cat_embed = self.text_encode(input_feat), self.category_embedding(cat)
             y = torch.cat([torch.reshape(cat_embed, (cat_embed.shape[0], -1)), news_embed], dim=1)
         else:
             y = self.text_encode(input_feat["news"])

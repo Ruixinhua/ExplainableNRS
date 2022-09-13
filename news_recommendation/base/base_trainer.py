@@ -1,5 +1,7 @@
 import copy
 import os
+from datetime import datetime
+
 import torch
 import pandas as pd
 import news_recommendation.utils.metric_utils as module_metric
@@ -89,6 +91,7 @@ class BaseTrainer:
             self.logger.info("    {:15s}: {}".format(str(key), value))
 
     def save_log(self, log, **kwargs):
+        log["start_time"] = datetime.now().strftime(r'%m%d_%H%M%S')
         log["seed"] = self.config["seed"]
         for key, item in self.config.cmd_args.items():  # record all command line arguments
             if isinstance(item, dict):
