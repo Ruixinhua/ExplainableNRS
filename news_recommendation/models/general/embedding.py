@@ -8,10 +8,7 @@ from news_recommendation.config import LAYER_MAPPING
 class NewsEmbedding(nn.Module):
     def __init__(self, **kwargs):
         super(NewsEmbedding, self).__init__()
-        self.dropout_rate = kwargs.get("dropout_rate", 0)  # default without using dropout
-        self.dropouts = nn.Dropout(self.dropout_rate)
         self.embedding_type = kwargs.get("embedding_type", "glove")
-        self.dropout = nn.Dropout(self.dropout_rate)
         self.embed_dim = kwargs.get("embed_dim", 300)
         if self.embedding_type == "glove":
             self.embeds = load_embeddings(**kwargs)
@@ -48,5 +45,4 @@ class NewsEmbedding(nn.Module):
             input_feat["embedding"] = input_feat["embedding"] if "embedding" in input_feat else None
             output = self.embedding(input_feat["news"], input_feat["news_mask"], inputs_embeds=input_feat["embedding"])
             embedding = output[0]
-        embedding = nn.Dropout(self.dropout_rate)(embedding)
         return embedding

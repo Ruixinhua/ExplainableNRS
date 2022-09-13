@@ -41,6 +41,7 @@ class NewsDataLoader:
         self.init_params = {'batch_size': batch_size, 'shuffle': shuffle, 'num_workers': num_workers}
         # initialize train loader
         self.train_loader = DataLoader(self.load_dataset(df[train_set]), **self.init_params)
+        self.init_params["shuffle"] = False  # disable shuffle for validation and test set
         # initialize validation loader
         self.valid_loader = DataLoader(self.load_dataset(df[valid_set]), **self.init_params)
         # initialize test loader

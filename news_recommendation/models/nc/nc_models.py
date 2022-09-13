@@ -12,6 +12,8 @@ class BaseClassifyModel(BaseModel):
         super().__init__()
         self.__dict__.update(kwargs)
         self.att_weight = None
+        self.dropout_rate = kwargs.get("dropout_rate", 0)  # default without using dropout
+        self.dropout = nn.Dropout(self.dropout_rate)
         self.num_classes = kwargs.get("num_classes", 15)
         self.embedding_layer = NewsEmbedding(**kwargs)
         self.embed_dim = self.embedding_layer.embed_dim
@@ -20,14 +22,14 @@ class BaseClassifyModel(BaseModel):
 
     def classify_layer(self, latent, weight=None, **kwargs):
         return_attention = kwargs.get("return_attention", self.return_attention)
-        output = (self.classifier(latent),)
+        output = {"predicted": self.classifier(latent)}
         if return_attention:
-            output = output + (weight,)
+            output["attention"] = weight
         return output
 
     def forward(self, input_feat, **kwargs):
         input_feat["embedding"] = input_feat.get("embedding", kwargs.get("inputs_embeds"))
-        embedding = self.embedding_layer(input_feat)
+        embedding = self.dropout(self.embedding_layer(input_feat))
         if self.embedding_type == "glove" or self.embedding_type == "init":
             embedding = torch.mean(embedding, dim=1)
         else:

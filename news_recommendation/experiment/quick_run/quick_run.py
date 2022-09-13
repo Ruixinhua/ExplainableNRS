@@ -23,7 +23,7 @@ def run(config: Configuration, **kwargs):
 def evaluate(trainer, data_loader):
     log = {}
     # run validation
-    log.update(trainer.evaluate(data_loader.valid_loader, trainer.best_model, prefix="val"))
+    log.update(trainer.evaluate(trainer.valid_loader, trainer.model, prefix="val"))
     # run test
-    log.update(trainer.evaluate(data_loader.test_loader, trainer.best_model, prefix="test"))
+    log.update(trainer.evaluate(data_loader.test_loader, trainer.model, prefix="test"))
     return log

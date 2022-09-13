@@ -1,9 +1,9 @@
 import os
 import ast
 import time
+import numpy as np
 from datetime import datetime
 
-import torch.distributed
 from pathlib import Path
 from itertools import product
 
@@ -20,36 +20,36 @@ def evaluate_run():
     data_loader = init_data_loader(config)
     set_seed(config["seed"])
     trainer = run(config, data_loader=data_loader)
+    trainer.resume_checkpoint()  # load the best model
     log["#Voc"] = len(data_loader.word_dict)
     if "nc" in cmd_args["task"].lower():
         log.update(evaluate(trainer, data_loader))
     else:
-        log.update(trainer.evaluate(data_loader, trainer.best_model, prefix="val"))
+        log.update(trainer.evaluate(data_loader, trainer.model, prefix="val"))
     if topic_evaluation_method:
-        if torch.distributed.is_initialized():
-            model = trainer.best_model.module
-        else:
-            model = trainer.best_model
         topic_path = Path(config.saved_dir) / f"topics/{saved_name}/{seed}/{datetime.now().strftime(r'%m%d_%H%M%S')}"
-        os.makedirs(topic_path, exist_ok=True)
         topic_num = config.get("head_num")  # the number of heads is the number of topics
         reverse_dict = {v: k for k, v in data_loader.word_dict.items()}
-        topic_dist = get_topic_dist(model, list(data_loader.word_dict.values()), topic_num, log["#Voc"])
+        topic_dist = get_topic_dist(trainer.model, list(data_loader.word_dict.values()), topic_num, log["#Voc"])
         top_n, methods = config.get("top_n", 10), config.get("coherence_method", "c_v,c_npmi")
         topic_list = get_topic_list(topic_dist, top_n, reverse_dict)  # convert to tokens list
         ref_data_path = config.get("ref_data_path", Path(get_project_root()) / "dataset/data/MIND15.csv")
-        write_to_file(os.path.join(topic_path, "topic_list.txt"), [" ".join(topics) for topics in topic_list])
+        if config.get("save_topic_info", False):
+            os.makedirs(topic_path, exist_ok=True)
+            write_to_file(os.path.join(topic_path, "topic_list.txt"), [" ".join(topics) for topics in topic_list])
         if topic_evaluation_method == "fast_eval":
             ref_texts = load_sparse(ref_data_path)
             scorer = NPMI((ref_texts > 0).astype(int))
             topic_index = [[data_loader.word_dict[word] - 1 for word in topic] for topic in topic_list]
             topic_scores = {"c_npmi": scorer.compute_npmi(topics=topic_index, n=top_n)}
         else:
-            dataset_name, method = config["dataset_name"].split("/")
+            dataset_name, method = config.get("dataset_name", "MIND15"), config.get("tokenized_method", "keep_all")
             ref_df, _ = load_dataset_df(dataset_name, data_path=ref_data_path, tokenized_method=method)
             ref_texts = [word_tokenize(doc, method) for doc in ref_df["data"].values]
             topic_scores = {m: compute_coherence(topic_list, ref_texts, m, top_n) for m in methods.split(",")}
-        topic_result = save_topic_info(topic_path, topic_list, topic_scores)
+        topic_result = {m: np.round(np.mean(c), 4) for m, c in topic_scores.items()}
+        if config.get("save_topic_info", False):
+            topic_result = save_topic_info(topic_path, topic_list, topic_scores)
         log.update(topic_result)
     log["Total Time"] = time.time() - start_time
     saved_path = saved_dir / f"{saved_name}.csv"

@@ -12,9 +12,6 @@ class TopicLayer(nn.Module):
     def __init__(self, **kwargs):
         super(TopicLayer, self).__init__()
         self.variant_name = kwargs.get("topic_variant", "base")
-        self.embedding_layer = kwargs.get("embedding_layer", None)
-        self.dropout_rate = kwargs.get("dropout_rate", 0)  # default without using dropout
-        self.dropouts = nn.Dropout(self.dropout_rate)
         self.head_num, self.head_dim = kwargs.get("head_num", 50), kwargs.get("head_dim", 20)
         topic_dim = self.head_num * self.head_dim
         self.embedding_dim = kwargs.get("embedding_dim", 300)
@@ -56,7 +53,7 @@ class TopicLayer(nn.Module):
         :param input_feat: Dict[str, torch.Tensor], input feature contains "news" or "news_embeddings"
         :return:
         """
-        embedding = self.embedding_layer(input_feat)
+        embedding = input_feat["news_embeddings"]
         if self.variant_name == "topic_embed":
             topic_weight = self.topic_layer(input_feat["news"]).transpose(1, 2)  # (N, H, S)
         else:

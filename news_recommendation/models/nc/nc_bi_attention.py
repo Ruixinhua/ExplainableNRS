@@ -8,7 +8,7 @@ from news_recommendation.models.nc.nc_models import BaseClassifyModel
 class BiAttentionClassifyModel(BaseClassifyModel):
     def __init__(self, **kwargs):
         super(BiAttentionClassifyModel, self).__init__(**kwargs)
-        self.topic_layer = TopicLayer(embedding_layer=self.embedding_layer, **kwargs)
+        self.topic_layer = TopicLayer(**kwargs)
         # the structure of basic model
         self.final = nn.Linear(self.embed_dim, self.embed_dim)
         self.projection = AttLayer(self.embed_dim, 128)
@@ -16,6 +16,7 @@ class BiAttentionClassifyModel(BaseClassifyModel):
         self.calculate_entropy = kwargs.get("calculate_entropy", False)
 
     def extract_topic(self, input_feat):
+        input_feat["news_embeddings"] = self.dropout(self.embedding_layer(input_feat))
         return self.topic_layer(input_feat)
 
     def forward(self, input_feat, inputs_embeds=None, return_attention=False, **kwargs):

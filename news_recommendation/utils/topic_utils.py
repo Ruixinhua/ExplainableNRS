@@ -1,6 +1,5 @@
 import heapq
 import torch
-import torch.distributed
 import os
 import numpy as np
 from gensim.corpora import Dictionary
@@ -103,7 +102,11 @@ def extract_topics(model, word_seq, device, topic_num=20, voc_size=None):
     with torch.no_grad():
         word_feat = {"news": torch.tensor(word_seq).unsqueeze(0).to(device),
                      "news_mask": torch.ones(len(word_seq)).unsqueeze(0).to(device)}
-        _, topic_weight = model.extract_topic(word_feat)  # (B, H, N)
+        try:
+            _, topic_weight = model.extract_topic(word_feat)  # (B, H, N)
+        except AttributeError:
+            model = model.module  # for multi-GPU
+            _, topic_weight = model.extract_topic(word_feat)  # (B, H, N)
         topic_dist[:, word_seq] = topic_weight.squeeze().cpu().data
     return topic_dist
 

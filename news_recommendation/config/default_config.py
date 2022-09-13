@@ -5,7 +5,7 @@ from news_recommendation.utils import get_project_root
 
 DEFAULT_CONFIGS = {
     "n_gpu": 1, "embedding_type": "glove", "embedding_dim": 300, "max_length": 100, "loss": "cross_entropy",
-    "metrics": ["accuracy", "macro_f"], "save_model": False, "resume_path": None, "project_name": "",
+    "metrics": ["accuracy", "macro_f"], "save_model": True, "resume_path": None, "project_name": "",
     "seed": 42, "arch_type": "BiAttentionClassifyModel", "dropout_rate": 0.2, "dataloader_type": "NewsDataLoader",
     "batch_size": 32, "num_workers": 1, "dataset_name": "News26/keep_all", "trainer_type": "NCTrainer",
     "log_levels": {0: logging.WARNING, 1: logging.INFO, 2: logging.DEBUG},  # configure logging module

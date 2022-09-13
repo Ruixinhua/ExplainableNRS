@@ -9,7 +9,7 @@ class BATMRSModel(MindNRSBase):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.variant_name = kwargs.pop("variant_name", "base_gru")
-        self.topic_layer = TopicLayer(embedding_layer=self.embedding_layer, **kwargs)
+        self.topic_layer = TopicLayer(**kwargs)
         topic_dim = self.head_num * self.head_dim
         # the structure of basic model
         if self.variant_name == "base_gru" or self.variant_name == "base_att":
@@ -18,9 +18,10 @@ class BATMRSModel(MindNRSBase):
             self.user_encode_layer = nn.Sequential(nn.Linear(self.embedding_dim, topic_dim), nn.Tanh(),
                                                    nn.Linear(topic_dim, self.head_num))
             self.user_final = nn.Linear(self.embedding_dim, self.embedding_dim)
-        self.dropouts = nn.Dropout(self.dropout_rate)
+        self.dropout = nn.Dropout(self.dropout_rate)
 
     def extract_topic(self, input_feat):
+        input_feat["news_embeddings"] = self.dropout(self.embedding_layer(input_feat))
         return self.topic_layer(input_feat)
 
     def news_encoder(self, input_feat):

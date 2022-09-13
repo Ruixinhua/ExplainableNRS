@@ -17,7 +17,7 @@ from news_recommendation.logger import setup_logging
 
 def setup_project_path(configs):
     """
-    Setup the project path and the corresponding directories
+    Set up the project path and the corresponding directories
     """
     # identifier of experiment, default is identified by dataset name, architecture type, and current time.
     default_name = f"{configs['dataset_name']}/{configs['arch_type']}/{datetime.now().strftime(r'%m%d_%H%M%S')}"
@@ -25,9 +25,7 @@ def setup_project_path(configs):
     # make directory for saving checkpoints and log
     configs["model_dir"] = os.path.join(configs["saved_dir"], "models", configs["run_name"])
     os.makedirs(configs["model_dir"], exist_ok=True)
-    configs["log_dir"] = os.path.join(configs["saved_dir"], "logs", configs["run_name"])
-    os.makedirs(configs["log_dir"], exist_ok=True)
-    setup_logging(configs["log_dir"])
+    setup_logging(configs["model_dir"])
     return configs
 
 

@@ -1,4 +1,3 @@
-import copy
 import os
 from datetime import datetime
 
@@ -26,13 +25,11 @@ class BaseTrainer:
         self.logger.info(f"Device: {self.device}")
         self.model = model.to(self.device)
         self.logger.info(f"load device {self.device}")
-        # set up model parameters
-        self.best_model = copy.deepcopy(model)
         # get function handles of loss and metrics
         self.criterion = getattr(module_loss, config["loss"])
         self.metric_funcs = [getattr(module_metric, met) for met in config["metrics"]]
         # setup visualization writer instance
-        self.writer = TensorboardWriter(config.log_dir, self.logger, config["tensorboard"])
+        self.writer = TensorboardWriter(config.model_dir, self.logger, config["tensorboard"])
 
         # build optimizer, learning rate scheduler. delete every lines containing lr_scheduler for disabling scheduler
         self.optimizer = self._build_optimizer()
@@ -55,10 +52,10 @@ class BaseTrainer:
                 self.early_stop = inf
 
         self.start_epoch = 1
-        self.checkpoint_dir = config.model_dir
+        self.checkpoint_dir = Path(config.model_dir)
 
         if config["resume"] is not None:
-            self._resume_checkpoint(config["resume"])
+            self.resume_checkpoint(config["resume"])
 
     def _build_optimizer(self, **kwargs):
         # build optimizer according to specified optimizer config
@@ -124,7 +121,6 @@ class BaseTrainer:
             if improved:
                 self.mnt_best = log[self.mnt_metric]
                 self.not_improved_count = 0
-                self.best_model = copy.deepcopy(self.model)
                 if self.config.save_model:
                     self._save_checkpoint(epoch, log[self.mnt_metric])
             else:
@@ -156,45 +152,30 @@ class BaseTrainer:
         :param epoch: current epoch number
         :param score: current score of monitor metric
         """
-        arch = type(self.model).__name__
-        state = {
-            "arch": arch,
-            "epoch": epoch,
-            "state_dict": self.model.state_dict(),
-            "optimizer": self.optimizer.state_dict(),
-            "monitor_best": self.mnt_best,
-            "config": self.config
-        }
-        best_path = str(self.checkpoint_dir / f"{round(score, 4)}_model_best-epoch{epoch}.pth")
-        if self.last_best_path:
-            if os.path.exists(self.last_best_path):
-                os.remove(self.last_best_path)
-        torch.save(state, best_path)
-        self.logger.info(f"Saving current best: {best_path}")
+        best_path = str(self.checkpoint_dir / f"{round(score, 4)}_model_best-epoch{epoch}")
+        # Register the LR scheduler
+        self.accelerator.register_for_checkpointing(self.lr_scheduler)
+        # TODO: optimize save procedure (accelerate): https://huggingface.co/docs/accelerate/usage_guides/checkpoint
+        # Save the starting state
+        self.accelerator.save_state(best_path)
+        if self.accelerator.is_main_process:  # to avoid duplicated deleting
+            if self.last_best_path:
+                if os.path.exists(self.last_best_path):
+                    import shutil
+                    shutil.rmtree(self.last_best_path)
+            self.logger.info(f"Saving current best to path: {best_path}")
         self.last_best_path = best_path
 
-    def _resume_checkpoint(self, resume_path):
+    def resume_checkpoint(self, resume_path=None):
         """
         Resume from saved checkpoints
 
         :param resume_path: Checkpoint path to be resumed
         """
+        if resume_path is None:
+            resume_path = self.last_best_path
         resume_path = str(resume_path)
+        # TODO: optimize load procedure
+        # Restore previous state
+        self.accelerator.load_state(resume_path)
         self.logger.info(f"Loading checkpoint: {resume_path} ...")
-        checkpoint = torch.load(resume_path)
-        self.start_epoch = checkpoint["epoch"] + 1
-        self.mnt_best = checkpoint["monitor_best"]
-
-        # load architecture params from checkpoint.
-        if checkpoint["config"] != self.config:
-            self.logger.warning("Warning: Architecture configuration given in config file is different from that of "
-                                "checkpoint. This may yield an exception while state_dict is being loaded.")
-        self.model.load_state_dict(checkpoint["state_dict"])
-        # load optimizer state from checkpoint only when optimizer type is not changed.
-        if checkpoint["config"]["optimizer_config"] != self.config["optimizer_config"]:
-            self.logger.warning("Warning: Optimizer type given in config file is different from that of checkpoint. "
-                                "Optimizer parameters not being resumed.")
-        else:
-            self.optimizer.load_state_dict(checkpoint["optimizer"])
-
-        self.logger.info(f"Checkpoint loaded. Resume training from epoch {self.start_epoch}")

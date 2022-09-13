@@ -45,12 +45,12 @@ class NCTrainer(BaseTrainer):
         """
         batch_dict = self.load_batch_data(batch_dict, multi_gpu)
         output = model(batch_dict) if model is not None else self.model(batch_dict)
-        loss = self.criterion(output[0], batch_dict["label"])
-        out_dict = {"label": batch_dict["label"], "loss": loss, "predict": output[0]}
+        loss = self.criterion(output["predicted"], batch_dict["label"])
+        out_dict = {"label": batch_dict["label"], "loss": loss, "predict": output["predicted"]}
         if self.entropy_constraint:
-            loss += self.alpha * output[2]
+            loss += self.alpha * output["entropy"]
         if self.calculate_entropy:
-            out_dict.update({"attention_weight": output[1], "entropy": output[2]})
+            out_dict.update({"attention_weight": output["attention"], "entropy": output["entropy"]})
         return out_dict
 
     def update_metrics(self, metrics, out_dict):
