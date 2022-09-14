@@ -15,18 +15,24 @@ from logging import getLogger
 from news_recommendation.logger import setup_logging
 
 
-def setup_project_path(configs):
+def setup_project_path(config):
     """
     Set up the project path and the corresponding directories
     """
     # identifier of experiment, default is identified by dataset name, architecture type, and current time.
-    default_name = f"{configs['dataset_name']}/{configs['arch_type']}/{datetime.now().strftime(r'%m%d_%H%M%S')}"
-    configs["run_name"] = configs.get("run_name", default_name)
+    saved_path = config.get("saved_filename", None)
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    if saved_path:
+        saved_path = f"{saved_path}_{timestamp}.csv"
+    else:
+        saved_path = f"{config.get('arch_type')}_{timestamp}.csv"
+    default_name = f"{config['dataset_name']}/{saved_path}"
+    config["run_name"] = config.get("run_name", default_name)
     # make directory for saving checkpoints and log
-    configs["model_dir"] = os.path.join(configs["saved_dir"], "models", configs["run_name"])
-    os.makedirs(configs["model_dir"], exist_ok=True)
-    setup_logging(configs["model_dir"])
-    return configs
+    config["model_dir"] = os.path.join(config["saved_dir"], "models", config["run_name"])
+    os.makedirs(config["model_dir"], exist_ok=True)
+    setup_logging(config["model_dir"])
+    return config
 
 
 def convert_config_dict(config_dict):

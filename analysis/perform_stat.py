@@ -17,13 +17,21 @@ if __name__ == "__main__":
     root_path = Path(cmd_args.get("root_path", Path(get_project_root()) / "saved"))
     perform_dir = root_path / "performance"
     saved_path = root_path / "stat"
-    os.makedirs(saved_path, exist_ok=True)
     latex_dir = saved_path / "latex"
     os.makedirs(latex_dir, exist_ok=True)
-    input_path = cmd_args.get("input_path", None)
-    if input_path is None:
-        input_file = cmd_args.get("input_file", "MIND15-keep_all-base.csv")
-        input_path = perform_dir / input_file
+    if "input_path" not in cmd_args:
+        input_file = cmd_args.get("input_file", None)
+        if input_file is None:
+            raise ValueError("Please specify input_path or input_file")
+        if os.path.exists(input_file):
+            input_path = Path(input_file)
+        else:
+            input_path = perform_dir / input_file
+    else:
+        input_path = Path(cmd_args["input_path"])
+    if not os.path.exists(input_path):
+        raise FileNotFoundError(f"{input_path} not found")
+
     input_file_name = input_path.name
     per_df = pd.read_csv(input_path)
     per_df = del_index_column(per_df.drop_duplicates())
@@ -41,10 +49,13 @@ if __name__ == "__main__":
         extra_values = [get_mean_std(group[m].values, r=4) for m in extra_stat]
         mean_series = pd.Series(list(group_names) + mean_values + extra_values, index=columns)
         stat_df = stat_df.append(mean_series, ignore_index=True)
-    output_path = cmd_args.get("output_path", None)
-    if output_path is None:  # if not specified, save to default stat file
-        output_file = cmd_args.get("output_file", input_file_name)
-        output_path = saved_path / output_file
+    if "output_path" not in cmd_args:  # if not specified, save to default stat file
+        output_path = saved_path
+    else:
+        output_path = Path(cmd_args["output_path"])
+    os.makedirs(output_path, exist_ok=True)
+    output_file = cmd_args.get("output_file", input_file_name)
+    output_path = output_path / output_file
     if os.path.exists(output_path):
         old_stat_df = pd.read_csv(output_path)
         old_stat_df = old_stat_df.append(stat_df, ignore_index=True)

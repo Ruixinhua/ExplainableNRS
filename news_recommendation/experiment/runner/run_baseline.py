@@ -52,7 +52,8 @@ def evaluate_run():
             topic_result = save_topic_info(topic_path, topic_list, topic_scores)
         log.update(topic_result)
     log["Total Time"] = time.time() - start_time
-    saved_path = saved_dir / f"{saved_name}.csv"
+    saved_path = saved_dir / saved_name / saved_filename
+    os.makedirs(saved_path.parent, exist_ok=True)
     if trainer.accelerator.is_main_process:  # to avoid duplicated writing
         trainer.save_log(log, saved_path=saved_path)
         logger.info(f"saved log: {saved_path} finished.")
@@ -61,6 +62,7 @@ def evaluate_run():
 if __name__ == "__main__":
     # setup arguments used to run baseline models
     cmd_args = load_cmd_line()
+    timestamp = datetime.now().strftime(r'%m%d_%H%M%S')
     if "nc" in cmd_args["task"].lower():
         config = Configuration()
     else:
@@ -71,12 +73,17 @@ if __name__ == "__main__":
     os.makedirs(saved_dir, exist_ok=True)  # create empty directory
     arch_attr = config.get("arch_attr", None)  # test an architecture attribute
     topic_evaluation_method = config.get("topic_evaluation_method", None)
+    saved_filename = config.get("saved_filename", None)
+    if saved_filename:
+        saved_filename = f"{saved_filename}_{timestamp}.csv"
+    else:
+        saved_filename = f"{config.get('arch_type')}_{timestamp}.csv"
     entropy_constraint = config.get("entropy_constraint", 0)
-    default_saved_name = f'{cmd_args["task"]}-{arch_attr}'
+    default_saved_name = f'{cmd_args["task"]}/{arch_attr}/'
     if topic_evaluation_method:
-        default_saved_name += f"-evaluate_topic"
+        default_saved_name += f"{topic_evaluation_method}/"
     if entropy_constraint:
-        default_saved_name += "-entropy_constraint"
+        default_saved_name += "entropy_constraint/"
     saved_name = config.get("saved_name", default_saved_name)
     logger = config.get_logger(saved_name)
     # acquires test values for a given arch attribute
