@@ -21,9 +21,11 @@ def load_entity(entity: str):
 
 
 def get_mind_root_path(**kwargs):
-    data_path = Path(kwargs.get("data_path", None))
+    data_path = kwargs.get("data_path", None)
     if data_path is None:
         data_path = Path(get_project_root()) / "dataset/MIND"
+    else:
+        data_path = Path(data_path)
     mind_type, phase = kwargs.get("mind_type", "demo"), kwargs.get("phase")  # options are train, valid, test
     mind_root = Path(data_path) / mind_type / phase  # define mind root path
     util_path = data_path / "utils"
@@ -34,8 +36,8 @@ def get_mind_root_path(**kwargs):
         if not util_path.exists():
             # download utils files if not found in the path
             download_resources(r"https://recodatasets.z20.web.core.windows.net/newsrec/", util_path, mind_utils)
-    if not os.path.exists(data_path.parent / "utils/word_dict/MIND_41059.json"):
-        rename_utils(util_path)
+    # if not os.path.exists(data_path.parent / "utils/word_dict/MIND_41059.json"):
+    #     rename_utils(util_path)
     if not os.path.exists(data_path.parent / "data/MIND15.csv"):
         pass  # TODO: Extract news from MIND dataset
     return mind_root

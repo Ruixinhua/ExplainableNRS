@@ -18,12 +18,3 @@ def run(config: Configuration, **kwargs):
     trainer = init_obj(config.trainer_type, config.final_configs, module_trainer, model, config, data_loader)
     trainer.fit()
     return trainer
-
-
-def evaluate(trainer, data_loader):
-    log = {}
-    # run validation
-    log.update(trainer.evaluate(trainer.valid_loader, trainer.model, prefix="val"))
-    # run test
-    log.update(trainer.evaluate(data_loader.test_loader, trainer.model, prefix="test"))
-    return log

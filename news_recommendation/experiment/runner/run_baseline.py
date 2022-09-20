@@ -10,7 +10,7 @@ from itertools import product
 from news_recommendation.config.configuration import Configuration
 from news_recommendation.config.default_config import TEST_CONFIGS
 from news_recommendation.config.config_utils import set_seed, load_cmd_line
-from news_recommendation.experiment.quick_run import run, evaluate
+from news_recommendation.experiment.quick_run import run
 from news_recommendation.utils import get_topic_list, get_project_root, init_data_loader, get_topic_dist, \
     load_sparse, load_dataset_df, word_tokenize, NPMI, compute_coherence, write_to_file, save_topic_info
 
@@ -20,21 +20,24 @@ def evaluate_run():
     data_loader = init_data_loader(config)
     set_seed(config["seed"])
     trainer = run(config, data_loader=data_loader)
-    trainer.resume_checkpoint()  # load the best model
+    if trainer.accelerator.is_main_process:
+        trainer.resume_checkpoint()  # load the best model
     log["#Voc"] = len(data_loader.word_dict)
     if "nc" in cmd_args["task"].lower():
-        log.update(evaluate(trainer, data_loader))
+        # run validation
+        log.update(trainer.evaluate(trainer.valid_loader, trainer.model, prefix="val"))
+        # run test
+        log.update(trainer.evaluate(data_loader.test_loader, trainer.model, prefix="test"))
     else:
         log.update(trainer.evaluate(data_loader, trainer.model, prefix="val"))
     if topic_evaluation_method:
-        topic_path = Path(config.saved_dir) / f"topics/{saved_name}/{seed}/{datetime.now().strftime(r'%m%d_%H%M%S')}"
-        topic_num = config.get("head_num")  # the number of heads is the number of topics
+        topic_path = Path(config.model_dir) / f"topics_{seed}_{datetime.now().strftime(r'%m%d_%H%M%S')}"
         reverse_dict = {v: k for k, v in data_loader.word_dict.items()}
-        topic_dist = get_topic_dist(trainer.model, list(data_loader.word_dict.values()), topic_num, log["#Voc"])
+        topic_dist = get_topic_dist(trainer.model, data_loader, config.get("topic_variant", "base"))
         top_n, methods = config.get("top_n", 10), config.get("coherence_method", "c_v,c_npmi")
         topic_list = get_topic_list(topic_dist, top_n, reverse_dict)  # convert to tokens list
         ref_data_path = config.get("ref_data_path", Path(get_project_root()) / "dataset/data/MIND15.csv")
-        if config.get("save_topic_info", False):
+        if config.get("save_topic_info", False) and trainer.accelerator.is_main_process:  # save topic info
             os.makedirs(topic_path, exist_ok=True)
             write_to_file(os.path.join(topic_path, "topic_list.txt"), [" ".join(topics) for topics in topic_list])
         if topic_evaluation_method == "fast_eval":
@@ -48,13 +51,13 @@ def evaluate_run():
             ref_texts = [word_tokenize(doc, method) for doc in ref_df["data"].values]
             topic_scores = {m: compute_coherence(topic_list, ref_texts, m, top_n) for m in methods.split(",")}
         topic_result = {m: np.round(np.mean(c), 4) for m, c in topic_scores.items()}
-        if config.get("save_topic_info", False):
-            topic_result = save_topic_info(topic_path, topic_list, topic_scores)
+        if config.get("save_topic_info", False) and trainer.accelerator.is_main_process:  # avoid duplicated saving
+            topic_result = save_topic_info(topic_path, topic_list, topic_scores, config.get("sort_score", True))
         log.update(topic_result)
     log["Total Time"] = time.time() - start_time
-    saved_path = saved_dir / saved_name / saved_filename
-    os.makedirs(saved_path.parent, exist_ok=True)
     if trainer.accelerator.is_main_process:  # to avoid duplicated writing
+        saved_path = saved_dir / saved_name / saved_filename
+        os.makedirs(saved_path.parent, exist_ok=True)
         trainer.save_log(log, saved_path=saved_path)
         logger.info(f"saved log: {saved_path} finished.")
 

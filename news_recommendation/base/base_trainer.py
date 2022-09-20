@@ -157,8 +157,8 @@ class BaseTrainer:
         self.accelerator.register_for_checkpointing(self.lr_scheduler)
         # TODO: optimize save procedure (accelerate): https://huggingface.co/docs/accelerate/usage_guides/checkpoint
         # Save the starting state
-        self.accelerator.save_state(best_path)
         if self.accelerator.is_main_process:  # to avoid duplicated deleting
+            self.accelerator.save_state(best_path)
             if self.last_best_path:
                 if os.path.exists(self.last_best_path):
                     import shutil
@@ -169,7 +169,6 @@ class BaseTrainer:
     def resume_checkpoint(self, resume_path=None):
         """
         Resume from saved checkpoints
-
         :param resume_path: Checkpoint path to be resumed
         """
         if resume_path is None:

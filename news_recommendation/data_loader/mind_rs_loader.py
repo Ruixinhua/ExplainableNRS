@@ -51,8 +51,7 @@ class MindDataLoader:
     def __init__(self, **kwargs):
         # load word and user dictionary
         data_root = kwargs.get("data_root", Path(get_project_root()) / "dataset")  # get root of dataset
-        word_dict_path = kwargs.get("word_dict_path", Path(data_root) / "utils/word_dict/MIND_41059.json")
-        self.word_dict = load_word_dict(data_root=data_root, word_dict_path=word_dict_path)
+        self.word_dict = load_word_dict(**kwargs)
         uid2index = read_json(kwargs.get("uid_path", Path(data_root) / "utils/MIND_uid_index.json"))
         kwargs.update({"word_dict": self.word_dict, "uid2index": uid2index})
         module_dataset_name = kwargs["dataset_class"] if "dataset_class" in kwargs else "MindRSDataset"

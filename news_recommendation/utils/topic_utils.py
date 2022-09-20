@@ -95,29 +95,64 @@ def load_sparse(input_file):
     return sparse.load_npz(input_file).tocsr()
 
 
-def extract_topics(model, word_seq, device, topic_num=20, voc_size=None):
-    voc_size = len(word_seq) if voc_size is None else voc_size
-    topic_dist = np.zeros((topic_num, voc_size))
+def extract_topics_base(model, word_seq, device):
+    voc_size = len(word_seq)
     model = model.to(device)
+    try:
+        # the number of heads is the number of topics
+        topic_dist = np.zeros((model.head_num, voc_size))
+    except AttributeError:
+        model = model.module  # for multi-GPU
+        topic_dist = np.zeros((model.head_num, voc_size))
     with torch.no_grad():
         word_feat = {"news": torch.tensor(word_seq).unsqueeze(0).to(device),
                      "news_mask": torch.ones(len(word_seq)).unsqueeze(0).to(device)}
-        try:
-            _, topic_weight = model.extract_topic(word_feat)  # (B, H, N)
-        except AttributeError:
-            model = model.module  # for multi-GPU
-            _, topic_weight = model.extract_topic(word_feat)  # (B, H, N)
+        _, topic_weight = model.extract_topic(word_feat)  # (B, H, N)
         topic_dist[:, word_seq] = topic_weight.squeeze().cpu().data
     return topic_dist
 
 
-def get_topic_dist(model, word_seq: list, topic_num, voc_size=None):
+def extract_topics_mha(model: torch.nn.Module, data_loader, device):
+    model = model.to(device)
+    try:
+        # the number of heads is the number of topics
+        topic_dist = np.zeros((model.head_num, len(data_loader.word_dict)))
+    except AttributeError:
+        model = model.module
+        topic_dist = np.zeros((model.head_num, len(data_loader.word_dict)))
+    word_count = np.zeros(len(data_loader.word_dict))
+    with torch.no_grad():
+        for batch_dict in data_loader.all_loader:
+            news_index = batch_dict["news"].cpu().numpy()
+            news_nonzero = np.nonzero(news_index)  # calculate nonzero values
+            news = news_index[news_nonzero]
+            batch_dict = {k: v.to(device) for k, v in batch_dict.items()}
+            _, weights = model.extract_topic(batch_dict)
+            weights = torch.transpose(weights, 1, 2).cpu().numpy()[news_nonzero]
+            for index, weight in zip(news, weights):
+                topic_dist[:, index] += weight
+                word_count[index] += 1
+    word_count[word_count == 0] = 1  # avoid zero division
+    topic_dist /= word_count
+    return topic_dist
+
+
+def extract_topics(model: torch.nn.Module, data_loader, topic_variant: str, device):
+    word_seq = list(data_loader.word_dict.values())
+    if topic_variant == "base":
+        topic_dist = extract_topics_base(model, word_seq, device)  # global topics (base)
+    else:
+        topic_dist = extract_topics_mha(model, data_loader, device)  # local topics (mha)
+    return topic_dist
+
+
+def get_topic_dist(model, data_loader, topic_variant: str):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")  # only run on one GPU
     try:
-        topic_dist = extract_topics(model, word_seq, device, topic_num, voc_size)
+        topic_dist = extract_topics(model, data_loader, topic_variant, device)
     except (RuntimeError, ):  # RuntimeError: CUDA out of memory, change to CPU
         device = torch.device("cpu")
-        topic_dist = extract_topics(model, word_seq, device, topic_num, voc_size)
+        topic_dist = extract_topics(model, data_loader, topic_variant, device)
     return topic_dist
 
 
@@ -138,11 +173,15 @@ def evaluate_entropy(topic_dist):
     return token_entropy, topic_entropy
 
 
-def save_topic_info(path, topic_list, topic_scores):
+def save_topic_info(path, topic_list, topic_scores, sort_score=True):
     topic_result = {m: np.round(np.mean(c), 4) for m, c in topic_scores.items()}
     for method, scores in topic_scores.items():
         topic_file = os.path.join(path, f"topic_list_{method}_{topic_result[method]}.txt")
-        for topics, score in zip(topic_list, scores):
+        if sort_score:  # sort topics by scores
+            sorted_scores = sorted(zip(scores, topic_list), reverse=True, key=lambda x: x[0])
+        else:
+            sorted_scores = zip(scores, topic_list)
+        for score, topics in sorted_scores:
             write_to_file(topic_file, f"{np.round(score, 4)}: {' '.join(topics)}\n", "a+")
         write_to_file(topic_file, f"Average score: {topic_result[method]}\n", "a+")
     return topic_result

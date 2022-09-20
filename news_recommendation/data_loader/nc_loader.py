@@ -46,3 +46,5 @@ class NewsDataLoader:
         self.valid_loader = DataLoader(self.load_dataset(df[valid_set]), **self.init_params)
         # initialize test loader
         self.test_loader = DataLoader(self.load_dataset(df[test_set]), **self.init_params)
+        # initialize all loader
+        self.all_loader = DataLoader(self.load_dataset(df), **self.init_params)
