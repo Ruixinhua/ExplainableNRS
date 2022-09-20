@@ -9,9 +9,16 @@ from news_recommendation.utils.general_utils import read_json, write_json, get_p
 
 
 def clean_df(data_df):
+    """
+    clean the data frame, remove non-ascii characters, and remove empty news
+    :param data_df: input data frame, should contain title, body, and category columns
+    :return: cleaned data frame
+    """
     data_df.dropna(subset=["title", "body"], inplace=True, how="all")
-    data_df.fillna("empty", inplace=True)
+    data_df.fillna("", inplace=True)
     data_df["title"] = data_df.title.apply(lambda s: clean_text(s))
+    if "abstract" in data_df.columns:
+        data_df["abstract"] = data_df.abstract.apply(lambda s: clean_text(s))
     data_df["body"] = data_df.body.apply(lambda s: clean_text(s))
     return data_df
 
@@ -29,6 +36,26 @@ def split_df(df, split=0.1, split_test=False):
     return df
 
 
+def load_mind_df(mind_types, mind_path=None):
+    if mind_path is None:
+        mind_path = Path(r"C:\Users\Rui\Documents\Explainable_AI\bi_attention\dataset\MIND")
+    set_types = ["train", "valid", "test"]
+    news_df = pd.DataFrame()
+    columns = ["news_id", "category", "subvert", "title", "abstract", "url", "entity", "ab_entity"]
+    for mt in mind_types:
+        for st in set_types:
+            news_path = mind_path / mt / st / "news.tsv"
+            article_path = mind_path / mt / st / "msn.json"
+            if not os.path.exists(article_path):
+                continue
+            articles = read_json(article_path)
+            df = pd.read_table(news_path, header=None, names=columns)
+            df["body"] = df.news_id.apply(lambda nid: " ".join(articles[nid]) if nid in articles else "")
+            news_df = news_df.append(df)
+    news_df.drop_duplicates(inplace=True)
+    return news_df
+
+
 def load_set_by_type(dataset, set_type: str) -> pd.DataFrame:
     df = {k: [] for k in ["data", "category"]}
     for text, label in zip(dataset[set_type]["text"], dataset[set_type]["label"]):
@@ -38,16 +65,30 @@ def load_set_by_type(dataset, set_type: str) -> pd.DataFrame:
     return pd.DataFrame(df)
 
 
+def load_tokenized_text(df, **kwargs):
+    tokenized_method = kwargs.get("tokenized_method", "keep_all")
+    if tokenized_method == "use_tokenize":
+        tokenized_news_path = kwargs.get("tokenized_news_path", None)
+        if tokenized_news_path is None:
+            tokenized_text = df["tokenized_text"]
+        else:  # TODO: load tokenized text from file
+            tokenized_news = pd.read_csv(tokenized_news_path)
+            tokenized_text = pd.merge(df, tokenized_news, on="news_id", how="left")["tokenized_text"].fillna("")
+        return tokenized_text
+    else:
+        df["data"] = df.title + "\n" + df.body
+        if "abstract" in df.columns:
+            df["data"] += "\n" + df.abstract
+        return df["data"]
+
+
 def load_dataset_df(dataset_name="MIND15", data_path=None, **kwargs):
-    if dataset_name in ["MIND15", "News26"]:
+    if dataset_name.lower().startswith("mind") or dataset_name.lower().startswith("news"):
         if data_path is None:  # TODO: if data is not exist, download it
             data_path = Path(get_project_root()) / "dataset" / "data" / f"{dataset_name}.csv"
         df = clean_df(pd.read_csv(data_path, encoding="utf-8"))
-        tokenized_method = kwargs.get("tokenized_method", "keep_all")
-        if tokenized_method == "use_tokenize":
-            df["data"] = df["tokenized_text"]
-        else:
-            df["data"] = df.title + "\n" + df.body
+        df["data"] = load_tokenized_text(df, **kwargs)
+
     elif dataset_name in ["ag_news", "yelp_review_full", "imdb"]:
         # load corresponding dataset from datasets library
         dataset = load_dataset(dataset_name)
@@ -136,14 +177,14 @@ def load_embeddings(**kwargs):
     embed_method = kwargs.get("embed_method", "use_all")
     dataset_name = kwargs.get("dataset_name", "MIND15")
     data_root = kwargs.get("data_root", Path(get_project_root()) / "dataset")
-    embed_file = kwargs.get("embed_file", f"default.npy")  # will not save to default embedding file
+    word_dict = kwargs.get("word_dict", load_word_dict(**kwargs))  # load word dictionary
+    embed_file = kwargs.get("embed_file", f"{dataset_name}_{len(word_dict)}.npy")
     embed_path = Path(kwargs.get("embed_path", os.path.join(data_root, "utils", "embed_dict", embed_file)))
     if os.path.exists(embed_path):
         return np.load(str(embed_path))
     else:
         glove_path = kwargs.get("glove_path", None)
-        word_dict = kwargs.get("word_dict", load_word_dict(**kwargs))
-        embed_path = embed_path.parent / f"{dataset_name}_{len(word_dict)}.npy"
+        embed_path = embed_path.parent / embed_file
         if os.path.exists(embed_path):
             return np.load(str(embed_path))
         embed_dict = load_embedding_from_path(glove_path)

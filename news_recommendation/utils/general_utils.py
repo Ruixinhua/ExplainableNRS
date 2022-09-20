@@ -2,7 +2,6 @@ import copy
 import importlib
 import json
 import os
-import pickle
 import random
 import torch
 import torch.distributed
@@ -51,18 +50,6 @@ def get_project_root(**kwargs):
     file_parts = Path(os.getcwd()).parts
     abs_path = Path(f"{os.sep}".join(file_parts[:file_parts.index(project_name) + 1]))
     return os.path.relpath(abs_path, os.getcwd())
-
-
-def load_dict(file_path):
-    """ load pickle file
-    Args:
-        file path (str): file path
-
-    Returns:
-        (obj): pickle load obj
-    """
-    with open(file_path, "rb") as f:
-        return pickle.load(f)
 
 
 def news_sampling(news, ratio):

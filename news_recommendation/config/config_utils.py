@@ -23,9 +23,9 @@ def setup_project_path(config):
     saved_path = config.get("saved_filename", None)
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     if saved_path:
-        saved_path = f"{saved_path}_{timestamp}.csv"
+        saved_path = f"{saved_path}_{timestamp}"
     else:
-        saved_path = f"{config.get('arch_type')}_{timestamp}.csv"
+        saved_path = f"{config.get('arch_type')}_{timestamp}"
     default_name = f"{config['dataset_name']}/{saved_path}"
     config["run_name"] = config.get("run_name", default_name)
     # make directory for saving checkpoints and log
