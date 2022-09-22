@@ -53,13 +53,15 @@ class NCTrainer(BaseTrainer):
             out_dict.update({"attention_weight": output["attention"], "entropy": output["entropy"]})
         return out_dict
 
-    def update_metrics(self, metrics, out_dict):
-        n = len(out_dict["label"])
-        metrics.update("loss", out_dict["loss"].item(), n=n)  # update metrix
-        if self.calculate_entropy:
-            metrics.update("doc_entropy", out_dict["entropy"].item() / n, n=n)
-        for met in self.metric_funcs:  # run metric functions
-            metrics.update(met.__name__, met(out_dict["predict"], out_dict["label"]), n=n)
+    def update_metrics(self, metrics=None, out_dict=None, predicts=None, labels=None):
+        if predicts is not None and labels is not None:
+            for met in self.metric_funcs:  # run metric functions
+                metrics.update(met.__name__, met(predicts, labels), n=len(labels))
+        else:
+            n = len(out_dict["label"])
+            metrics.update("loss", out_dict["loss"].item(), n=n)  # update metrix
+            if self.calculate_entropy:
+                metrics.update("doc_entropy", out_dict["entropy"].item() / n, n=n)
 
     def _train_epoch(self, epoch):
         """
@@ -70,17 +72,22 @@ class NCTrainer(BaseTrainer):
         self.model.train()
         self.train_metrics.reset()
         bar = tqdm(enumerate(self.train_loader), total=len(self.train_loader))
+        labels, predicts = [], []
         for batch_idx, batch_dict in bar:
             self.optimizer.zero_grad()  # setup gradient to zero
             out_dict = self.run_model(batch_dict, self.model)  # run model
+
             self.accelerator.backward(out_dict["loss"])  # backpropagation
             self.optimizer.step()  # gradient descent
             self.writer.set_step((epoch - 1) * self.len_epoch + batch_idx, "train")
             self.update_metrics(self.train_metrics, out_dict)
+            labels.extend(out_dict["label"].cpu().tolist())
+            predicts.extend(torch.argmax(out_dict["predict"], dim=1).cpu().tolist())
             if batch_idx % self.log_step == 0:  # set bar
                 bar.set_description(f"Train Epoch: {epoch} Loss: {out_dict['loss'].item()}")
             if batch_idx == self.len_epoch:
                 break
+        self.update_metrics(self.train_metrics, predicts=predicts, labels=labels)
         log = self.train_metrics.result()
         if self.do_validation:
             log.update(self.evaluate(self.valid_loader, self.model, epoch))  # update validation log
@@ -92,11 +99,15 @@ class NCTrainer(BaseTrainer):
     def evaluate(self, loader, model, epoch=0, prefix="val"):
         model.eval()
         self.valid_metrics.reset()
+        labels, predicts = [], []
         with torch.no_grad():
             for batch_idx, batch_dict in tqdm(enumerate(loader), total=len(loader)):
                 out_dict = self.run_model(batch_dict, model, multi_gpu=False)
                 self.writer.set_step((epoch - 1) * len(loader) + batch_idx, "evaluate")
                 self.update_metrics(self.valid_metrics, out_dict)
+                labels.extend(out_dict["label"].cpu().tolist())
+                predicts.extend(torch.argmax(out_dict["predict"], dim=1).cpu().tolist())
+        self.update_metrics(self.valid_metrics, predicts=predicts, labels=labels)
         for name, p in model.named_parameters():  # add histogram of model parameters to the tensorboard
             self.writer.add_histogram(name, p, bins='auto')
         return {f"{prefix}_{k}": v for k, v in self.valid_metrics.result().items()}  # return log with prefix

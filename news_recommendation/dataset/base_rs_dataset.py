@@ -10,6 +10,7 @@ from torch.utils.data.dataset import Dataset
 from collections import OrderedDict, defaultdict
 from news_recommendation.utils import read_json, news_sampling, Tokenizer, get_project_root, get_mind_root_path
 from news_recommendation.utils.graph_untils import load_entities, load_entity_feature
+from utils import clean_df
 
 
 class MindRSDataset(Dataset):
@@ -42,11 +43,15 @@ class MindRSDataset(Dataset):
         news_file = get_mind_root_path(**kwargs) / "news.tsv"  # define news file path
         # initial data of corresponding news attributes, such as: title, entity, vert, subvert, abstract
         columns = ["news_id", "category", "subvert", "title", "abstract", "url", "entity", "ab_entity"]
-        news_df = pd.read_csv(news_file, sep="\t", names=columns)
+        news_df = pd.read_table(news_file, header=None, names=columns)
         self.nid2index = kwargs.get("nid2index", {})  # map news id to index dictionary
         self.nid2index.update(dict(zip(news_df.news_id, range(1, len(news_df) + 1))))
         if kwargs.get("tokenized_method", "keep_all"):
-            news_df["docs"] = news_df["title"] + " " + news_df["abstract"]
+            article_path = get_mind_root_path(**kwargs) / "msn.json"
+            articles = read_json(article_path)
+            news_df["body"] = news_df.news_id.apply(lambda nid: " ".join(articles[nid]) if nid in articles else "")
+            news_df = clean_df(news_df)
+            news_df["docs"] = news_df["title"] + " " + news_df["abstract"] + " " + news_df["body"]
             self.news_features["article"].extend(news_df.docs.tolist())
         else:
             default_path = Path(get_project_root()) / "dataset/data/MIND_31139.csv"

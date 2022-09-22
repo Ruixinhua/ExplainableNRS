@@ -35,18 +35,12 @@ class MetricTracker:
         return dict(self._data.average)
 
 
-def accuracy(output, target):
-    with torch.no_grad():
-        pred = torch.argmax(output, dim=1)
-        assert pred.shape[0] == len(target)
-        return torch.sum(pred == target).item() / len(target)
+def accuracy(pred, target):
+    return np.sum(np.array(pred) == np.array(target)).item() / len(target)
 
 
-def macro_f(output, target):
-    with torch.no_grad():
-        pred = torch.argmax(output, dim=1)
-        score = f1_score(target.cpu(), pred.cpu(), average="macro")
-        return score
+def macro_f(pred, target):
+    return f1_score(target, pred, average="macro")
 
 
 def mrr_score(y_true, y_score):

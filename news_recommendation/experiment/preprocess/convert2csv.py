@@ -23,7 +23,7 @@ def save_tokenized_text(path):
             processed_mind_dict["news_id"].append(data["id"])
             processed_mind_dict["tokenized_text"].append(data["tokenized_text"])
     mind_processed_df = pd.DataFrame.from_dict(processed_mind_dict, orient="columns")
-    mind_processed_df.to_csv(Path(dataset_path) / f"data/MIND_{mind_type}_original.csv")
+    mind_processed_df.to_csv(Path(dataset_path) / f"data/MIND_{mind_type}_{len(vocab)}.csv")
     return mind_processed_df
 
 
@@ -33,5 +33,5 @@ if __name__ == "__main__":
     dataset_path = cmd_args.get("dataset_path", Path(get_project_root()) / "dataset")
     processed_path = cmd_args.get("processed_path", None)
     data_path = Path(dataset_path) / "data"
-    save_new_voc(Path(processed_path) / "vocab.json")
+    vocab = save_new_voc(Path(processed_path) / "vocab.json")
     save_tokenized_text(Path(processed_path) / "train.metadata.jsonl")
