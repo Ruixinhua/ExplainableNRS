@@ -46,7 +46,7 @@ class LSTURRSModel(MindNRSBase):
             news_embed, cat_embed = self.text_encode(input_feat), self.category_embedding(cat)
             y = torch.cat([torch.reshape(cat_embed, (cat_embed.shape[0], -1)), news_embed], dim=1)
         else:
-            y = self.text_encode(input_feat["news"])
+            y = self.text_encode(input_feat)
         return y
 
     def user_encoder(self, input_feat):

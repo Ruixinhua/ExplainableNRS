@@ -19,6 +19,8 @@ class TopicLayer(nn.Module):
         if self.variant_name == "base":  # default using two linear layers
             self.topic_layer = nn.Sequential(nn.Linear(self.embedding_dim, topic_dim), nn.Tanh(),
                                              nn.Linear(topic_dim, self.head_num))
+        elif self.variant_name == "raw":  # a simpler model using only one linear layer to encode topic weights
+            self.topic_layer = nn.Linear(self.embedding_dim, self.head_num)  # can not focus on specific words
         elif self.variant_name == "topic_embed":
             self.topic_layer = nn.Embedding(len(self.word_dict), self.head_num)
             self.topic_embed_path = kwargs.get("topic_embed_path", None)

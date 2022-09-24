@@ -2,6 +2,7 @@ from pathlib import Path
 from torch.utils.data import DataLoader
 from news_recommendation.base.nc_dataset import NCDatasetBert, NCDataset
 from news_recommendation.utils import load_dataset_df, load_word_dict, load_embeddings
+from utils import split_df
 
 
 class NewsDataLoader:
@@ -29,8 +30,12 @@ class NewsDataLoader:
         self.set_name = kwargs.get("dataset_name", "MIND15")
         self.max_length, self.embedding_type = kwargs.get("max_length", 512), kwargs.get("embedding_type", "glove")
         self.data_root = kwargs.get("data_root", "../../dataset")
-        self.data_path = Path(self.data_root) / "data" / f"{self.set_name}.csv"
-        df, self.label_dict = load_dataset_df(data_path=self.data_path, **kwargs)
+        self.data_path = kwargs.get("data_path", Path(self.data_root) / "data" / f"{self.set_name}.csv")
+        kwargs["data_path"] = self.data_path
+        df, self.label_dict = load_dataset_df(**kwargs)
+        if "split" not in df:
+            df = split_df(df, split_test=True)
+            df.to_csv(self.data_path, index=False)
         # load index of training, validation and test set
         train_set, valid_set, test_set = df["split"] == "train", df["split"] == "valid", df["split"] == "test"
         if self.embedding_type in ["glove", "init"]:

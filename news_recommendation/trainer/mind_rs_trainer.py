@@ -3,13 +3,16 @@ import torch
 import torch.distributed
 import pandas as pd
 import numpy as np
+import os
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+from pathlib import Path
 
 from config.configuration import Configuration
 from dataset import ImpressionDataset
 from trainer import NCTrainer
-from utils import gather_dict, convert_dict_to_numpy
+from utils import get_topic_list, get_project_root, get_topic_dist, gather_dict, convert_dict_to_numpy, \
+    load_sparse, load_dataset_df, word_tokenize, NPMI, compute_coherence, write_to_file, save_topic_info
 
 
 class MindRSTrainer(NCTrainer):
@@ -28,7 +31,7 @@ class MindRSTrainer(NCTrainer):
     def _validation(self, epoch, batch_idx, do_monitor=True):
         # do validation when reach the interval
         log = {"epoch/step": f"{epoch}/{batch_idx}"}
-        log.update(**{"val_" + k: v for k, v in self._valid_epoch().items()})
+        log.update(**{"val_" + k: v for k, v in self._valid_epoch(extra_str=f"{epoch}_{batch_idx}").items()})
         if do_monitor:
             self._monitor(log, epoch)
         self.model.train()  # reset to training mode
@@ -87,7 +90,7 @@ class MindRSTrainer(NCTrainer):
             news_embeds.update(dict(zip(batch_dict["index"].cpu().tolist(), news_vec.cpu().numpy())))
         return convert_dict_to_numpy(gather_dict(news_embeds))
 
-    def _valid_epoch(self, model=None, data_loader=None):
+    def _valid_epoch(self, model=None, data_loader=None, extra_str=None):
         """
         Validate after training an epoch
         :return: A log that contains information about validation
@@ -117,14 +120,58 @@ class MindRSTrainer(NCTrainer):
                     index = batch_dict["impression_index"][i].cpu().tolist()  # record impression index
                     result_dict[index] = {m.__name__: m(label[i][:can_len[i]], pred[i][:can_len[i]])
                                           for m in self.metric_funcs}
-        result_dict = gather_dict(result_dict)  # gather results
+            result_dict = gather_dict(result_dict)  # gather results
+            eval_result = dict(np.round(pd.DataFrame.from_dict(result_dict, orient="index").mean(), 4))  # average
+            if self.config.get("evaluate_topic_by_epoch", False) and self.config.get("topic_evaluation_method", None):
+                eval_result.update(self.topic_evaluation(model, data_loader, extra_str=extra_str))
+                self.accelerator.wait_for_everyone()
         # self.logger.info(f"validation time: {time.time() - start}")
-        return dict(np.round(pd.DataFrame.from_dict(result_dict, orient="index").mean(), 4))  # average results
+        return eval_result
 
     def evaluate(self, loader, model, epoch=0, prefix="val"):
+        """call this method after training"""
         model.eval()
         self.valid_metrics.reset()
         log = self._valid_epoch(model, loader)
+        if not self.config.get("evaluate_topic_by_epoch", False) and self.config.get("topic_evaluation_method", None):
+            log.update(self.topic_evaluation(model, loader, extra_str="best"))
         for name, p in model.named_parameters():  # add histogram of model parameters to the tensorboard
             self.writer.add_histogram(name, p, bins="auto")
         return {f"{prefix}_{k}": v for k, v in log.items()}  # return log with prefix
+
+    def topic_evaluation(self, model=None, data_loader=None, extra_str=None):
+        if model is None:
+            model = self.model
+        if data_loader is None:
+            data_loader = self.mind_loader
+        topic_evaluation_method = self.config.get("topic_evaluation_method", None)
+        saved_name = f"topics_{self.config.seed}_{self.config.head_num}"
+        if extra_str is not None:
+            saved_name += f"_{extra_str}"
+        topic_path = Path(self.config.model_dir, saved_name)
+        reverse_dict = {v: k for k, v in data_loader.word_dict.items()}
+        topic_dist = get_topic_dist(model, data_loader, self.config.get("topic_variant", "base"))
+        self.model = self.model.to(self.device)
+        top_n, methods = self.config.get("top_n", 10), self.config.get("coherence_method", "c_npmi")
+        topic_list = get_topic_list(topic_dist, top_n, reverse_dict)  # convert to tokens list
+        ref_data_path = self.config.get("ref_data_path", Path(get_project_root()) / "dataset/data/MIND15.csv")
+        if self.config.get("save_topic_info", False) and self.accelerator.is_main_process:  # save topic info
+            os.makedirs(topic_path, exist_ok=True)
+            write_to_file(os.path.join(topic_path, "topic_list.txt"), [" ".join(topics) for topics in topic_list])
+        if topic_evaluation_method == "fast_eval":
+            ref_texts = load_sparse(ref_data_path)
+            scorer = NPMI((ref_texts > 0).astype(int))
+            topic_index = [[data_loader.word_dict[word] - 1 for word in topic] for topic in topic_list]
+            topic_scores = {"c_npmi": scorer.compute_npmi(topics=topic_index, n=top_n)}
+        else:
+            dataset_name = self.config.get("dataset_name", "MIND15"),
+            tokenized_method = self.config.get("tokenized_method", "use_tokenize")
+            ref_df, _ = load_dataset_df(dataset_name, data_path=ref_data_path, tokenized_method=tokenized_method)
+            ref_texts = [word_tokenize(doc, tokenized_method) for doc in ref_df["data"].values]
+            topic_scores = {m: compute_coherence(topic_list, ref_texts, m, top_n) for m in methods.split(",")}
+        topic_result = {m: np.round(np.mean(c), 4) for m, c in topic_scores.items()}
+        if self.config.get("save_topic_info", False) and self.accelerator.is_main_process:
+            # avoid duplicated saving
+            sort_score = self.config.get("sort_score", True)
+            topic_result = save_topic_info(topic_path, topic_list, topic_scores, sort_score)
+        return topic_result

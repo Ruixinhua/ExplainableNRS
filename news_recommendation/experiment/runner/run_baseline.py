@@ -30,30 +30,6 @@ def evaluate_run():
         log.update(trainer.evaluate(data_loader.test_loader, trainer.model, prefix="test"))
     else:
         log.update(trainer.evaluate(data_loader, trainer.model, prefix="val"))
-    if topic_evaluation_method:
-        topic_path = Path(config.model_dir) / f"topics_{seed}_{datetime.now().strftime(r'%m%d_%H%M%S')}"
-        reverse_dict = {v: k for k, v in data_loader.word_dict.items()}
-        topic_dist = get_topic_dist(trainer.model, data_loader, config.get("topic_variant", "base"))
-        top_n, methods = config.get("top_n", 10), config.get("coherence_method", "c_v,c_npmi")
-        topic_list = get_topic_list(topic_dist, top_n, reverse_dict)  # convert to tokens list
-        ref_data_path = config.get("ref_data_path", Path(get_project_root()) / "dataset/data/MIND15.csv")
-        if config.get("save_topic_info", False) and trainer.accelerator.is_main_process:  # save topic info
-            os.makedirs(topic_path, exist_ok=True)
-            write_to_file(os.path.join(topic_path, "topic_list.txt"), [" ".join(topics) for topics in topic_list])
-        if topic_evaluation_method == "fast_eval":
-            ref_texts = load_sparse(ref_data_path)
-            scorer = NPMI((ref_texts > 0).astype(int))
-            topic_index = [[data_loader.word_dict[word] - 1 for word in topic] for topic in topic_list]
-            topic_scores = {"c_npmi": scorer.compute_npmi(topics=topic_index, n=top_n)}
-        else:
-            dataset_name, method = config.get("dataset_name", "MIND15"), config.get("tokenized_method", "keep_all")
-            ref_df, _ = load_dataset_df(dataset_name, data_path=ref_data_path, tokenized_method=method)
-            ref_texts = [word_tokenize(doc, method) for doc in ref_df["data"].values]
-            topic_scores = {m: compute_coherence(topic_list, ref_texts, m, top_n) for m in methods.split(",")}
-        topic_result = {m: np.round(np.mean(c), 4) for m, c in topic_scores.items()}
-        if config.get("save_topic_info", False) and trainer.accelerator.is_main_process:  # avoid duplicated saving
-            topic_result = save_topic_info(topic_path, topic_list, topic_scores, config.get("sort_score", True))
-        log.update(topic_result)
     log["Total Time"] = time.time() - start_time
     if trainer.accelerator.is_main_process:  # to avoid duplicated writing
         saved_path = saved_dir / saved_name / saved_filename

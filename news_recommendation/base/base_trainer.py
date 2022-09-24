@@ -155,7 +155,7 @@ class BaseTrainer:
         best_path = str(self.checkpoint_dir / f"{round(score, 4)}_model_best-epoch{epoch}")
         # Register the LR scheduler
         self.accelerator.register_for_checkpointing(self.lr_scheduler)
-        # TODO: optimize save procedure (accelerate): https://huggingface.co/docs/accelerate/usage_guides/checkpoint
+        # save procedure (accelerate): https://huggingface.co/docs/accelerate/usage_guides/checkpoint
         # Save the starting state
         if self.accelerator.is_main_process:  # to avoid duplicated deleting
             self.accelerator.save_state(best_path)
@@ -174,7 +174,7 @@ class BaseTrainer:
         if resume_path is None:
             resume_path = self.last_best_path
         resume_path = str(resume_path)
-        # TODO: optimize load procedure
+        # load checkpoint from path
         # Restore previous state
         self.accelerator.load_state(resume_path)
         self.logger.info(f"Loading checkpoint: {resume_path} ...")
