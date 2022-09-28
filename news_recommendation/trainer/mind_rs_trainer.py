@@ -130,8 +130,6 @@ class MindRSTrainer(NCTrainer):
         model.eval()
         self.valid_metrics.reset()
         log = self._valid_epoch(model, loader)
-        if not self.config.get("evaluate_topic_by_epoch", False) and self.config.get("topic_evaluation_method", None):
-            log.update(self.topic_evaluation(model, loader, extra_str="best"))
         for name, p in model.named_parameters():  # add histogram of model parameters to the tensorboard
             self.writer.add_histogram(name, p, bins="auto")
         return {f"{prefix}_{k}": v for k, v in log.items()}  # return log with prefix

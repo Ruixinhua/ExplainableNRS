@@ -139,10 +139,10 @@ def extract_topics_mha(model: torch.nn.Module, data_loader, device):
 
 def extract_topics(model: torch.nn.Module, data_loader, topic_variant: str, device):
     word_seq = list(data_loader.word_dict.values())
-    if topic_variant == "base":
-        topic_dist = extract_topics_base(model, word_seq, device)  # global topics (base)
-    else:
+    if topic_variant == "MHA":
         topic_dist = extract_topics_mha(model, data_loader, device)  # local topics (mha)
+    else:
+        topic_dist = extract_topics_base(model, word_seq, device)  # global topics (base)
     return topic_dist
 
 
@@ -157,6 +157,7 @@ def get_topic_dist(model, data_loader, topic_variant: str):
 
 
 def get_topic_list(matrix, top_n, reverse_dict):
+    """input topic distribution matrix is made up of (topic, word)"""
     top_index = [heapq.nlargest(top_n, range(len(vec)), vec.take) for vec in matrix]
     topic_list = [[reverse_dict[i] for i in index] for index in top_index]
     return topic_list
