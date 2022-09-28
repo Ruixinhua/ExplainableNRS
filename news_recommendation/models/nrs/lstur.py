@@ -18,19 +18,17 @@ class LSTURRSModel(MindNRSBase):
             nn.Conv1d(self.embedding_dim, self.num_filters, self.window_size, padding=padding),
             nn.ReLU(inplace=True)
         )
-        self.news_att_layer = AttLayer(self.num_filters, self.attention_hidden_dim)
+        self.news_att_layer = AttLayer(self.num_filters, self.attention_hidden_dim)  # output size is [N, num_filters]
         if self.use_category or self.use_sub:
             self.category_embedding = nn.Embedding(self.category_num, self.num_filters)
         input_dim = self.num_filters * 3 if self.use_category and self.use_sub else self.num_filters
         output_dim = self.num_filters
-        if self.user_embed_method == "cat":
-            output_dim = int(self.num_filters * 1.5)
-        elif self.user_embed_method == "init" or (self.use_category and self.use_sub):
+        if self.use_category and self.use_sub:
             output_dim = self.num_filters * 3
         if self.user_embed_method == "init" or self.user_embed_method == "cat":
             self.user_embedding = nn.Embedding(self.user_num, output_dim)
         self.user_encode_layer = nn.GRU(input_dim, output_dim, batch_first=True, bidirectional=False)
-        self.user_att_layer = AttLayer(output_dim, self.attention_hidden_dim)
+        self.user_att_layer = None
 
     def text_encode(self, input_feat):
         y = self.dropouts(self.embedding_layer(input_feat))
@@ -61,10 +59,6 @@ class LSTURRSModel(MindNRSBase):
             user_embed = self.user_embedding(user_ids)
             _, y = self.user_encode_layer(packed_y)
             y = torch.cat((y.squeeze(dim=0), user_embed), dim=1)
-        elif self.user_embed_method == "att":
-            y = self.user_encode_layer(packed_y)[0]
-            y, _ = pad_packed_sequence(y, batch_first=True)
-            y = self.user_att_layer(y)[0]  # additive attention layer
         else:  # default use last hidden output
             y = self.user_encode_layer(packed_y)[1].squeeze(dim=0)
             # y = self.user_att_layer(y)[0]  # additive attention layer

@@ -5,25 +5,8 @@ from collections import defaultdict
 from pathlib import Path
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data.dataloader import DataLoader
-from news_recommendation.config.default_config import TEST_CONFIGS
 from news_recommendation.dataset import NewsDataset, UserDataset, ImpressionDataset, MindRSDataset
-from news_recommendation.utils import load_word_dict, Tokenizer, get_project_root, read_json
-
-
-def bert_collate_fn(data):
-    input_feat = defaultdict(lambda: [])
-    max_length = max([feat["history_length"] for feat in data])
-    for feat in data:
-        for k in feat.keys():
-            if k in ["history", "history_mask", "padding"]:
-                continue
-            input_feat[k].append(feat[k])
-        s, p_l = feat["history"].shape, len(feat["padding"])
-        padding = torch.tensor([feat["padding"] + [0] * (s[1] - p_l)] * (max_length - s[0]), dtype=torch.long)
-        padding_mask = torch.tensor([[1] * p_l + [0] * (s[1] - p_l)] * (max_length - s[0]), dtype=torch.long)
-        input_feat["history"].append(torch.cat([feat["history"], padding]))
-        input_feat["history_mask"].append(torch.cat([feat["history_mask"], padding_mask]))
-    return pad_feat(input_feat)
+from news_recommendation.utils import Tokenizer, get_project_root, read_json
 
 
 def pad_feat(input_feat):
@@ -51,15 +34,15 @@ class MindDataLoader:
     def __init__(self, **kwargs):
         # load word and user dictionary
         data_root = kwargs.get("data_root", Path(get_project_root()) / "dataset")  # get root of dataset
-        self.word_dict = load_word_dict(**kwargs)
-        uid2index = read_json(kwargs.get("uid_path", Path(data_root) / "utils/MIND_uid_index.json"))
-        kwargs.update({"word_dict": self.word_dict, "uid2index": uid2index})
+        uid2index = read_json(kwargs.get("uid_path", Path(data_root) / "utils/MIND_uid_small.json"))
         module_dataset_name = kwargs["dataset_class"] if "dataset_class" in kwargs else "MindRSDataset"
         self.use_dkn_utils = kwargs.get("dkn_utils", None)
         # set tokenizer
         self.tokenizer = Tokenizer(**kwargs)
+        self.word_dict = self.tokenizer.word_dict
+        kwargs.update({"word_dict": self.word_dict, "uid2index": uid2index})
         bs, sampler = kwargs.get("batch_size", 64), None
-        self.fn = bert_collate_fn if self.tokenizer.embedding_type in TEST_CONFIGS["bert_embedding"] else collate_fn
+        self.fn = collate_fn
         self.train_set = getattr(module_dataset, module_dataset_name)(self.tokenizer, phase="train", **kwargs)
         self.train_loader = DataLoader(self.train_set, bs, pin_memory=True, sampler=sampler, collate_fn=self.fn)
         # setup news and user dataset

@@ -1,10 +1,13 @@
+import os
 import numpy as np
 import torch
 import torch.distributed
-
+from pathlib import Path
 from news_recommendation.base.base_trainer import BaseTrainer
 from news_recommendation.utils import MetricTracker
 from tqdm import tqdm
+from utils import get_topic_list, get_project_root, get_topic_dist, load_sparse, load_dataset_df, \
+    word_tokenize, NPMI, compute_coherence, write_to_file, save_topic_info
 
 
 class NCTrainer(BaseTrainer):
@@ -14,6 +17,7 @@ class NCTrainer(BaseTrainer):
     def __init__(self, model, config, data_loader, **kwargs):
         super().__init__(model, config)
         self.config = config
+        self.data_loader = data_loader
         self.train_loader = data_loader.train_loader
         self.entropy_constraint = config.get("entropy_constraint", False)
         self.calculate_entropy = config.get("calculate_entropy", self.entropy_constraint)
@@ -110,4 +114,42 @@ class NCTrainer(BaseTrainer):
         self.update_metrics(self.valid_metrics, predicts=predicts, labels=labels)
         for name, p in model.named_parameters():  # add histogram of model parameters to the tensorboard
             self.writer.add_histogram(name, p, bins='auto')
-        return {f"{prefix}_{k}": v for k, v in self.valid_metrics.result().items()}  # return log with prefix
+        log = {f"{prefix}_{k}": v for k, v in self.valid_metrics.result().items()}  # return log with prefix
+        return log
+
+    def topic_evaluation(self, model=None, data_loader=None, extra_str=None):
+        if model is None:
+            model = self.model
+        if data_loader is None:
+            data_loader = self.data_loader
+        topic_evaluation_method = self.config.get("topic_evaluation_method", None)
+        saved_name = f"topics_{self.config.seed}_{self.config.head_num}"
+        if extra_str is not None:
+            saved_name += f"_{extra_str}"
+        topic_path = Path(self.config.model_dir, saved_name)
+        reverse_dict = {v: k for k, v in data_loader.word_dict.items()}
+        topic_dist = get_topic_dist(model, data_loader, self.config.get("topic_variant", "base"))
+        self.model = self.model.to(self.device)
+        top_n, methods = self.config.get("top_n", 10), self.config.get("coherence_method", "c_npmi")
+        topic_list = get_topic_list(topic_dist, top_n, reverse_dict)  # convert to tokens list
+        ref_data_path = self.config.get("ref_data_path", Path(get_project_root()) / "dataset/data/MIND15.csv")
+        if self.config.get("save_topic_info", False) and self.accelerator.is_main_process:  # save topic info
+            os.makedirs(topic_path, exist_ok=True)
+            write_to_file(os.path.join(topic_path, "topic_list.txt"), [" ".join(topics) for topics in topic_list])
+        if topic_evaluation_method == "fast_eval":
+            ref_texts = load_sparse(ref_data_path)
+            scorer = NPMI((ref_texts > 0).astype(int))
+            topic_index = [[data_loader.word_dict[word] - 1 for word in topic] for topic in topic_list]
+            topic_scores = {"c_npmi": scorer.compute_npmi(topics=topic_index, n=top_n)}
+        else:
+            dataset_name = self.config.get("dataset_name", "MIND15"),
+            tokenized_method = self.config.get("tokenized_method", "use_tokenize")
+            ref_df, _ = load_dataset_df(dataset_name, data_path=ref_data_path, tokenized_method=tokenized_method)
+            ref_texts = [word_tokenize(doc, tokenized_method) for doc in ref_df["data"].values]
+            topic_scores = {m: compute_coherence(topic_list, ref_texts, m, top_n) for m in methods.split(",")}
+        topic_result = {m: np.round(np.mean(c), 4) for m, c in topic_scores.items()}
+        if self.config.get("save_topic_info", False) and self.accelerator.is_main_process:
+            # avoid duplicated saving
+            sort_score = self.config.get("sort_score", True)
+            topic_result = save_topic_info(topic_path, topic_list, topic_scores, sort_score)
+        return topic_result

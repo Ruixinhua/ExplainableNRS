@@ -78,8 +78,6 @@ ARCH_CONFIGS = {
 TEST_CONFIGS = {
     "seeds": [42, 2020, 2021, 25, 4],
     "head_num": [10, 30, 50, 70, 100, 150, 180, 200],
-    "embedding_type": ["distilbert-base-uncased", "bert-base-uncased", "roberta-base", "xlnet-base-cased",
-                       "allenai/longformer-base-4096", "transfo-xl-wt103"],
     "bert_embedding": ["distilbert-base-uncased", "bert-base-uncased", "roberta-base", "xlnet-base-cased",
                        "allenai/longformer-base-4096", "transfo-xl-wt103"]
 }

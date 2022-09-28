@@ -63,7 +63,7 @@ class MindRSDataset(Dataset):
     def _load_news_matrix(self, **kwargs):
         self._load_news_text(**kwargs)  # load news text from file first before made up news matrix
         self.feature_matrix = OrderedDict({  # init news text matrix
-            k: np.stack([self.tokenizer.tokenize(news, self.news_attr[k]) for news in news_text])
+            k: np.stack(self.tokenizer.tokenize(news_text, self.news_attr[k], return_tensors=False))
             for k, news_text in self.news_features.items()
         })  # the order of news info: title(abstract), category, sub-category, sentence embedding, entity feature
 
@@ -76,8 +76,11 @@ class MindRSDataset(Dataset):
         behaviors_file = get_mind_root_path(**kwargs) / "behaviors.tsv"  # define behavior file path
         # initial behaviors attributes
         attributes = ["uid", "impression_index", "history_news", "history_length", "candidate_news", "labels"]
+        # columns = ["impression_index", "uid", "time", "history", "impressions"]
+        # behaviors = pd.read_table(behaviors_file, header=None, names=columns)  # TODO: load file use pandas
+        # behaviors["uid"] = behaviors.uid.apply(lambda i: self.uid2index[i] if i in self.uid2index else 0)
         self.behaviors = {attr: [] for attr in attributes}
-        self.positive_news = []
+        self.positive_news = []  # contains candidate news id and impression id
         with open(behaviors_file, "r", encoding="utf-8") as rd:
             imp_index = 0
             for index in rd:
@@ -87,7 +90,7 @@ class MindRSDataset(Dataset):
                 history = [self.nid2index[i] for i in history.split()] if len(history) > 1 else [0]  # TODO history
                 his_length = min(len(history), self.history_size)
                 # history = history[:self.history_size]
-                history = [0] * (self.history_size - len(history)) + history[:self.history_size]
+                history = history[:self.history_size] + [0] * (self.history_size - len(history))
                 candidate_news = [self.nid2index[i.split("-")[0]] for i in candidates.split()]
                 uindex = self.uid2index[uid] if uid in self.uid2index else 0
                 # define attributes value
@@ -96,7 +99,7 @@ class MindRSDataset(Dataset):
                     labels = [int(i.split("-")[1]) for i in candidates.split()]
                     self.behaviors["labels"].append(labels)
                 if self.phase == "train":  # negative sampling for training
-                    pos_news = [(news, imp_index, label) for label, news in zip(labels, candidate_news) if label]
+                    pos_news = [(news, imp_index) for label, news in zip(labels, candidate_news) if label]
                     if self.train_strategy == "pair_wise":
                         self.positive_news.extend(pos_news)
                 # update to the dictionary
@@ -119,7 +122,7 @@ class MindRSDataset(Dataset):
             f"{input_name}_index": torch.tensor(indices, dtype=torch.long),
         }
         # pass news mask to the model
-        mask = np.where(input_feat[input_name] == self.tokenizer.pad_id, self.tokenizer.pad_id, 1)
+        mask = np.where(input_feat[input_name] == self.tokenizer.pad_id, 0, 1)  # TODO: fix mask bug
         input_feat[f"{input_name}_mask"] = torch.tensor(mask, dtype=torch.int32)
         return input_feat
 
@@ -133,7 +136,7 @@ class MindRSDataset(Dataset):
         - padding data
         - label of candidate news
         """
-        can_news, imp_index, label = self.positive_news[index]
+        can_news, imp_index = self.positive_news[index]
         user_index, history = self.behaviors["uid"][imp_index], self.behaviors["history_news"][imp_index]
         if self.train_strategy == "pair_wise":  # negative sampling
             labels, candidate_news = self.behaviors["labels"][imp_index], self.behaviors["candidate_news"][imp_index]
@@ -142,10 +145,13 @@ class MindRSDataset(Dataset):
             candidate = [can_news] + news_sampling(negs, self.neg_pos_ratio)
         else:
             candidate = [can_news]
+            label = [1]
         # define input feat
         input_feat = {
             "history_length": torch.tensor(len(history), dtype=torch.int32),
-            # "padding": torch.tensor(self.tokenizer.tokenize("", 0), dtype=torch.int32),  # TODO padding sentence
+            # TODO padding sentence
+            # "padding": torch.tensor(self.tokenizer.tokenize("", self.self.news_attr["article"]), dtype=torch.long),
+            # "pad_id": torch.tensor(self.tokenizer.pad_id, dtype=torch.int32),
             "label": torch.tensor(label, dtype=torch.long), "uid": torch.tensor(user_index, dtype=torch.long),
         }
         input_feat.update(self.load_news_index(history, "history"))

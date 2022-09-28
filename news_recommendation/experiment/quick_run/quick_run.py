@@ -6,7 +6,7 @@ from news_recommendation.utils import init_data_loader, init_model_class, init_o
 
 def run(config: Configuration, **kwargs):
     logger = config.get_logger("train")
-    data_loader = kwargs.get("data_loader", init_data_loader(config))
+    data_loader = kwargs.get("data_loader")
     model_params = {}
     if hasattr(data_loader, "label_dict") and hasattr(data_loader, "word_dict"):  # for news classification task
         model_params.update({"num_classes": len(data_loader.label_dict), "word_dict": data_loader.word_dict})

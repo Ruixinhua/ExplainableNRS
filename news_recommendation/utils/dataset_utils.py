@@ -1,11 +1,18 @@
 import pandas as pd
 import random
+import string
+import re
 import os
 import numpy as np
 from pathlib import Path
 from datasets import load_dataset
-from news_recommendation.utils.preprocess_utils import clean_text, text2index
+from news_recommendation.utils.preprocess_utils import text2index
 from news_recommendation.utils.general_utils import read_json, write_json, get_project_root
+
+
+def clean_text(text):
+    rule = string.punctuation + "0123456789"
+    return re.sub(rf'([^{rule}a-zA-Z ])', r" ", text)
 
 
 def clean_df(data_df):

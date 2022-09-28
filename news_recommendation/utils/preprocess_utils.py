@@ -1,5 +1,4 @@
 import re
-import string
 from typing import Union
 
 import torch
@@ -31,11 +30,6 @@ def text2index(text, word_dict, method="keep_all", ignore=True):
     return word2index(word_dict, word_tokenize(text, method), ignore)
 
 
-def clean_text(text):
-    rule = string.punctuation + "0123456789"
-    return re.sub(rf'([^{rule}a-zA-Z ])', r" ", text)
-
-
 def word2index(word_dict, sent, ignore=True):
     word_index = []
     for word in sent:
@@ -58,27 +52,33 @@ class Tokenizer:
         self.embedding_type = kwargs.get("embedding_type", "glove")
         self.tokenized_method = kwargs.get("tokenized_method", "keep_all")
         if self.embedding_type == "elmo":
-            # TODO: need to fix for elmo embeddings
+            # TODO: Not implemented for elmo
             from allennlp.modules.elmo import batch_to_ids
             self.tokenize = batch_to_ids
+            self.pad_id = 0
         elif self.embedding_type == "glove":
-            self.word_dict = kwargs.get("word_dict", {})  # load dictionary for glove embedding
+            from news_recommendation.utils.dataset_utils import load_word_dict
+            self.word_dict = kwargs.get("word_dict", load_word_dict(**kwargs))  # load dictionary for glove embedding
             self.ignore = kwargs.get("ignore", True)  # default skip unknown words
             self.tokenize = self.text2token
             self.pad_id = 0
         elif self.embedding_type in default_config.TEST_CONFIGS["bert_embedding"]:
             from transformers import AutoTokenizer
-            self.word_dict = AutoTokenizer.from_pretrained(self.embedding_type)
+            self.tokenizer = AutoTokenizer.from_pretrained(self.embedding_type)
+            if self.embedding_type == "transfo-xl-wt103":
+                self.word_dict = self.tokenizer.sym2idx
+            else:
+                self.word_dict = self.tokenizer.vocab
             self.tokenize = self.encode
             if self.embedding_type == "transfo-xl-wt103":
-                self.word_dict.pad_token = self.word_dict.eos_token
-            self.pad_id = self.word_dict.pad_token_id
+                self.tokenizer.pad_token = self.tokenizer.eos_token
+            self.pad_id = self.tokenizer.pad_token_id
 
     def encode(self, x: Union[str, list], max_length: int, return_tensors=True):
         # TODO: tokenize list input for transformer-based embedding and mask
-        x_encoded = self.word_dict.encode(x, add_special_tokens=True, max_length=max_length, truncation=True)
+        x_encoded = self.tokenizer(x, add_special_tokens=True, max_length=max_length, truncation=True, padding=True)
         # mask = pad_sentence(np.ones_like(x_encoded).tolist(), max_length)
-        x_padded = pad_sentence(x_encoded, max_length, self.pad_id)
+        x_padded = x_encoded["input_ids"]
 
         if return_tensors:
             x_padded = torch.tensor(x_padded, dtype=torch.long)
@@ -88,7 +88,7 @@ class Tokenizer:
     def text2token(self, x: Union[str, list], max_length: int, return_tensors=True):
         if isinstance(x, list):
             x_token = [text2index(_, self.word_dict, self.tokenized_method, self.ignore) for _ in x]
-            x_padded = np.concatenate([pad_sentence(_, max_length) for _ in x_token])
+            x_padded = np.array([pad_sentence(_, max_length) for _ in x_token])
         else:
             x_padded = pad_sentence(text2index(x, self.word_dict, self.tokenized_method, self.ignore), max_length)
         if return_tensors:

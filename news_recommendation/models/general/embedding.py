@@ -13,14 +13,16 @@ class NewsEmbedding(nn.Module):
         if self.embedding_type == "glove":
             self.embeds = load_embeddings(**kwargs)
             self.embedding = nn.Embedding.from_pretrained(torch.FloatTensor(self.embeds), freeze=False)
+            self.embed_dim = self.embeds.shape[1]
         elif self.embedding_type == "init":
             self.embedding = nn.Embedding(len(self.word_dict), self.embed_dim, padding_idx=0)
-        else:
+        elif self.embedding_type in LAYER_MAPPING:
             # load weight and model from pretrained model
             from transformers import AutoConfig, AutoModel
             self.output_hidden_states = kwargs.get("output_hidden_states", True)
             self.return_attention = kwargs.get("output_attentions", True)
             self.n_layers = kwargs.get("n_layers", 1)
+            self.num_classes = kwargs.get("num_classes", 15)
             self.embed_config = AutoConfig.from_pretrained(self.embedding_type, num_labels=self.num_classes,
                                                            output_hidden_states=self.output_hidden_states,
                                                            output_attentions=self.return_attention)
@@ -37,6 +39,8 @@ class NewsEmbedding(nn.Module):
                 self.embed_dim = self.embed_config.hidden_size
             else:
                 raise ValueError("Unsure the embedding dimension, please check the config of the model")
+        else:
+            raise ValueError("Unknown embedding type")
 
     def forward(self, input_feat):
         if self.embedding_type in ["glove", "init"]:

@@ -13,6 +13,7 @@ class MindNRSBase(BaseModel):
         self.__dict__.update(kwargs)
         self.attention_hidden_dim = kwargs.get("attention_hidden_dim", 200)
         self.embedding_layer = NewsEmbedding(**kwargs)
+        self.embedding_dim = self.embedding_layer.embed_dim
         self.title_len, self.body_len = kwargs.get("title", 30), kwargs.get("body", None)
         self.news_att_layer = AttLayer(self.embedding_dim, self.attention_hidden_dim)
         self.user_att_layer = AttLayer(self.embedding_dim, self.attention_hidden_dim)

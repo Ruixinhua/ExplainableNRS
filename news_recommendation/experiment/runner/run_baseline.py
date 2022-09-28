@@ -28,6 +28,8 @@ def evaluate_run():
         log.update(trainer.evaluate(trainer.valid_loader, trainer.model, prefix="val"))
         # run test
         log.update(trainer.evaluate(data_loader.test_loader, trainer.model, prefix="test"))
+        if not config.get("evaluate_topic_by_epoch", False) and config.get("topic_evaluation_method", None):
+            log.update(trainer.topic_evaluation(data_loader=data_loader, extra_str="best"))
     else:
         log.update(trainer.evaluate(data_loader, trainer.model, prefix="val"))
     log["Total Time"] = time.time() - start_time
