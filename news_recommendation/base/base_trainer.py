@@ -8,7 +8,7 @@ import news_recommendation.utils.metric_utils as module_metric
 from pathlib import Path
 from abc import abstractmethod
 from numpy import inf
-from accelerate import Accelerator
+from accelerate import Accelerator, DistributedDataParallelKwargs
 from news_recommendation import utils as module_loss
 from news_recommendation.logger import TensorboardWriter
 
@@ -20,7 +20,9 @@ class BaseTrainer:
     def __init__(self, model, config, **kwargs):
         self.config = config
         self.logger = config.get_logger("trainer", config["verbosity"])
-        self.accelerator = Accelerator()  # setup accelerator for multi-GPU training
+        # for PLM, some parameters are not used in training, so find_unused_parameters needs to be set to True
+        ddp_handler = DistributedDataParallelKwargs(find_unused_parameters=config.get("find_unused_parameters", False))
+        self.accelerator = Accelerator(kwargs_handlers=[ddp_handler])  # setup accelerator for multi-GPU training
         self.device = self.accelerator.device  # get device for multi-GPU training
         self.logger.info(f"Device: {self.device}")
         self.model = model.to(self.device)
@@ -88,7 +90,6 @@ class BaseTrainer:
             self.logger.info("    {:15s}: {}".format(str(key), value))
 
     def save_log(self, log, **kwargs):
-        log["start_time"] = datetime.now().strftime(r'%m%d_%H%M%S')
         log["seed"] = self.config["seed"]
         for key, item in self.config.cmd_args.items():  # record all command line arguments
             if isinstance(item, dict):
@@ -102,6 +103,7 @@ class BaseTrainer:
         log_df = pd.DataFrame(log, index=[0])
         if os.path.exists(saved_path) and Path(saved_path).stat().st_size > 0:
             log_df = log_df.append(pd.read_csv(saved_path, float_precision="round_trip"), ignore_index=True)
+        log["finished_time"] = datetime.now().strftime(r'%m%d_%H%M%S')
         log_df = log_df.loc[:, ~log_df.columns.str.contains("^Unnamed")]
         log_df.drop_duplicates(inplace=True)
         log_df.to_csv(saved_path)

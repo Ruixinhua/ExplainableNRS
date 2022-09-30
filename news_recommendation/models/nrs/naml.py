@@ -17,13 +17,13 @@ class NAMLRSModel(MindNRSBase):
                 self.category_embedding, nn.Linear(self.category_dim, self.document_embedding_dim),
                 nn.ReLU(inplace=True)
             )
+            self.final_attention = AttLayer(self.document_embedding_dim, self.attention_hidden_dim)
         # self.text_cnn = nn.Conv2d(1, self.document_embedding_dim, (self.window_size, self.embedding_dim),
         #                           padding=(int((self.window_size - 1) / 2), 0))
         self.text_cnn = nn.Sequential(
             nn.Conv1d(self.document_embedding_dim, self.embedding_dim, self.window_size, padding=0),
             nn.ReLU()
         )
-        self.final_attention = AttLayer(self.document_embedding_dim, self.attention_hidden_dim)
         self.dropouts = nn.Dropout(self.dropout_rate)
 
     def text_encode(self, input_feat):
@@ -42,6 +42,6 @@ class NAMLRSModel(MindNRSBase):
             news_embed, cat_embed = self.text_encode(input_feat), self.category_linear(cat)  # encode text and category
             y = self.final_attention(torch.cat([torch.unsqueeze(news_embed, 1), cat_embed], dim=1))[0]
         else:
-            y = self.text_encode(input_feat["news"])
+            y = self.text_encode(input_feat)
         # add activation function
         return y
