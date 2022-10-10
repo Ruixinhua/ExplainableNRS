@@ -4,8 +4,8 @@ import numpy as np
 
 from pathlib import Path
 from itertools import product
-from news_recommendation.config import load_cmd_line
-from news_recommendation.utils import get_project_root, del_index_column, write_to_file
+from modules.config import load_cmd_line
+from modules.utils import get_project_root, del_index_column, write_to_file
 
 
 def get_mean_std(values, r: int = 2):

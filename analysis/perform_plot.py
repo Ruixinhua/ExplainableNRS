@@ -7,7 +7,7 @@ import pandas as pd
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
-from news_recommendation.utils import get_project_root
+from modules.utils import get_project_root
 
 
 def combine_plots(file_names, saved_path):
