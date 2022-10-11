@@ -113,8 +113,8 @@ class BaseTrainer:
         if self.mnt_mode != "off":
             try:
                 # check whether model performance improved or not, according to specified metric(mnt_metric)
-                improved = (self.mnt_mode == "min" and log[self.mnt_metric] <= self.mnt_best) or \
-                           (self.mnt_mode == "max" and log[self.mnt_metric] >= self.mnt_best)
+                improved = (self.mnt_mode == "min" and log[self.mnt_metric] < self.mnt_best) or \
+                           (self.mnt_mode == "max" and log[self.mnt_metric] > self.mnt_best)
             except KeyError:
                 err_msg = f"Warning:Metric {self.mnt_metric} is not found.Model performance monitoring is disabled."
                 self.logger.warning(err_msg)

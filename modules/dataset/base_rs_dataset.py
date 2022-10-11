@@ -67,73 +67,16 @@ class MindRSDataset(Dataset):
             for k, news_text in self.news_features.items()
         })  # the order of news info: title(abstract), category, sub-category, sentence embedding, entity feature
 
-    def _convert_behavior(self, behavior):
-        """
-        Convert behavior to news index
-        """
-        behavior["uid"] = self.uid2index[behavior.uid]
-        behavior["history"] = [self.nid2index[nid] for nid in behavior.history.split()]
-        history_length = min(len(behavior.history), self.history_size)
-        # truncate history news and padding with 0
-        behavior["history_news"] = behavior.history[:self.history_size] + [0] * (self.history_size - history_length)
-        candidates, labels = [], []
-        for candidate in behavior.impressions.split():
-            try:
-                nid, label = candidate.split("-")
-            except ValueError:
-                nid, label = candidate, 0
-            candidates.append(self.nid2index[nid])
-            labels.append(int(label))
-            if label:
-                self.positive_news.append((self.nid2index[nid], behavior.impression_index))
-        index = ["candidate_news", "labels", "history_length"]
-        behavior = behavior.append(pd.Series([candidates, labels, history_length], index=index))
-        return behavior
-
     def _load_behaviors(self, **kwargs):
         """"
         Create global variants for behaviors:
         behaviors: The behaviors of the user, includes: history clicked news, impression news, and labels
         positive_news: The index of news that clicked by users in impressions
         """
-        try:  # load behaviors from parsed behaviors file
-            behaviors_parsed = pd.read_table(self.mind_dir / "behaviors_parsed.tsv")
-        except FileNotFoundError:
-            behaviors_file = self.mind_dir / "behaviors.tsv"  # define behavior file path
-            import time
-            self.positive_news = []  # contains candidate news id and impression id
-            start = time.time()
-            # initial behaviors attributes
-            columns = ["impression_index", "uid", "time", "history", "impressions"]
-            behaviors = pd.read_table(behaviors_file, header=None, names=columns)  # TODO: load file use pandas
-            behaviors.fillna(" ", inplace=True)
-            behaviors_parsed = {}
-            # behaviors.impressions = behaviors.impressions.str.split()
-            for row in behaviors.itertuples():
-                history = [self.nid2index[nid] for nid in row.history.split()]
-                history_length = min(len(history), self.history_size)
-                history_news = history[:self.history_size] + [0] * (self.history_size - history_length)
-                # truncate history news and padding with 0
-                candidates, labels = [], []
-                for candidate in row.impressions.split():
-                    try:
-                        nid, label = candidate.split("-")
-                    except ValueError:
-                        nid, label = candidate, 0
-                    candidates.append(self.nid2index[nid])
-                    labels.append(int(label))
-                    if label:
-                        self.positive_news.append((self.nid2index[nid], row.Index))
-                behaviors.loc[row.Index, ["uid", "history", "history_length"]] = (self.uid2index[row.uid], history, history_length)
-                behaviors.at[row.Index, "history_news"] = history_news
-                behaviors.at[row.Index, ""] = history_length
-                behaviors.at[row.Index, "candidate_news"] = candidates
-                behaviors.at[row.Index, "labels"] = labels
-            # behaviors = behaviors.apply(self._convert_behavior, axis=1)
-            print("load behaviors file using pandas cost time: ", time.time() - start)
-        start = time.time()
+        behaviors_file = self.mind_dir / "behaviors.tsv"  # define behavior file path
         attributes = ["uid", "impression_index", "history_news", "history_length", "candidate_news", "labels"]
         self.behaviors = {attr: [] for attr in attributes}
+        self.positive_news = []
         with open(behaviors_file, "r", encoding="utf-8") as rd:
             imp_index = 0
             for index in rd:
@@ -160,7 +103,6 @@ class MindRSDataset(Dataset):
                     self.behaviors[attr].append(value)
                 imp_index += 1
         rd.close()
-        print("load behaviors file using open cost time: ", time.time() - start)
 
     def load_news_index(self, indices, input_name):
         """

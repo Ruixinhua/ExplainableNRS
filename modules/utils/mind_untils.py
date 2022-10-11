@@ -21,29 +21,29 @@ def load_entity(entity: str):
 
 
 def get_mind_dir(**kwargs):
-    data_dir = kwargs.get("data_dir", None)
-    if data_dir is None:
-        data_dir = Path(get_project_root()) / "dataset/MIND"
+    mind_dir = kwargs.get("mind_dir", None)
+    if mind_dir is None:
+        data_dir = kwargs.get("data_dir", None)
+        if data_dir is None:
+            data_dir = Path(get_project_root()) / "dataset/MIND"
+        else:
+            data_dir = Path(data_dir) / "MIND"
+        mind_dir = data_dir / kwargs.get("mind_type", "demo")
+        if kwargs.get("phase", None) is not None:   # options for phase are train, valid, test
+            mind_dir = mind_dir / kwargs.get("phase")
+        return mind_dir
     else:
-        data_dir = Path(data_dir)
-    data_dir = data_dir / kwargs.get("mind_type", "demo")
-    if kwargs.get("phase", None) is not None:   # options for phase are train, valid, test
-        data_dir = data_dir / kwargs.get("phase")
-    return data_dir
+        raise ValueError("Please specify the mind_dir or data_dir and mind_type")
 
 
 def check_mind_set(**kwargs):
+    mind_type, mind_dir = kwargs.get("mind_type", "small"), kwargs.get("mind_dir", None)
     data_dir = kwargs.get("data_dir", None)
-    mind_type = kwargs.get("mind_type", "small")
-    if data_dir is None:
-        data_dir = Path(get_project_root()) / "dataset/MIND"
-    else:
-        data_dir = Path(data_dir)
     mind_url = get_mind_download_url()
-    train_dir = data_dir / mind_type / "train"
-    valid_dir = data_dir / mind_type / "valid"
-    test_dir = data_dir / mind_type / "test"
-    util_path = data_dir / mind_type / "utils"
+    train_dir = get_mind_dir(phase="train", mind_dir=mind_dir, mind_type=mind_type, data_dir=data_dir)
+    valid_dir = get_mind_dir(phase="valid", mind_dir=mind_dir, mind_type=mind_type, data_dir=data_dir)
+    test_dir = get_mind_dir(phase="test", mind_dir=mind_dir, mind_type=mind_type, data_dir=data_dir)
+    util_path = get_mind_dir(phase="utils", mind_dir=mind_dir, mind_type=mind_type, data_dir=data_dir)
     if not (Path(train_dir, "behaviors.tsv").exists() and Path(train_dir, "news.tsv").exists()):
         download_resources(mind_url, train_dir, f"MIND{mind_type}_train.zip")  # download mind training files
     if not (Path(valid_dir, "behaviors.tsv").exists() and Path(valid_dir, "news.tsv").exists()):
