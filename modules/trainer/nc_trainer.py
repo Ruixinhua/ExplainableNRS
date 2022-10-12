@@ -1,3 +1,4 @@
+import copy
 import os
 import numpy as np
 import torch
@@ -8,7 +9,7 @@ from modules.utils import MetricTracker
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
 from utils import get_topic_list, get_project_root, get_topic_dist, load_sparse, load_dataset_df, \
-    word_tokenize, NPMI, compute_coherence, write_to_file, save_topic_info
+    word_tokenize, NPMI, compute_coherence, write_to_file, save_topic_info, read_json
 
 
 class NCTrainer(BaseTrainer):
@@ -132,37 +133,51 @@ class NCTrainer(BaseTrainer):
         topic_dist = get_topic_dist(model, data_loader, self.config.get("topic_variant", "base"))
         self.model = self.model.to(self.device)
         top_n, methods = self.config.get("top_n", 10), self.config.get("coherence_method", "c_npmi")
-        topic_list = get_topic_list(topic_dist, top_n, reverse_dict)  # convert to tokens list
-        topic_index = [[data_loader.word_dict[word] - 1 for word in topic] for topic in topic_list]
-        ref_data_path = self.config.get("ref_data_path", Path(get_project_root()) / "dataset/data/MIND15.csv")
+        post_word_dict_dir = self.config.get("post_word_dict_dir", None)
+        topic_dists = {"original": topic_dist}
+        if post_word_dict_dir is not None:
+            for path in os.scandir(post_word_dict_dir):
+                if not path.name.endswith(".json"):
+                    continue
+                post_word_dict = read_json(path)
+                print(len(post_word_dict))
+                removed_index = [v for k, v in data_loader.word_dict.items() if k not in post_word_dict]
+                print(len(removed_index))
+                topic_dist_copy = copy.deepcopy(topic_dist)  # copy original topical distribution
+                topic_dist_copy[:, removed_index] = 0  # set removed terms to 0
+                topic_dists[path.name.replace(".json", "")] = topic_dist_copy
         topic_result, topic_scores = {}, None
-        if self.config.get("save_topic_info", False) and self.accelerator.is_main_process:  # save topic info
-            os.makedirs(topic_path, exist_ok=True)
-            write_to_file(os.path.join(topic_path, "topic_list.txt"), [" ".join(topics) for topics in topic_list])
-        if "fast_eval" in topic_evaluation_method:
-            ref_texts = load_sparse(ref_data_path)
-            scorer = NPMI((ref_texts > 0).astype(int))
-            topic_scores = {"c_npmi": scorer.compute_npmi(topics=topic_index, n=top_n)}
-        if "slow_eval" in topic_evaluation_method:
-            dataset_name = self.config.get("dataset_name", "MIND15")
-            tokenized_method = self.config.get("tokenized_method", "use_tokenize")
-            ref_df, _ = load_dataset_df(dataset_name, data_path=ref_data_path, tokenized_method=tokenized_method)
-            ref_texts = [word_tokenize(doc, tokenized_method) for doc in ref_df["data"].values]
-            topic_scores = {m: compute_coherence(topic_list, ref_texts, m, top_n) for m in methods.split(",")}
-        if ("slow_eval" in topic_evaluation_method or "fast_eval" in topic_evaluation_method) and topic_scores:
-            if self.config.get("save_topic_info", False) and self.accelerator.is_main_process:
-                # avoid duplicated saving
-                sort_score = self.config.get("sort_score", True)
-                topic_result = save_topic_info(topic_path, topic_list, topic_scores, sort_score)
-            else:
-                topic_result = {m: np.round(np.mean(c), 4) for m, c in topic_scores.items()}
-        if "w2v_sim" in topic_evaluation_method:
-            if torch.distributed.is_initialized():
-                model = model.module
-            embeddings = model.embedding_layer.embedding.weight.cpu().detach().numpy()
-            count = model.head_num * top_n * (top_n - 1) / 2
-            w2v_sim = sum([np.sum(np.triu(cosine_similarity(embeddings[index]), 1)) for index in topic_index]) / count
-            topic_result.update({"w2v_sim": np.round(w2v_sim, 4)})
+        for key, dist in topic_dists.items():
+            topic_list = get_topic_list(dist, top_n, reverse_dict)  # convert to tokens list
+            topic_index = [[data_loader.word_dict[word] - 1 for word in topic] for topic in topic_list]
+            ref_data_path = self.config.get("ref_data_path", Path(get_project_root()) / "dataset/data/MIND15.csv")
+            if self.config.get("save_topic_info", False) and self.accelerator.is_main_process:  # save topic info
+                os.makedirs(topic_path, exist_ok=True)
+                write_to_file(os.path.join(topic_path, "topic_list.txt"), [" ".join(topics) for topics in topic_list])
+            if "fast_eval" in topic_evaluation_method:
+                ref_texts = load_sparse(ref_data_path)
+                scorer = NPMI((ref_texts > 0).astype(int))
+                topic_scores = {f"{key}_c_npmi": scorer.compute_npmi(topics=topic_index, n=top_n)}
+            if "slow_eval" in topic_evaluation_method:
+                dataset_name = self.config.get("dataset_name", "MIND15")
+                tokenized_method = self.config.get("tokenized_method", "use_tokenize")
+                ref_df, _ = load_dataset_df(dataset_name, data_path=ref_data_path, tokenized_method=tokenized_method)
+                ref_texts = [word_tokenize(doc, tokenized_method) for doc in ref_df["data"].values]
+                topic_scores = {f"{key}_m": compute_coherence(topic_list, ref_texts, m, top_n) for m in methods}
+            if ("slow_eval" in topic_evaluation_method or "fast_eval" in topic_evaluation_method) and topic_scores:
+                if self.config.get("save_topic_info", False) and self.accelerator.is_main_process:
+                    # avoid duplicated saving
+                    sort_score = self.config.get("sort_score", True)
+                    topic_result.update(save_topic_info(topic_path, topic_list, topic_scores, sort_score))
+                else:
+                    topic_result.update({m: np.round(np.mean(c), 4) for m, c in topic_scores.items()})
+            if "w2v_sim" in topic_evaluation_method:
+                if torch.distributed.is_initialized():
+                    model = model.module
+                embeddings = model.embedding_layer.embedding.weight.cpu().detach().numpy()
+                count = model.head_num * top_n * (top_n - 1) / 2
+                w2v_sim = sum([np.sum(np.triu(cosine_similarity(embeddings[i]), 1)) for i in topic_index]) / count
+                topic_result.update({f"{key}_w2v_sim": np.round(w2v_sim, 4)})
         if not len(topic_result):
             raise ValueError("No correct topic evaluation method is specified!")
         return topic_result
