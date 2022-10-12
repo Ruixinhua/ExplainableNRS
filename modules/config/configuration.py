@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import Dict, Union, Any
 
-from modules.config.default_config import DEFAULT_CONFIGS, arch_default_config
+from modules.config.default_config import DEFAULT_CONFIGS, arch_default_config, LOG_LEVELS
 from modules.config.config_utils import convert_config_dict, load_cmd_line, setup_project_path
 from modules.utils import write_json, read_json
 
@@ -50,10 +50,10 @@ class Configuration:
         return args_info
 
     def get_logger(self, name, verbosity=2):
-        msg_verbosity = f"verbosity option{verbosity} is invalid. Valid options are {self.log_levels.keys()}."
-        assert verbosity in self.log_levels, msg_verbosity
+        msg_verbosity = f"verbosity option{verbosity} is invalid. Valid options are {LOG_LEVELS.keys()}."
+        assert verbosity in LOG_LEVELS, msg_verbosity
         logger = logging.getLogger(name)
-        logger.setLevel(self.log_levels[verbosity])
+        logger.setLevel(LOG_LEVELS[verbosity])
         return logger
 
     def get(self, key, default=None):

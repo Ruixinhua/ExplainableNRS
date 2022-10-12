@@ -8,13 +8,14 @@ DEFAULT_CONFIGS = {
     "metrics": ["accuracy", "macro_f"], "save_model": True, "resume_path": None, "project_name": "",
     "seed": 42, "arch_type": "BiAttentionClassifyModel", "dropout_rate": 0.2, "dataloader_type": "NewsDataLoader",
     "batch_size": 32, "num_workers": 1, "dataset_name": "News26/keep_all", "trainer_type": "NCTrainer",
-    "log_levels": {0: logging.WARNING, 1: logging.INFO, 2: logging.DEBUG},  # configure logging module
     # Trainer parameters
     "epochs": 10, "early_stop": 3, "monitor": "max val_accuracy", "verbosity": 2, "tensorboard": False,
     # default project path
     "project_root": get_project_root(), "data_dir": os.path.join(get_project_root(), "dataset"),
     "saved_dir": os.path.join(get_project_root(), "saved"),
 }
+
+LOG_LEVELS = {0: logging.WARNING, 1: logging.INFO, 2: logging.DEBUG}  # configure logging module
 
 LAYER_MAPPING = {"distilbert-base-uncased": "n_layers", "xlnet-base-cased": "n_layer",
                  "bert-base-uncased": "num_hidden_layers", "roberta-base": "num_hidden_layers",

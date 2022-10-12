@@ -19,7 +19,7 @@ class BaseTrainer:
     """
     def __init__(self, model, config, **kwargs):
         self.config = config
-        self.logger = config.get_logger("trainer", config["verbosity"])
+        self.logger = config.get_logger("trainer", 2)
         # for PLM, some parameters are not used in training, so find_unused_parameters needs to be set to True
         ddp_handler = DistributedDataParallelKwargs(find_unused_parameters=config.get("find_unused_parameters", False))
         self.accelerator = Accelerator(kwargs_handlers=[ddp_handler])  # setup accelerator for multi-GPU training
@@ -154,18 +154,19 @@ class BaseTrainer:
         :param epoch: current epoch number
         :param score: current score of monitor metric
         """
-        best_path = str(self.checkpoint_dir / f"{round(score, 4)}_model_best-epoch{epoch}")
+        best_path = str(self.checkpoint_dir / f"{round(score, 4)}_model_best{self.config.get('seed')}-epoch{epoch}")
         # Register the LR scheduler
-        self.accelerator.register_for_checkpointing(self.lr_scheduler)
         # save procedure (accelerate): https://huggingface.co/docs/accelerate/usage_guides/checkpoint
         # Save the starting state
         if self.accelerator.is_main_process:  # to avoid duplicated deleting
+            self.accelerator.register_for_checkpointing(self.lr_scheduler)
             self.accelerator.save_state(best_path)
+            self.config.save_config(best_path)
+            self.logger.info(f"Saving current best to path: {best_path}")
             if self.last_best_path:
                 if os.path.exists(self.last_best_path):
                     import shutil
                     shutil.rmtree(self.last_best_path)
-            self.logger.info(f"Saving current best to path: {best_path}")
         self.last_best_path = best_path
 
     def resume_checkpoint(self, resume_path=None):

@@ -147,6 +147,8 @@ class NCTrainer(BaseTrainer):
                 topic_dist_copy[:, removed_index] = 0  # set removed terms to 0
                 topic_dists[path.name.replace(".json", "")] = topic_dist_copy
         topic_result, topic_scores = {}, None
+        if torch.distributed.is_initialized():
+            model = model.module
         for key, dist in topic_dists.items():
             topic_list = get_topic_list(dist, top_n, reverse_dict)  # convert to tokens list
             topic_index = [[data_loader.word_dict[word] - 1 for word in topic] for topic in topic_list]
@@ -172,8 +174,6 @@ class NCTrainer(BaseTrainer):
                 else:
                     topic_result.update({m: np.round(np.mean(c), 4) for m, c in topic_scores.items()})
             if "w2v_sim" in topic_evaluation_method:
-                if torch.distributed.is_initialized():
-                    model = model.module
                 embeddings = model.embedding_layer.embedding.weight.cpu().detach().numpy()
                 count = model.head_num * top_n * (top_n - 1) / 2
                 w2v_sim = sum([np.sum(np.triu(cosine_similarity(embeddings[i]), 1)) for i in topic_index]) / count

@@ -1,7 +1,6 @@
 import os
 import ast
 import time
-import numpy as np
 from datetime import datetime
 
 from pathlib import Path
@@ -11,8 +10,7 @@ from modules.config.configuration import Configuration
 from modules.config.default_config import TEST_CONFIGS
 from modules.config.config_utils import set_seed, load_cmd_line
 from modules.experiment.quick_run import run
-from modules.utils import get_topic_list, get_project_root, init_data_loader, get_topic_dist, \
-    load_sparse, load_dataset_df, word_tokenize, NPMI, compute_coherence, write_to_file, save_topic_info
+from modules.utils import get_project_root, init_data_loader
 
 
 def evaluate_run():
