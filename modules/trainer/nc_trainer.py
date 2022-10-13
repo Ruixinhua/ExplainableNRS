@@ -9,7 +9,7 @@ from modules.utils import MetricTracker
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
 from utils import get_topic_list, get_project_root, get_topic_dist, load_sparse, load_dataset_df, \
-    word_tokenize, NPMI, compute_coherence, write_to_file, save_topic_info, read_json
+    word_tokenize, NPMI, compute_coherence, write_to_file, save_topic_info, read_json, load_batch_data
 
 
 class NCTrainer(BaseTrainer):
@@ -33,14 +33,6 @@ class NCTrainer(BaseTrainer):
         self.model, self.optimizer, self.train_loader, self.lr_scheduler = self.accelerator.prepare(
             self.model, self.optimizer, self.train_loader, self.lr_scheduler)
 
-    def load_batch_data(self, batch_dict, multi_gpu=True):
-        """
-        load batch data to default device
-        """
-        if torch.distributed.is_initialized() and multi_gpu:  # use multi-gpu
-            return batch_dict
-        return {k: v.to(self.device) for k, v in batch_dict.items()}
-
     def run_model(self, batch_dict, model=None, multi_gpu=True):
         """
         run model with the batch data
@@ -49,7 +41,7 @@ class NCTrainer(BaseTrainer):
         :param model: by default we use the self model
         :return: the output of running, label used for evaluation, and loss item
         """
-        batch_dict = self.load_batch_data(batch_dict, multi_gpu)
+        batch_dict = load_batch_data(batch_dict, self.device, multi_gpu)
         output = model(batch_dict) if model is not None else self.model(batch_dict)
         loss = self.criterion(output["predicted"], batch_dict["label"])
         out_dict = {"label": batch_dict["label"], "loss": loss, "predict": output["predicted"]}

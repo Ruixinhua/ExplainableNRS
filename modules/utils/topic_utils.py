@@ -174,7 +174,7 @@ def evaluate_entropy(topic_dist):
     return token_entropy, topic_entropy
 
 
-def save_topic_info(path, topic_list, topic_scores, sort_score=True):
+def save_topic_info(path, topic_list, topic_scores, sort_score=True, keyword=""):
     topic_result = {m: np.round(np.mean(c), 4) for m, c in topic_scores.items()}
     for method, scores in topic_scores.items():
         topic_file = os.path.join(path, f"topic_list_{method}_{topic_result[method]}.txt")

@@ -83,11 +83,12 @@ class MindRSDataset(Dataset):
                 # read line of behaviors file
                 uid, _, history, candidates = index.strip("\n").split("\t")[-4:]
                 # deal with behavior data
-                history = [self.nid2index[i] for i in history.split()] if len(history) > 1 else [0]  # TODO history
+                history = [self.nid2index[i] for i in history.split() if i in self.nid2index] if len(history) else [0]
                 his_length = min(len(history), self.history_size)
                 # history = history[:self.history_size]
                 history = history[:self.history_size] + [0] * (self.history_size - len(history))
-                candidate_news = [self.nid2index[i.split("-")[0]] for i in candidates.split()]
+                candidate_news = [self.nid2index[i.split("-")[0]] if i.split("-")[0] in self.nid2index else 0
+                                  for i in candidates.split()]
                 uindex = self.uid2index[uid] if uid in self.uid2index else 0
                 # define attributes value
                 behavior = [uindex, imp_index, history, his_length, candidate_news]

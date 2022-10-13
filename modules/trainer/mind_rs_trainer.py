@@ -9,7 +9,7 @@ from tqdm import tqdm
 from config.configuration import Configuration
 from dataset import ImpressionDataset
 from trainer import NCTrainer
-from utils import gather_dict, convert_dict_to_numpy
+from utils import gather_dict, load_batch_data, get_news_embeds
 
 
 class MindRSTrainer(NCTrainer):
@@ -48,7 +48,7 @@ class MindRSTrainer(NCTrainer):
         # self._validation(epoch, 0)
         for batch_idx, batch_dict in bar:
             # load data to device
-            batch_dict = self.load_batch_data(batch_dict)
+            batch_dict = load_batch_data(batch_dict, self.device)
             # setup model and train model
             self.optimizer.zero_grad()
             output = self.model(batch_dict)
@@ -68,25 +68,6 @@ class MindRSTrainer(NCTrainer):
             self.lr_scheduler.step()
         return self._validation(epoch, length, False)
 
-    def get_news_embeds(self, model, data_loader=None):
-        """
-        run news model and return news vectors (numpy matrix)
-        :param model: target running model
-        :param data_loader: data loader object used to load news data
-        :return: numpy matrix of news vectors (each row is a news vector)
-        """
-        news_embeds = {}
-        data_loader = self.mind_loader if data_loader is None else data_loader
-        news_loader = self.accelerator.prepare_data_loader(data_loader.news_loader)
-        for batch_dict in tqdm(news_loader, total=len(news_loader)):
-            # load data to device
-            batch_dict = self.load_batch_data(batch_dict)
-            # run news encoder
-            news_vec = model.news_encoder(batch_dict)
-            # update news vectors
-            news_embeds.update(dict(zip(batch_dict["index"].cpu().tolist(), news_vec.cpu().numpy())))
-        return convert_dict_to_numpy(gather_dict(news_embeds))
-
     def _valid_epoch(self, model=None, data_loader=None, extra_str=None):
         """
         Validate after training an epoch
@@ -98,18 +79,19 @@ class MindRSTrainer(NCTrainer):
             model = self.model.module if model is None else model.module
         else:
             model = self.model if model is None else model
+        data_loader = self.mind_loader if data_loader is None else data_loader
         model.eval()
         self.valid_metrics.reset()
         with torch.no_grad():
             try:  # try to do fast evaluation: cache news embeddings 
-                news_embeds = self.get_news_embeds(model, data_loader)
+                news_embeds = get_news_embeds(model, data_loader, device=self.device, accelerator=self.accelerator)
             except KeyError or RuntimeError:  # slow evaluation: re-calculate news embeddings every time
                 news_embeds = None
-            imp_set = ImpressionDataset(self.mind_loader.valid_set, news_embeds)
-            valid_loader = DataLoader(imp_set, impression_bs, collate_fn=self.mind_loader.fn)
+            imp_set = ImpressionDataset(data_loader.valid_set, news_embeds)
+            valid_loader = DataLoader(imp_set, impression_bs, collate_fn=data_loader.fn)
             valid_loader = self.accelerator.prepare_data_loader(valid_loader)
             for batch_dict in tqdm(valid_loader, total=len(valid_loader)):  # run model
-                batch_dict = self.load_batch_data(batch_dict)
+                batch_dict = load_batch_data(batch_dict, self.device)
                 label = batch_dict["label"].cpu().numpy()
                 pred = model(batch_dict).cpu().numpy()
                 can_len = batch_dict["candidate_length"].cpu().numpy()

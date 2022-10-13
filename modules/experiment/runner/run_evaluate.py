@@ -16,7 +16,6 @@ if __name__ == "__main__":
     timestamp = datetime.now().strftime(r'%m%d_%H%M%S')
     saved_dir_name = cmd_args["saved_dir_name"] if "saved_dir_name" in cmd_args else "performance"
     saved_dir = Path(cmd_args.get("saved_dir", DEFAULT_CONFIGS["saved_dir"])) / saved_dir_name  # init saved directory
-    os.makedirs(saved_dir, exist_ok=True)  # create empty directory
     topic_evaluation_method = cmd_args.get("topic_evaluation_method", None)
     saved_filename = cmd_args.get("saved_filename", None)
     if saved_filename is not None:

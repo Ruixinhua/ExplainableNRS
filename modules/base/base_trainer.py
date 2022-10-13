@@ -1,10 +1,10 @@
 import os
-from datetime import datetime
 
 import torch
 import pandas as pd
-import modules.utils.metric_utils as module_metric
 
+import modules.utils.metric_utils as module_metric
+from datetime import datetime
 from pathlib import Path
 from abc import abstractmethod
 from numpy import inf

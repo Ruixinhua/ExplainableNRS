@@ -120,3 +120,12 @@ def convert_dict_to_numpy(dict_object):
     :return: numpy array
     """
     return np.array([dict_object[i] for i in range(len(dict_object))])
+
+
+def load_batch_data(batch_dict, device, multi_gpu=True):
+    """
+    load batch data to default device
+    """
+    if torch.distributed.is_initialized() and multi_gpu:  # use multi-gpu
+        return batch_dict
+    return {k: v.to(device) for k, v in batch_dict.items()}

@@ -19,7 +19,7 @@ class FastformerClassifyModel(BaseClassifyModel):
         })
         kwargs["max_position_embeddings"] = self.max_length
         kwargs["hidden_dropout_prob"] = self.dropout_rate
-        self.word_dict, self.embeds = kwargs.pop("word_dict"), kwargs.pop("embeds")
+        # self.word_dict, self.embeds = kwargs.pop("word_dict"), kwargs.pop("embeds")
         self.config = BertConfig.from_dict(kwargs)
         self.fastformer_model = FastformerEncoder(self.config)
         self.apply(self.init_weights)
