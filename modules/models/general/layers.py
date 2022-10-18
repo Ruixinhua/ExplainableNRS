@@ -123,7 +123,7 @@ class Dice(nn.Module):
         - https://github.com/zhougr1993/DeepInterestNetwork, https://github.com/fanoping/DIN-pytorch
     """
 
-    def __init__(self, emb_size, dim=2, epsilon=1e-8, device='cpu'):
+    def __init__(self, emb_size, dim=2, epsilon=1e-8, device="cpu"):
         super(Dice, self).__init__()
         assert dim == 2 or dim == 3
 
@@ -162,21 +162,23 @@ def activation_layer(act_name, hidden_size=None, dice_dim=2):
     """
     act_layer = None
     if isinstance(act_name, str):
-        if act_name.lower() == 'sigmoid':
+        if act_name.lower() == "sigmoid":
             act_layer = nn.Sigmoid()
-        elif act_name.lower() == 'linear':
+        elif act_name.lower() == "linear":
             act_layer = Identity()
-        elif act_name.lower() == 'relu':
+        elif act_name.lower() == "relu":
             act_layer = nn.ReLU(inplace=True)
-        elif act_name.lower() == 'dice':
+        elif act_name.lower() == "dice":
             assert dice_dim
             act_layer = Dice(hidden_size, dice_dim)
-        elif act_name.lower() == 'prelu':
+        elif act_name.lower() == "prelu":
             act_layer = nn.PReLU()
+        elif act_name.lower() == "tanh":
+            act_layer = nn.Tanh()
     elif issubclass(act_name, nn.Module):
         act_layer = act_name()
     else:
-        raise NotImplementedError
+        raise NotImplementedError(f"Activation layer {act_name} is not implemented")
     return act_layer
 
 
@@ -198,7 +200,7 @@ class AttentionSequencePoolingLayer(nn.Module):
           ACM, 2018: 1059-1068.](https://arxiv.org/pdf/1706.06978.pdf)
       """
 
-    def __init__(self, att_hidden_units=(80, 40), att_activation='sigmoid', weight_normalization=False,
+    def __init__(self, att_hidden_units=(80, 40), att_activation="sigmoid", weight_normalization=False,
                  return_score=False, supports_masking=False, embedding_dim=4, **kwargs):
         super(AttentionSequencePoolingLayer, self).__init__()
         self.return_score = return_score
@@ -289,7 +291,7 @@ class LocalActivationUnit(nn.Module):
         ACM, 2018: 1059-1068.](https://arxiv.org/pdf/1706.06978.pdf)
     """
 
-    def __init__(self, hidden_units=(64, 32), embedding_dim=4, activation='sigmoid', dropout_rate=0, dice_dim=3,
+    def __init__(self, hidden_units=(64, 32), embedding_dim=4, activation="sigmoid", dropout_rate=0, dice_dim=3,
                  l2_reg=0, use_bn=False):
         super(LocalActivationUnit, self).__init__()
 
@@ -347,8 +349,8 @@ class DNN(nn.Module):
         - **seed**: A Python integer to use as random seed.
     """
 
-    def __init__(self, inputs_dim, hidden_units, activation='relu', l2_reg=0, dropout_rate=0, use_bn=False,
-                 init_std=0.0001, dice_dim=3, seed=1024, device='cpu'):
+    def __init__(self, inputs_dim, hidden_units, activation="relu", l2_reg=0, dropout_rate=0, use_bn=False,
+                 init_std=0.0001, dice_dim=3, seed=1024, device="cpu"):
         super(DNN, self).__init__()
         self.dropout_rate = dropout_rate
         self.dropout = nn.Dropout(dropout_rate)
@@ -370,7 +372,7 @@ class DNN(nn.Module):
             [activation_layer(activation, hidden_units[i + 1], dice_dim) for i in range(len(hidden_units) - 1)])
 
         for name, tensor in self.linears.named_parameters():
-            if 'weight' in name:
+            if "weight" in name:
                 nn.init.normal_(tensor, mean=0, std=init_std)
 
         self.to(device)
@@ -394,7 +396,7 @@ class DNN(nn.Module):
 
 def init_layer(layers, init_std):
     for name, tensor in layers.named_parameters():
-        if 'weight' in name:
+        if "weight" in name:
             nn.init.normal_(tensor, mean=0, std=init_std)
     return layers
 
@@ -413,22 +415,22 @@ class AGRUCell(nn.Module):
         self.bias = bias
         # (W_ir|W_iz|W_ih)
         self.weight_ih = nn.Parameter(torch.Tensor(3 * hidden_size, input_size))
-        self.register_parameter('weight_ih', self.weight_ih)
+        self.register_parameter("weight_ih", self.weight_ih)
         # (W_hr|W_hz|W_hh)
         self.weight_hh = nn.Parameter(torch.Tensor(3 * hidden_size, hidden_size))
-        self.register_parameter('weight_hh', self.weight_hh)
+        self.register_parameter("weight_hh", self.weight_hh)
         if bias:
             # (b_ir|b_iz|b_ih)
             self.bias_ih = nn.Parameter(torch.Tensor(3 * hidden_size))
-            self.register_parameter('bias_ih', self.bias_ih)
+            self.register_parameter("bias_ih", self.bias_ih)
             # (b_hr|b_hz|b_hh)
             self.bias_hh = nn.Parameter(torch.Tensor(3 * hidden_size))
-            self.register_parameter('bias_hh', self.bias_hh)
+            self.register_parameter("bias_hh", self.bias_hh)
             for tensor in [self.bias_ih, self.bias_hh]:
                 nn.init.zeros_(tensor, )
         else:
-            self.register_parameter('bias_ih', None)
-            self.register_parameter('bias_hh', None)
+            self.register_parameter("bias_ih", None)
+            self.register_parameter("bias_hh", None)
 
     def forward(self, inputs, hx, att_score):
         gi = F.linear(inputs, self.weight_ih, self.bias_ih)
@@ -459,22 +461,22 @@ class AUGRUCell(nn.Module):
         self.bias = bias
         # (W_ir|W_iz|W_ih)
         self.weight_ih = nn.Parameter(torch.Tensor(3 * hidden_size, input_size))
-        self.register_parameter('weight_ih', self.weight_ih)
+        self.register_parameter("weight_ih", self.weight_ih)
         # (W_hr|W_hz|W_hh)
         self.weight_hh = nn.Parameter(torch.Tensor(3 * hidden_size, hidden_size))
-        self.register_parameter('weight_hh', self.weight_hh)
+        self.register_parameter("weight_hh", self.weight_hh)
         if bias:
             # (b_ir|b_iz|b_ih)
             self.bias_ih = nn.Parameter(torch.Tensor(3 * hidden_size))
-            self.register_parameter('bias_ih', self.bias_ih)
+            self.register_parameter("bias_ih", self.bias_ih)
             # (b_hr|b_hz|b_hh)
             self.bias_hh = nn.Parameter(torch.Tensor(3 * hidden_size))
-            self.register_parameter('bias_ih', self.bias_hh)
+            self.register_parameter("bias_ih", self.bias_hh)
             for tensor in [self.bias_ih, self.bias_hh]:
                 nn.init.zeros_(tensor, )
         else:
-            self.register_parameter('bias_ih', None)
-            self.register_parameter('bias_hh', None)
+            self.register_parameter("bias_ih", None)
+            self.register_parameter("bias_hh", None)
 
     def forward(self, inputs, hx, att_score):
         gi = F.linear(inputs, self.weight_ih, self.bias_ih)
@@ -493,14 +495,14 @@ class AUGRUCell(nn.Module):
 
 
 class DynamicGRU(nn.Module):
-    def __init__(self, input_size, hidden_size, bias=True, gru_type='AGRU'):
+    def __init__(self, input_size, hidden_size, bias=True, gru_type="AGRU"):
         super(DynamicGRU, self).__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
 
-        if gru_type == 'AGRU':
+        if gru_type == "AGRU":
             self.rnn = AGRUCell(input_size, hidden_size, bias)
-        elif gru_type == 'AUGRU':
+        elif gru_type == "AUGRU":
             self.rnn = AUGRUCell(input_size, hidden_size, bias)
 
     def forward(self, inputs, att_scores=None, hx=None):

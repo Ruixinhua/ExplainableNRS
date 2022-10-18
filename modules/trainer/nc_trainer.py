@@ -5,11 +5,10 @@ import torch
 import torch.distributed
 from pathlib import Path
 from modules.base.base_trainer import BaseTrainer
-from modules.utils import MetricTracker
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
-from utils import get_topic_list, get_project_root, get_topic_dist, load_sparse, load_dataset_df, \
-    word_tokenize, NPMI, compute_coherence, write_to_file, save_topic_info, read_json, load_batch_data
+from modules.utils import get_topic_list, get_project_root, get_topic_dist, load_sparse, load_dataset_df, \
+    read_json, NPMI, compute_coherence, write_to_file, save_topic_info, MetricTracker, load_batch_data, word_tokenize
 
 
 class NCTrainer(BaseTrainer):
@@ -112,6 +111,13 @@ class NCTrainer(BaseTrainer):
         return log
 
     def topic_evaluation(self, model=None, data_loader=None, extra_str=None):
+        """
+        evaluate the topic quality of the BATM model using the topic coherence
+        :param model: best model chosen from the training process
+        :param data_loader: should have a word_dict variable
+        :param extra_str: extra string to add to the file name
+        :return: topic quality result of the best model
+        """
         if model is None:
             model = self.model
         if data_loader is None:
@@ -132,9 +138,7 @@ class NCTrainer(BaseTrainer):
                 if not path.name.endswith(".json"):
                     continue
                 post_word_dict = read_json(path)
-                print(len(post_word_dict))
                 removed_index = [v for k, v in data_loader.word_dict.items() if k not in post_word_dict]
-                print(len(removed_index))
                 topic_dist_copy = copy.deepcopy(topic_dist)  # copy original topical distribution
                 topic_dist_copy[:, removed_index] = 0  # set removed terms to 0
                 topic_dists[path.name.replace(".json", "")] = topic_dist_copy
@@ -143,7 +147,6 @@ class NCTrainer(BaseTrainer):
             model = model.module
         for key, dist in topic_dists.items():
             topic_list = get_topic_list(dist, top_n, reverse_dict)  # convert to tokens list
-            topic_index = [[data_loader.word_dict[word] - 1 for word in topic] for topic in topic_list]
             ref_data_path = self.config.get("ref_data_path", Path(get_project_root()) / "dataset/data/MIND15.csv")
             if self.config.get("save_topic_info", False) and self.accelerator.is_main_process:  # save topic info
                 os.makedirs(topic_path, exist_ok=True)
@@ -151,6 +154,7 @@ class NCTrainer(BaseTrainer):
             if "fast_eval" in topic_evaluation_method:
                 ref_texts = load_sparse(ref_data_path)
                 scorer = NPMI((ref_texts > 0).astype(int))
+                topic_index = [[data_loader.word_dict[word] - 1 for word in topic] for topic in topic_list]
                 topic_scores = {f"{key}_c_npmi": scorer.compute_npmi(topics=topic_index, n=top_n)}
             if "slow_eval" in topic_evaluation_method:
                 dataset_name = self.config.get("dataset_name", "MIND15")
@@ -165,9 +169,10 @@ class NCTrainer(BaseTrainer):
                     topic_result.update(save_topic_info(topic_path, topic_list, topic_scores, sort_score))
                 else:
                     topic_result.update({m: np.round(np.mean(c), 4) for m, c in topic_scores.items()})
-            if "w2v_sim" in topic_evaluation_method:
+            if "w2v_sim" in topic_evaluation_method:  # compute word embedding similarity of top-10 words for each topic
                 embeddings = model.embedding_layer.embedding.weight.cpu().detach().numpy()
                 count = model.head_num * top_n * (top_n - 1) / 2
+                topic_index = [[data_loader.word_dict[word] for word in topic] for topic in topic_list]
                 w2v_sim = sum([np.sum(np.triu(cosine_similarity(embeddings[i]), 1)) for i in topic_index]) / count
                 topic_result.update({f"{key}_w2v_sim": np.round(w2v_sim, 4)})
         if not len(topic_result):

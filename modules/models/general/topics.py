@@ -4,7 +4,7 @@ import torch
 import numpy as np
 from torch import nn
 
-from modules.models.general.layers import MultiHeadedAttention
+from modules.models.general.layers import MultiHeadedAttention, activation_layer
 
 
 class TopicLayer(nn.Module):
@@ -16,11 +16,13 @@ class TopicLayer(nn.Module):
         self.embedding_dim = kwargs.get("embedding_dim", 300)
         self.word_dict = kwargs.get("word_dict", None)
         self.final = nn.Linear(self.embedding_dim, self.embedding_dim)
+        self.act_layer = activation_layer(kwargs.get("act_layer", "tanh"))  # default use tanh
         if self.variant_name == "base":  # default using two linear layers
-            self.topic_layer = nn.Sequential(nn.Linear(self.embedding_dim, topic_dim), nn.Tanh(),
+            self.topic_layer = nn.Sequential(nn.Linear(self.embedding_dim, topic_dim), self.act_layer,
                                              nn.Linear(topic_dim, self.head_num))
         elif self.variant_name == "raw":  # a simpler model using only one linear layer to encode topic weights
-            self.topic_layer = nn.Linear(self.embedding_dim, self.head_num)  # can not focus on specific words
+            # can not extract any meaningful topics from documents
+            self.topic_layer = nn.Sequential(nn.Linear(self.embedding_dim, self.head_num), self.act_layer)
         elif self.variant_name == "topic_embed":
             self.topic_layer = nn.Embedding(len(self.word_dict), self.head_num)
             self.topic_embed_path = kwargs.get("topic_embed_path", None)

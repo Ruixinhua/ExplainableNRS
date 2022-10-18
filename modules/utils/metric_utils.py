@@ -1,8 +1,5 @@
-from collections import defaultdict
-
 import pandas as pd
 import numpy as np
-import torch
 from sklearn.metrics import f1_score
 from .auc_utils import roc_auc_score
 
