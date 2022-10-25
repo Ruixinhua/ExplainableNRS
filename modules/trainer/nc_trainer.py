@@ -9,6 +9,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
 from modules.utils import get_topic_list, get_project_root, get_topic_dist, load_sparse, load_dataset_df, \
     read_json, NPMI, compute_coherence, write_to_file, save_topic_info, MetricTracker, load_batch_data, word_tokenize
+from utils import load_embeddings
 
 
 class NCTrainer(BaseTrainer):
@@ -170,7 +171,8 @@ class NCTrainer(BaseTrainer):
                 else:
                     topic_result.update({m: np.round(np.mean(c), 4) for m, c in topic_scores.items()})
             if "w2v_sim" in topic_evaluation_method:  # compute word embedding similarity of top-10 words for each topic
-                embeddings = model.embedding_layer.embedding.weight.cpu().detach().numpy()
+                # embeddings = model.embedding_layer.embedding.weight.cpu().detach().numpy()
+                embeddings = load_embeddings(**self.config.final_configs)
                 count = model.head_num * top_n * (top_n - 1) / 2
                 topic_index = [[data_loader.word_dict[word] for word in topic] for topic in topic_list]
                 w2v_sim = sum([np.sum(np.triu(cosine_similarity(embeddings[i]), 1)) for i in topic_index]) / count

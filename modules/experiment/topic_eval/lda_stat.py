@@ -1,10 +1,9 @@
 import pandas as pd
 import os
-import shutil
 
 from analysis.perform_stat import get_mean_std
 from config import load_cmd_line
-from modules.utils import read_json, write_json
+from modules.utils import read_json
 from pathlib import Path
 
 
