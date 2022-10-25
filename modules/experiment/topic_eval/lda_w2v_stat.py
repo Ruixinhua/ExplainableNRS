@@ -22,12 +22,12 @@ if __name__ == "__main__":
     topics_dir = Path(cmd_args.get("topics_dir", None))
     name = topics_dir.name.split("/")[-1]
     lda_stats = []
-    for num, seed in product([10, 50, 100, 200], [2020, 2021, 24, 4, 42]):
+    for num, seed in product([10, 30, 50, 70, 100, 150, 200, 300, 500], [2020, 2021, 25, 4, 42]):
         topics_path = topics_dir / f"{seed}/topic_list_lda_npmi_{num}.txt"
         if not os.path.exists(topics_path):
             continue
         with open(topics_path) as r:
-            topics = [line.split(":")[1].split() for line in r]
+            topics = [next(r).split(":")[1].split() for _ in range(num)]
         metrics = read_json(Path(topics_dir, str(seed), f"metrics_{num}.json"))
         topics_mat = [np.array([glove_embeddings[term] if term in glove_embeddings else np.random.normal(
             loc=mean, scale=std, size=300) for term in topic]) for topic in topics]
