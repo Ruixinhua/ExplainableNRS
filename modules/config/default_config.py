@@ -11,8 +11,8 @@ DEFAULT_CONFIGS = {
     # Trainer parameters
     "epochs": 10, "early_stop": 3, "monitor": "max val_accuracy", "verbosity": 2, "tensorboard": False,
     # default project path
-    "project_root": "explainable_nrs", "data_dir": os.path.join("explainable_nrs", "dataset"),
-    "saved_dir": os.path.join("explainable_nrs", "saved"),
+    "project_root": "./", "data_dir": os.path.join("./", "dataset"),
+    "saved_dir": os.path.join("./", "saved"),
 }
 
 LOG_LEVELS = {0: logging.WARNING, 1: logging.INFO, 2: logging.DEBUG}  # configure logging module

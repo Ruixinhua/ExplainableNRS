@@ -12,8 +12,8 @@ class BATMRSModel(MindNRSBase):
         self.topic_layer = TopicLayer(**kwargs)
         topic_dim = self.head_num * self.head_dim
         # the structure of basic model
-        if self.variant_name == "base_gru" or self.variant_name == "base_att":
-            self.user_encode_layer = nn.GRU(self.embedding_dim, self.embedding_dim, batch_first=True, bidirectional=False)
+        if self.variant_name == "base_gru":
+            self.user_encode_layer = nn.GRU(self.embedding_dim, self.embedding_dim, batch_first=True)
         elif self.variant_name == "bi_batm":
             self.user_encode_layer = nn.Sequential(nn.Linear(self.embedding_dim, topic_dim), nn.Tanh(),
                                                    nn.Linear(topic_dim, self.head_num))
