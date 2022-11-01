@@ -172,17 +172,3 @@ def compute_coherence(topic_list, texts, method="c_v", top_n=25):
 def evaluate_entropy(topic_dist):
     token_entropy, topic_entropy = np.mean(entropy(topic_dist, axis=0)),  np.mean(entropy(topic_dist, axis=1))
     return token_entropy, topic_entropy
-
-
-def save_topic_info(path, topic_list, topic_scores, sort_score=True, keyword=""):
-    topic_result = {m: np.round(np.mean(c), 4) for m, c in topic_scores.items()}
-    for method, scores in topic_scores.items():
-        topic_file = os.path.join(path, f"topic_list_{method}_{topic_result[method]}.txt")
-        if sort_score:  # sort topics by scores
-            sorted_scores = sorted(zip(scores, topic_list), reverse=True, key=lambda x: x[0])
-        else:
-            sorted_scores = zip(scores, topic_list)
-        for score, topics in sorted_scores:
-            write_to_file(topic_file, f"{np.round(score, 4)}: {' '.join(topics)}\n", "a+")
-        write_to_file(topic_file, f"Average score: {topic_result[method]}\n", "a+")
-    return topic_result

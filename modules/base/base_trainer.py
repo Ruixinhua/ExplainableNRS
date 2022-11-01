@@ -54,7 +54,7 @@ class BaseTrainer:
                 self.early_stop = inf
 
         self.start_epoch = 1
-        self.checkpoint_dir = Path(config.model_dir)
+        self.model_dir = Path(config.model_dir)
 
         if config["resume"] is not None:
             self.resume_checkpoint(config["resume"])
@@ -99,7 +99,7 @@ class BaseTrainer:
             else:
                 log[key] = item
         log["run_name"] = self.config["run_name"]
-        saved_path = kwargs.get("saved_path", Path(self.checkpoint_dir) / "model_best.csv")
+        saved_path = kwargs.get("saved_path", Path(self.model_dir) / "model_best.csv")
         log_df = pd.DataFrame(log, index=[0])
         if os.path.exists(saved_path) and Path(saved_path).stat().st_size > 0:
             log_df = log_df.append(pd.read_csv(saved_path, float_precision="round_trip"), ignore_index=True)
@@ -109,7 +109,7 @@ class BaseTrainer:
         log_df.to_csv(saved_path)
 
     def _monitor(self, log, epoch):
-        # evaluate model performance according to configured metric, save best checkpoint as model_best with score
+        # evaluate model performance according to configured metric, save the best checkpoint as model_best with score
         if self.mnt_mode != "off":
             try:
                 # check whether model performance improved or not, according to specified metric(mnt_metric)
@@ -154,7 +154,7 @@ class BaseTrainer:
         :param epoch: current epoch number
         :param score: current score of monitor metric
         """
-        best_path = str(self.checkpoint_dir / f"{round(score, 4)}_model_best{self.config.get('seed')}-epoch{epoch}")
+        best_path = str(self.model_dir / "checkpoint" / f"{round(score, 4)}_{self.config.get('seed')}-{epoch}")
         # Register the LR scheduler
         # save procedure (accelerate): https://huggingface.co/docs/accelerate/usage_guides/checkpoint
         # Save the starting state

@@ -8,8 +8,7 @@ from modules.base.base_trainer import BaseTrainer
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
 from modules.utils import get_topic_list, get_project_root, get_topic_dist, load_sparse, load_dataset_df, \
-    read_json, NPMI, compute_coherence, write_to_file, save_topic_info, MetricTracker, load_batch_data, word_tokenize
-from utils import load_embeddings
+    read_json, NPMI, compute_coherence, write_to_file, MetricTracker, load_batch_data, word_tokenize
 
 
 class NCTrainer(BaseTrainer):
@@ -127,7 +126,9 @@ class NCTrainer(BaseTrainer):
         saved_name = f"topics_{self.config.seed}_{self.config.head_num}"
         if extra_str is not None:
             saved_name += f"_{extra_str}"
-        topic_path = Path(self.config.model_dir, saved_name)
+        topics_dir = Path(self.config.model_dir, "topics", saved_name)
+        coherence_dir = Path(self.config.model_dir, "coherence_score", saved_name)
+        os.makedirs(coherence_dir, exist_ok=True)
         reverse_dict = {v: k for k, v in data_loader.word_dict.items()}
         topic_dist = get_topic_dist(model, data_loader, self.config.get("topic_variant", "base"))
         self.model = self.model.to(self.device)
@@ -143,40 +144,45 @@ class NCTrainer(BaseTrainer):
                 topic_dist_copy = copy.deepcopy(topic_dist)  # copy original topical distribution
                 topic_dist_copy[:, removed_index] = 0  # set removed terms to 0
                 topic_dists[path.name.replace(".json", "")] = topic_dist_copy
-        topic_result, topic_scores = {}, None
+        topic_result, topic_scores = {}, {}
         if torch.distributed.is_initialized():
             model = model.module
-        for key, dist in topic_dists.items():
+        for key, dist in topic_dists.items():  # calculate topic quality for different Post processing methods
             topic_list = get_topic_list(dist, top_n, reverse_dict)  # convert to tokens list
             ref_data_path = self.config.get("ref_data_path", Path(get_project_root()) / "dataset/data/MIND15.csv")
-            if self.config.get("save_topic_info", False) and self.accelerator.is_main_process:  # save topic info
-                os.makedirs(topic_path, exist_ok=True)
-                write_to_file(os.path.join(topic_path, "topic_list.txt"), [" ".join(topics) for topics in topic_list])
             if "fast_eval" in topic_evaluation_method:
                 ref_texts = load_sparse(ref_data_path)
                 scorer = NPMI((ref_texts > 0).astype(int))
                 topic_index = [[data_loader.word_dict[word] - 1 for word in topic] for topic in topic_list]
-                topic_scores = {f"{key}_c_npmi": scorer.compute_npmi(topics=topic_index, n=top_n)}
+                topic_scores[f"{key}_c_npmi"] = scorer.compute_npmi(topics=topic_index, n=top_n)
             if "slow_eval" in topic_evaluation_method:
                 dataset_name = self.config.get("dataset_name", "MIND15")
                 tokenized_method = self.config.get("tokenized_method", "use_tokenize")
                 ref_df, _ = load_dataset_df(dataset_name, data_path=ref_data_path, tokenized_method=tokenized_method)
                 ref_texts = [word_tokenize(doc, tokenized_method) for doc in ref_df["data"].values]
-                topic_scores = {f"{key}_m": compute_coherence(topic_list, ref_texts, m, top_n) for m in methods}
-            if ("slow_eval" in topic_evaluation_method or "fast_eval" in topic_evaluation_method) and topic_scores:
-                if self.config.get("save_topic_info", False) and self.accelerator.is_main_process:
-                    # avoid duplicated saving
-                    sort_score = self.config.get("sort_score", True)
-                    topic_result.update(save_topic_info(topic_path, topic_list, topic_scores, sort_score))
-                else:
-                    topic_result.update({m: np.round(np.mean(c), 4) for m, c in topic_scores.items()})
+                topic_scores.update({f"{key}_{m}": compute_coherence(topic_list, ref_texts, m, top_n) for m in methods})
             if "w2v_sim" in topic_evaluation_method:  # compute word embedding similarity of top-10 words for each topic
                 embeddings = model.embedding_layer.embedding.weight.cpu().detach().numpy()
                 # embeddings = load_embeddings(**self.config.final_configs)
-                count = model.head_num * top_n * (top_n - 1) / 2
+                count = top_n * (top_n - 1) / 2
                 topic_index = [[data_loader.word_dict[word] for word in topic] for topic in topic_list]
-                w2v_sim = sum([np.sum(np.triu(cosine_similarity(embeddings[i]), 1)) for i in topic_index]) / count
-                topic_result.update({f"{key}_w2v_sim": np.round(w2v_sim, 4)})
+                w2v_sim_list = [np.sum(np.triu(cosine_similarity(embeddings[i]), 1)) / count for i in topic_index]
+                topic_scores[f"{key}_w2v_sim"] = w2v_sim_list
+            topic_result.update({m: np.round(np.mean(c), 4) for m, c in topic_scores.items()})
+            if self.accelerator.is_main_process:  # save topic info
+                os.makedirs(topics_dir, exist_ok=True)
+                write_to_file(os.path.join(topics_dir, "topic_list.txt"), [" ".join(topics) for topics in topic_list])
+                for method, scores in topic_scores.items():
+                    sort_score = self.config.get("sort_score", True)
+                    topic_file = os.path.join(topics_dir, f"{method}_{topic_result[method]}.txt")
+                    coherence_file = os.path.join(coherence_dir, f"{method}_{topic_result[method]}.txt")
+                    scores_list = zip(scores, topic_list)
+                    if sort_score:  # sort topics by scores
+                        scores_list = sorted(zip(scores, topic_list), reverse=True, key=lambda x: x[0])
+                    for score, topics in scores_list:
+                        write_to_file(topic_file, f"{np.round(score, 4)}: {' '.join(topics)}\n", "a+")
+                        write_to_file(coherence_file, f"{np.round(score, 4)}\n", "a+")
+                    write_to_file(topic_file, f"Average score: {topic_result[method]}\n", "a+")
         if not len(topic_result):
             raise ValueError("No correct topic evaluation method is specified!")
         return topic_result

@@ -25,7 +25,7 @@ class TopicLayer(nn.Module):
             self.topic_layer = nn.Sequential(nn.Linear(self.embedding_dim, self.head_num), self.act_layer)
         elif self.variant_name == "add_dense":  # add a dense layer to the topic layer
             self.topic_layer = nn.Sequential(nn.Linear(self.embedding_dim, 100), self.act_layer,
-                                             100, self.head_num)
+                                             nn.Linear(100, self.head_num))
         elif self.variant_name == "topic_embed":
             self.topic_layer = nn.Embedding(len(self.word_dict), self.head_num)
             self.topic_embed_path = kwargs.get("topic_embed_path", None)

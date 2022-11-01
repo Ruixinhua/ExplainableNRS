@@ -51,6 +51,5 @@ class MindDataLoader:
         news_set, user_set = NewsDataset(self.valid_set), UserDataset(self.valid_set)
         impression_set = ImpressionDataset(self.valid_set)
         self.valid_loader = DataLoader(impression_set, 1, pin_memory=True, sampler=sampler, collate_fn=self.fn)
-        news_batch_size = kwargs.get("news_batch_size", 2048)
-        self.news_loader = DataLoader(news_set, news_batch_size, sampler=news_sampler)
+        self.news_loader = DataLoader(news_set, kwargs.get("news_batch_size", 2048), sampler=news_sampler)
         self.user_loader = DataLoader(user_set, bs, sampler=sampler, collate_fn=self.fn)
