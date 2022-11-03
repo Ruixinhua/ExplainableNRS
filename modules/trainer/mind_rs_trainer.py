@@ -53,6 +53,8 @@ class MindRSTrainer(NCTrainer):
             self.optimizer.zero_grad()
             output = self.model(batch_dict)
             loss = self.criterion(output, batch_dict["label"])
+            if self.entropy_constraint:
+                loss += self.alpha * output["entropy"]
             self.accelerator.backward(loss)
             self.optimizer.step()
             # record loss

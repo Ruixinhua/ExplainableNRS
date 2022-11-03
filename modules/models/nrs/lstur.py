@@ -1,12 +1,17 @@
 import torch
 import torch.nn as nn
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+from torch.nn.utils.rnn import pack_padded_sequence
 
 from modules.models.general import AttLayer
 from modules.models.nrs.rs_base import MindNRSBase
+from modules.utils import read_json
 
 
 class LSTURRSModel(MindNRSBase):
+    """
+    Implementation of LSTRU model
+    Ref: An, Mingxiao et al. “Neural News Recommendation with Long- and Short-term User Representations.” ACL (2019).
+    """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.category_num, self.num_filters = kwargs.get("category_num", 300), kwargs.get("num_filters", 300)
@@ -26,9 +31,13 @@ class LSTURRSModel(MindNRSBase):
         if self.use_category and self.use_sub:
             output_dim = self.num_filters * 3
         if self.user_embed_method == "init" or self.user_embed_method == "cat":
-            self.user_embedding = nn.Embedding(self.user_num, output_dim)
+            uid_path = kwargs.get("uid_path", None)
+            if uid_path is None:
+                raise ValueError("Must specify user id dictionary path if you want to use user id to initialize GRU")
+            uid2index = read_json(uid_path)
+            self.user_embedding = nn.Embedding(len(uid2index) + 1, output_dim)  # count from 1
         self.user_encode_layer = nn.GRU(input_dim, output_dim, batch_first=True, bidirectional=False)
-        self.user_att_layer = None
+        self.user_att_layer = None  # no attentive layer for LSTUR model
 
     def text_encode(self, input_feat):
         y = self.dropouts(self.embedding_layer(input_feat))
@@ -49,8 +58,7 @@ class LSTURRSModel(MindNRSBase):
 
     def user_encoder(self, input_feat):
         y, user_ids = input_feat["history_news"], input_feat["uid"]
-        packed_y = pack_padded_sequence(y, input_feat["history_length"].cpu(),
-                                        batch_first=True, enforce_sorted=False)
+        packed_y = pack_padded_sequence(y, input_feat["history_length"].cpu(), batch_first=True, enforce_sorted=False)
         if self.user_embed_method == "init":
             user_embed = self.user_embedding(user_ids)
             _, y = self.user_encode_layer(packed_y, user_embed.unsqueeze(dim=0))
@@ -59,7 +67,6 @@ class LSTURRSModel(MindNRSBase):
             user_embed = self.user_embedding(user_ids)
             _, y = self.user_encode_layer(packed_y)
             y = torch.cat((y.squeeze(dim=0), user_embed), dim=1)
-        else:  # default use last hidden output
+        else:  # default use last hidden output from GRU network
             y = self.user_encode_layer(packed_y)[1].squeeze(dim=0)
-            # y = self.user_att_layer(y)[0]  # additive attention layer
         return y

@@ -43,9 +43,9 @@ class NCTrainer(BaseTrainer):
         batch_dict = load_batch_data(batch_dict, self.device, multi_gpu)
         output = model(batch_dict) if model is not None else self.model(batch_dict)
         loss = self.criterion(output["predicted"], batch_dict["label"])
-        out_dict = {"label": batch_dict["label"], "loss": loss, "predict": output["predicted"]}
         if self.entropy_constraint:
             loss += self.alpha * output["entropy"]
+        out_dict = {"label": batch_dict["label"], "loss": loss, "predict": output["predicted"]}
         if self.calculate_entropy:
             out_dict.update({"attention_weight": output["attention"], "entropy": output["entropy"]})
         return out_dict
@@ -73,7 +73,6 @@ class NCTrainer(BaseTrainer):
         for batch_idx, batch_dict in bar:
             self.optimizer.zero_grad()  # setup gradient to zero
             out_dict = self.run_model(batch_dict, self.model)  # run model
-
             self.accelerator.backward(out_dict["loss"])  # backpropagation
             self.optimizer.step()  # gradient descent
             self.writer.set_step((epoch - 1) * self.len_epoch + batch_idx, "train")

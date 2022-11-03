@@ -14,6 +14,7 @@ class TopicLayer(nn.Module):
         self.head_num, self.head_dim = kwargs.get("head_num", 50), kwargs.get("head_dim", 20)
         topic_dim = self.head_num * self.head_dim
         self.embedding_dim = kwargs.get("embedding_dim", 300)
+        self.hidden_dim = kwargs.get("hidden_dim", 100)
         self.word_dict = kwargs.get("word_dict", None)
         self.final = nn.Linear(self.embedding_dim, self.embedding_dim)
         self.act_layer = activation_layer(kwargs.get("act_layer", "tanh"))  # default use tanh
@@ -24,8 +25,8 @@ class TopicLayer(nn.Module):
             # can not extract any meaningful topics from documents
             self.topic_layer = nn.Sequential(nn.Linear(self.embedding_dim, self.head_num), self.act_layer)
         elif self.variant_name == "add_dense":  # add a dense layer to the topic layer
-            self.topic_layer = nn.Sequential(nn.Linear(self.embedding_dim, 100), self.act_layer,
-                                             nn.Linear(100, self.head_num))
+            self.topic_layer = nn.Sequential(nn.Linear(self.embedding_dim, self.hidden_dim), self.act_layer,
+                                             nn.Linear(self.hidden_dim, self.head_num))
         elif self.variant_name == "topic_embed":
             self.topic_layer = nn.Embedding(len(self.word_dict), self.head_num)
             self.topic_embed_path = kwargs.get("topic_embed_path", None)
@@ -33,6 +34,11 @@ class TopicLayer(nn.Module):
                 self.freeze_topic = kwargs.get("freeze_topic", True)
                 topic_embeds = torch.FloatTensor(np.load(self.topic_embed_path))
                 self.topic_layer = self.topic_layer.from_pretrained(topic_embeds, freeze=self.freeze_topic)
+        elif self.variant_name == "topic_matrix":
+            self.transform = nn.Sequential(nn.Linear(self.embedding_dim, self.head_dim), self.act_layer)
+            self.topic_matrix = nn.Embedding(self.head_num, self.head_dim)
+        elif self.variant_name == "topic_dense":
+            self.topic_layer = nn.Sequential(nn.Linear(self.embedding_dim, self.head_num), self.act_layer)
         elif self.variant_name == "MHA":
             self.sentence_encoder = MultiHeadedAttention(self.head_num, self.head_dim, self.embedding_dim)
             self.token_layer = kwargs.get("token_layer", "distribute_topic")
@@ -63,15 +69,21 @@ class TopicLayer(nn.Module):
         :return:
         """
         embedding = input_feat["news_embeddings"]
+        mask = input_feat["news_mask"].expand(self.head_num, embedding.size(0), -1).transpose(0, 1) == 0
         if self.variant_name == "topic_embed":
             topic_weight = self.topic_layer(input_feat["news"]).transpose(1, 2)  # (N, H, S)
         elif self.variant_name == "MHA":
             hidden_score, _ = self.sentence_encoder(embedding, embedding, embedding)
             topic_weight = self.mha_topics(hidden_score, input_feat)
+        elif self.variant_name == "topic_matrix":
+            embeds_trans = self.transform(embedding)  # (N, S, D)
+            topic_vector = self.topic_matrix.weight.unsqueeze(dim=0).transpose(1, 2)  # (1, D, H)
+            topic_weight = embeds_trans @ topic_vector  # (N, S, H)
+            topic_weight = topic_weight.transpose(1, 2)  # (N, H, S)
+            topic_weight = torch.softmax(topic_weight.masked_fill(mask, -1e4), dim=-1).masked_fill(mask, 0)
         else:
             topic_weight = self.topic_layer(embedding).transpose(1, 2)  # (N, H, S)
             # expand mask to the same size as topic weights
-            mask = input_feat["news_mask"].expand(self.head_num, embedding.size(0), -1).transpose(0, 1) == 0
             # fill zero entry with -INF when doing softmax and fill in zeros after that
             topic_weight = torch.softmax(topic_weight.masked_fill(mask, -1e4), dim=-1).masked_fill(mask, 0)
             # topic_weight = torch.softmax(topic_weight, dim=1).masked_fill(mask, 0)  # external attention

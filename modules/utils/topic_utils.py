@@ -1,11 +1,9 @@
 import heapq
 import torch
-import os
 import numpy as np
 from gensim.corpora import Dictionary
 from gensim.models import CoherenceModel
 from scipy.stats import entropy
-from modules.utils.general_utils import write_to_file
 from typing import Dict, Union, List
 from scipy import sparse
 

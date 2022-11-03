@@ -4,13 +4,19 @@ import torch.nn as nn
 from modules.models import PersonalizedAttentivePooling
 from modules.models.general import AttLayer
 from modules.models.nrs.rs_base import MindNRSBase
+from modules.utils import read_json
 
 
 class NPARSModel(MindNRSBase):
+    """
+    Implementation of NPM model
+    Wu, Chuhan et al. “NPA: Neural News Recommendation with Personalized Attention.”
+    Proceedings of the 25th ACM SIGKDD International Conference on Knowledge Discovery & Data Mining (2019): n. pag.
+    """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.category_num, self.num_filters = kwargs.get("category_num", 300), kwargs.get("num_filters", 300)
-        self.user_embed_method, self.user_num = kwargs.get("user_embed_method", None), kwargs.get("user_num", 500001)
+        self.user_embed_method = kwargs.get("user_embed_method", None)
         self.user_emb_dim, self.window_size = kwargs.get("user_emb_dim", 100), kwargs.get("window_size", 3)
         padding = (self.window_size - 1) // 2
         assert 2 * padding == self.window_size - 1, "Kernel size must be an odd number"
@@ -18,8 +24,12 @@ class NPARSModel(MindNRSBase):
             nn.Conv1d(self.embedding_dim, self.num_filters, self.window_size, padding=padding),
             nn.ReLU(inplace=True)
         )
-        if self.user_embed_method == "init":
-            self.user_embedding = nn.Embedding(self.user_num, self.user_emb_dim)
+        if self.user_embed_method == "init":  # NPA paper uses user id as initialization
+            uid_path = kwargs.get("uid_path", None)
+            if uid_path is None:
+                raise ValueError("Must specify user id dictionary path if you want to use user id to initialize GRU")
+            uid2index = read_json(uid_path)
+            self.user_embedding = nn.Embedding(len(uid2index), self.user_emb_dim)
             self.user_transform = nn.Linear(self.user_emb_dim, self.attention_hidden_dim)
             self.news_att_layer = PersonalizedAttentivePooling(self.num_filters, self.attention_hidden_dim)
             self.user_att_layer = PersonalizedAttentivePooling(self.num_filters, self.attention_hidden_dim)
