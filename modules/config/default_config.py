@@ -1,7 +1,6 @@
 import logging
 import os
 
-from modules.utils import get_project_root
 
 DEFAULT_CONFIGS = {
     "n_gpu": 1, "embedding_type": "glove", "embedding_dim": 300, "max_length": 100, "loss": "cross_entropy",
@@ -10,9 +9,6 @@ DEFAULT_CONFIGS = {
     "batch_size": 32, "num_workers": 1, "dataset_name": "News26/keep_all", "trainer_type": "NCTrainer",
     # Trainer parameters
     "epochs": 10, "early_stop": 3, "monitor": "max val_accuracy", "verbosity": 2, "tensorboard": False,
-    # default project path
-    "project_root": "./", "data_dir": os.path.join("./", "dataset"),
-    "saved_dir": os.path.join("./", "saved"),
 }
 
 LOG_LEVELS = {0: logging.WARNING, 1: logging.INFO, 2: logging.DEBUG}  # configure logging module

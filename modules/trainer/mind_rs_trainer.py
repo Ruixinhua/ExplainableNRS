@@ -77,6 +77,7 @@ class MindRSTrainer(NCTrainer):
         """
         result_dict = {}
         impression_bs = self.config.get("impression_batch_size", 1024)
+        valid_method = self.config.get("valid_method", "fast_evaluation")
         if torch.distributed.is_initialized():
             model = self.model.module if model is None else model.module
         else:
@@ -85,8 +86,11 @@ class MindRSTrainer(NCTrainer):
         model.eval()
         self.valid_metrics.reset()
         with torch.no_grad():
-            try:  # try to do fast evaluation: cache news embeddings 
-                news_embeds = get_news_embeds(model, data_loader, device=self.device, accelerator=self.accelerator)
+            try:  # try to do fast evaluation: cache news embeddings
+                if valid_method == "fast_evaluation":
+                    news_embeds = get_news_embeds(model, data_loader, device=self.device, accelerator=self.accelerator)
+                else:
+                    news_embeds = None
             except KeyError or RuntimeError:  # slow evaluation: re-calculate news embeddings every time
                 news_embeds = None
             imp_set = ImpressionDataset(data_loader.valid_set, news_embeds)

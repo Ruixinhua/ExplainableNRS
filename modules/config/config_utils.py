@@ -1,4 +1,3 @@
-import argparse
 import copy
 import os
 from datetime import datetime
@@ -13,6 +12,7 @@ from enum import Enum
 from torch.backends import cudnn
 from logging import getLogger
 from modules.logger import setup_logging
+from modules.utils import get_project_root
 
 
 def setup_project_path(config):
@@ -21,6 +21,9 @@ def setup_project_path(config):
     """
     # identifier of experiment, default is identified by dataset name, architecture type, and current time.
     saved_path = config.get("saved_filename", None)
+    config["project_root"] = config.get("project_root", get_project_root())  # default project path
+    config["data_dir"] = config.get("data_dir", os.path.join(config["project_root"], "dataset"))
+    config["saved_dir"] = config.get("saved_dir", os.path.join(config["project_root"], "saved"))
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     if saved_path:
         saved_path = f"{saved_path}_{timestamp}"
@@ -95,12 +98,3 @@ def set_seed(seed):
     cudnn.deterministic = True
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-
-
-def init_args(cus_args=None):
-    args = argparse.ArgumentParser(description="Define Argument")
-    if cus_args is not None:
-        for ca in cus_args:
-            default = ca.get("default", None)
-            args.add_argument(*ca["flags"], default=default, type=ca["type"])
-    return args

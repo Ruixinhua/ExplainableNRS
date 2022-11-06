@@ -1,3 +1,4 @@
+import os
 import torch
 import torch.nn as nn
 
@@ -25,9 +26,10 @@ class NPARSModel(MindNRSBase):
             nn.ReLU(inplace=True)
         )
         if self.user_embed_method == "init":  # NPA paper uses user id as initialization
-            uid_path = kwargs.get("uid_path", None)
-            if uid_path is None:
-                raise ValueError("Must specify user id dictionary path if you want to use user id to initialize GRU")
+            default_path = os.path.join(kwargs.get("data_dir"), "utils", f"MIND_uid_{kwargs.get('mind_type')}.json")
+            uid_path = kwargs.get("uid_path", default_path)
+            if not os.path.exists(uid_path):
+                raise ValueError("User ID dictionary is not found, please check your config file")
             uid2index = read_json(uid_path)
             self.user_embedding = nn.Embedding(len(uid2index), self.user_emb_dim)
             self.user_transform = nn.Linear(self.user_emb_dim, self.attention_hidden_dim)
