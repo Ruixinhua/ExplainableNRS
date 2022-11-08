@@ -6,7 +6,7 @@ DEFAULT_CONFIGS = {
     "n_gpu": 1, "embedding_type": "glove", "embedding_dim": 300, "max_length": 100, "loss": "cross_entropy",
     "metrics": ["accuracy", "macro_f"], "save_model": True, "resume_path": None, "project_name": "",
     "seed": 42, "arch_type": "BiAttentionClassifyModel", "dropout_rate": 0.2, "dataloader_type": "NewsDataLoader",
-    "batch_size": 32, "num_workers": 1, "dataset_name": "News26/keep_all", "trainer_type": "NCTrainer",
+    "batch_size": 32, "num_workers": 1, "dataset_name": "MIND_RS", "trainer_type": "NCTrainer",
     # Trainer parameters
     "epochs": 10, "early_stop": 3, "monitor": "max val_accuracy", "verbosity": 2, "tensorboard": False,
 }

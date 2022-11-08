@@ -158,9 +158,9 @@ class BaseTrainer:
         # Register the LR scheduler
         # save procedure (accelerate): https://huggingface.co/docs/accelerate/usage_guides/checkpoint
         # Save the starting state
+        self.accelerator.register_for_checkpointing(self.lr_scheduler)
+        self.accelerator.save_state(best_path)
         if self.accelerator.is_main_process:  # to avoid duplicated deleting
-            self.accelerator.register_for_checkpointing(self.lr_scheduler)
-            self.accelerator.save_state(best_path)
             self.config.save_config(best_path)
             self.logger.info(f"Saving current best to path: {best_path}")
             if self.last_best_path:

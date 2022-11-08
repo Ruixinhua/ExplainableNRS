@@ -18,8 +18,7 @@ def evaluate_run():
     data_loader = init_data_loader(config)
     set_seed(config["seed"])
     trainer = run(config, data_loader=data_loader)
-    if trainer.accelerator.is_main_process:
-        trainer.resume_checkpoint()  # load the best model
+    trainer.resume_checkpoint()  # load the best model
     log["#Voc"] = len(data_loader.word_dict)
     if "nc" in cmd_args["task"].lower():
         # run validation
@@ -58,7 +57,7 @@ if __name__ == "__main__":
     else:
         saved_filename = f"{config.get('arch_type')}_{timestamp}.csv"
     entropy_constraint = config.get("entropy_constraint", 0)
-    default_saved_name = f'{cmd_args["task"]}/{arch_attr}/'
+    default_saved_name = f'{cmd_args["task"]}/{arch_attr}/' if arch_attr is not None else f'{cmd_args["task"]}/'
     if topic_evaluation_method:
         default_saved_name += f"{topic_evaluation_method}/"
     if entropy_constraint:

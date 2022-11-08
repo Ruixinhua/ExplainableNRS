@@ -7,7 +7,7 @@ from pathlib import Path
 from torch.utils.data.dataset import Dataset
 
 from collections import OrderedDict
-from modules.utils import read_json, news_sampling, Tokenizer, get_project_root, get_mind_dir, check_mind_set
+from modules.utils import read_json, news_sampling, Tokenizer, get_mind_dir, check_mind_set
 from utils import clean_df
 
 
@@ -54,8 +54,7 @@ class MindRSDataset(Dataset):
             news_df["docs"] = news_df["title"] + " " + news_df["abstract"] + " " + news_df["body"]
             self.news_features["article"].extend(news_df.docs.tolist())
         else:
-            default_path = Path(get_project_root()) / "dataset/data/MIND_31139.csv"
-            tokenized_news_path = Path(kwargs.get("tokenized_news_path", default_path))
+            tokenized_news_path = Path(kwargs.get("tokenized_news_path"))
             tokenized_news = pd.read_csv(tokenized_news_path)
             tokenized_text = pd.merge(news_df, tokenized_news, on="news_id", how="left")["tokenized_text"].fillna("")
             self.news_features["article"].extend(tokenized_text.tolist())
@@ -218,7 +217,7 @@ class ImpressionDataset(Dataset):
             input_feat["history_news"] = torch.tensor(self.news_embeds[history])  # load news embed from cache
         else:
             input_feat.update(self.dataset.load_news_index(candidate, "candidate"))  # load candidate news input
-            input_feat.update(self.dataset.load_news_index(candidate, "history"))  # load candidate news input
+            input_feat.update(self.dataset.load_news_index(history, "history"))  # load candidate news input
         return input_feat
 
     def __len__(self):
