@@ -51,11 +51,9 @@ if __name__ == "__main__":
     os.makedirs(saved_dir, exist_ok=True)  # create empty directory
     arch_attr = config.get("arch_attr", None)  # test an architecture attribute
     topic_evaluation_method = config.get("topic_evaluation_method", None)
-    saved_filename = config.get("saved_filename", None)
-    if saved_filename:
-        saved_filename = f"{saved_filename}_{timestamp}.csv"
-    else:
-        saved_filename = f"{config.get('arch_type')}_{timestamp}.csv"
+    saved_filename = config.get("saved_filename", config.get('arch_type'))
+    days, times = timestamp.split("-")
+    saved_filename = f"{days}/{saved_filename}_{times}.csv"
     entropy_constraint = config.get("entropy_constraint", 0)
     default_saved_name = f'{cmd_args["task"]}/{arch_attr}/' if arch_attr is not None else f'{cmd_args["task"]}/'
     if topic_evaluation_method:

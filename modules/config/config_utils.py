@@ -20,16 +20,13 @@ def setup_project_path(config):
     Set up the project path and the corresponding directories
     """
     # identifier of experiment, default is identified by dataset name, architecture type, and current time.
-    saved_path = config.get("saved_filename", None)
+    saved_path = config.get("saved_filename", config.get('arch_type'))
     config["project_root"] = config.get("project_root", get_project_root())  # default project path
     config["data_dir"] = config.get("data_dir", os.path.join(config["project_root"], "dataset"))
     config["saved_dir"] = config.get("saved_dir", os.path.join(config["project_root"], "saved"))
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    if saved_path:
-        saved_path = f"{saved_path}_{timestamp}"
-    else:
-        saved_path = f"{config.get('arch_type')}_{timestamp}"
-    default_name = f"{config['dataset_name']}/{saved_path}"
+    days, times = timestamp.split("-")
+    default_name = f"{config['dataset_name']}/{days}/{saved_path}_{times}"
     config["run_name"] = config.get("run_name", default_name)
     # make directory for saving checkpoints and log
     config["model_dir"] = os.path.join(config["saved_dir"], "models", config["run_name"])
