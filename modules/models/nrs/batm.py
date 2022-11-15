@@ -3,6 +3,7 @@ import torch.nn as nn
 
 from modules.models.general.topics import TopicLayer
 from modules.models.nrs.rs_base import MindNRSBase
+from modules.utils import reshape_tensor
 
 
 class BATMRSModel(MindNRSBase):
@@ -29,19 +30,20 @@ class BATMRSModel(MindNRSBase):
         y, topic_weight = self.extract_topic(input_feat)
         y = self.dropouts(y)  # TODO dropout layer
         # add activation function
-        return self.news_att_layer(y)[0]
+        y = self.news_att_layer(y)
+        return {"news_embed": y[0], "news_weight": y[1], "topic_weight": topic_weight}
 
     def user_encoder(self, input_feat):
         y = input_feat["history_news"]
         if self.variant_name == "base_gru":
             y = self.user_encode_layer(y)[0]
-            y = self.user_att_layer(y)[0]  # additive attention layer
+            y = self.user_att_layer(y)  # additive attention layer
         elif self.variant_name == "bi_batm":
             user_weight = self.user_encode_layer(y).transpose(1, 2)
             # mask = input_feat["news_mask"].expand(self.head_num, y.size(0), -1).transpose(0, 1) == 0
             # user_weight = torch.softmax(user_weight.masked_fill(mask, 0), dim=-1)  # fill zero entry with zero weight
             user_vec = self.user_final(torch.matmul(user_weight, y))
-            y = self.user_att_layer(user_vec)[0]  # additive attention layer
+            y = self.user_att_layer(user_vec)  # additive attention layer
         elif self.variant_name == "base_att":
-            y = self.user_att_layer(y)[0]  # additive attention layer
-        return y
+            y = self.user_att_layer(y)  # additive attention layer
+        return {"user_embed": y[0], "user_weight": y[1]}

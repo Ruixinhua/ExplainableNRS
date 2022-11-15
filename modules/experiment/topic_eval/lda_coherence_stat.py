@@ -11,6 +11,14 @@ from modules.utils import load_embedding_from_path, load_embedding_from_dict, re
 from pathlib import Path
 
 
+def read_topics(path, n):
+    with open(path) as r:
+        topics_scores = [next(r).split(":") for _ in range(n)]
+        topic_list = [t[1].split() for t in topics_scores]
+        scores = sorted([eval(score[0]) for score in topics_scores], reverse=True)
+        return topic_list, scores
+
+
 if __name__ == "__main__":
     cmd_args = load_cmd_line()
     glove_embeddings = load_embedding_from_path(path=cmd_args.get("glove_path", None))
@@ -29,10 +37,7 @@ if __name__ == "__main__":
         if not os.path.exists(topics_path):
             print(f"File {topics_path} does not exist.")
             continue
-        with open(topics_path) as r:
-            topics_scores = [next(r).split(":") for _ in range(num)]
-            topics = [t[1].split() for t in topics_scores]
-            npmi_scores = sorted([eval(score[0]) for score in topics_scores], reverse=True)
+        topics, npmi_scores = read_topics(topics_path, num)
         metrics = read_json(Path(topics_dir, str(seed), f"metrics_{num}.json"))
         topics_mat = [np.array([glove_embeddings[term] if term in glove_embeddings else np.random.normal(
             loc=mean, scale=std, size=300) for term in topic]) for topic in topics]

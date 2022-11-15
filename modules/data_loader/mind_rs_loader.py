@@ -5,7 +5,7 @@ from collections import defaultdict
 from pathlib import Path
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data.dataloader import DataLoader
-from modules.dataset import NewsDataset, UserDataset, ImpressionDataset, MindRSDataset
+from modules.dataset import NewsDataset, UserDataset, ImpressionDataset
 from modules.utils import Tokenizer, get_project_root, read_json
 
 
@@ -33,16 +33,12 @@ def collate_fn(data):
 class MindDataLoader:
     def __init__(self, **kwargs):
         # load word and user dictionary
-        data_root = kwargs.get("data_dir", Path(get_project_root()) / "dataset")  # get root of dataset
-        uid2index = read_json(kwargs.get("uid_path", Path(data_root) / "utils/MIND_uid_small.json"))
-        module_dataset_name = kwargs["dataset_class"] if "dataset_class" in kwargs else "MindRSDataset"
-        self.use_dkn_utils = kwargs.get("dkn_utils", None)
         # set tokenizer
         self.tokenizer = Tokenizer(**kwargs)
         self.word_dict = self.tokenizer.word_dict
-        kwargs.update({"word_dict": self.word_dict, "uid2index": uid2index})
         bs, sampler = kwargs.get("batch_size", 64), None
         self.fn = collate_fn
+        module_dataset_name = kwargs.get("dataset_class", "MindRSDataset")
         self.train_set = getattr(module_dataset, module_dataset_name)(self.tokenizer, phase="train", **kwargs)
         self.train_loader = DataLoader(self.train_set, bs, pin_memory=True, sampler=sampler, collate_fn=self.fn)
         # setup news and user dataset

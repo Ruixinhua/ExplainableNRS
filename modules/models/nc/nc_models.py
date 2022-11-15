@@ -22,7 +22,7 @@ class BaseClassifyModel(BaseModel):
 
     def classify_layer(self, latent, weight=None, **kwargs):
         return_attention = kwargs.get("return_attention", self.return_attention)
-        output = {"predicted": self.classifier(latent)}
+        output = {"pred": self.classifier(latent)}
         if return_attention:
             output["attention"] = weight
         return output

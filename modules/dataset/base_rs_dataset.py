@@ -1,3 +1,5 @@
+import os
+
 import torch
 
 import numpy as np
@@ -7,8 +9,7 @@ from pathlib import Path
 from torch.utils.data.dataset import Dataset
 
 from collections import OrderedDict
-from modules.utils import read_json, news_sampling, Tokenizer, get_mind_dir, check_mind_set
-from utils import clean_df
+from modules.utils import read_json, news_sampling, Tokenizer, get_mind_dir, check_mind_set, clean_df, get_project_root
 
 
 class MindRSDataset(Dataset):
@@ -21,7 +22,9 @@ class MindRSDataset(Dataset):
         self.phase = kwargs.get("phase", "train")  # RS phase: train, valid, test
         self.history_size = kwargs.get("history_size", 50)
         self.neg_pos_ratio = kwargs.get("neg_pos_ratio", 4)  # negative sampling ratio, default is 20% positive ratio
-        self.uid2index = kwargs.get("uid2index", {})  # map user id to index dictionary
+        data_root = kwargs.get("data_dir", Path(get_project_root()) / "dataset")  # get root of dataset
+        default_uid_path = Path(data_root) / f"utils/MIND_uid_{kwargs.get('mind_type')}.json"
+        self.uid2index = read_json(kwargs.get("uid_path", default_uid_path))
         self.train_strategy = kwargs.get("train_strategy", "pair_wise")  # pair wise uses negative sampling strategy
         self.category2id = kwargs.get("category2id", {})  # map category to index dictionary
         self.mind_dir = get_mind_dir(**kwargs)  # get directory of MIND dataset that stores news and behaviors
@@ -46,11 +49,12 @@ class MindRSDataset(Dataset):
         news_df = pd.read_table(news_file, header=None, names=columns)
         self.nid2index = kwargs.get("nid2index", {})  # map news id to index dictionary
         self.nid2index.update(dict(zip(news_df.news_id, range(1, len(news_df) + 1))))
-        if kwargs.get("tokenized_method", "keep_all"):
-            article_path = self.mind_dir / "msn.json"
+        article_path = self.mind_dir / "msn.json"
+        if os.path.exists(article_path):
             articles = read_json(article_path)
             news_df["body"] = news_df.news_id.apply(lambda nid: " ".join(articles[nid]) if nid in articles else "")
-            news_df = clean_df(news_df)
+        news_df = clean_df(news_df)
+        if kwargs.get("tokenized_method", "keep_all"):
             news_df["docs"] = news_df["title"] + " " + news_df["abstract"] + " " + news_df["body"]
             self.news_features["article"].extend(news_df.docs.tolist())
         else:
@@ -58,6 +62,7 @@ class MindRSDataset(Dataset):
             tokenized_news = pd.read_csv(tokenized_news_path)
             tokenized_text = pd.merge(news_df, tokenized_news, on="news_id", how="left")["tokenized_text"].fillna("")
             self.news_features["article"].extend(tokenized_text.tolist())
+        self.news_df = news_df
 
     def _load_news_matrix(self, **kwargs):
         self._load_news_text(**kwargs)  # load news text from file first before made up news matrix
@@ -144,7 +149,7 @@ class MindRSDataset(Dataset):
             label = [1]
         # define input feat
         input_feat = {
-            "history_length": torch.tensor(len(history), dtype=torch.int32),
+            "history_length": torch.tensor(self.behaviors["history_length"][imp_index], dtype=torch.int32),
             # TODO padding sentence
             # "padding": torch.tensor(self.tokenizer.tokenize("", self.self.news_attr["article"]), dtype=torch.long),
             # "pad_id": torch.tensor(self.tokenizer.pad_id, dtype=torch.int32),
@@ -170,7 +175,7 @@ class UserDataset(Dataset):
         input_feat = {
             "impression_index": torch.tensor(i), "uid": torch.tensor(self.behaviors["uid"][i]),
             # "padding": self.tokenizer.pad_id,  # TODO: pad sentence
-            "history_length": torch.tensor(len(history)),
+            "history_length": torch.tensor(self.behaviors["history_length"][i]),
         }
         if self.news_vectors is not None:  # if news vectors are provided, use them
             input_feat["history_news"] = torch.tensor(self.news_vectors[history])
@@ -207,7 +212,7 @@ class ImpressionDataset(Dataset):
         input_feat = {
             "impression_index": torch.tensor(index, dtype=torch.int32),  # index of impression and for user history
             "candidate_length": torch.tensor(len(candidate), dtype=torch.int32),  # length of candidate news
-            "history_length": torch.tensor(len(history), dtype=torch.int32),  # length of user history news
+            "history_length": torch.tensor(self.behaviors["history_length"][index], dtype=torch.int32),
             "uid": torch.tensor(self.behaviors["uid"][index], dtype=torch.long)
         }
         if self.dataset.phase != "test":

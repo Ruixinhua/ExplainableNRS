@@ -42,10 +42,10 @@ class NCTrainer(BaseTrainer):
         """
         batch_dict = load_batch_data(batch_dict, self.device, multi_gpu)
         output = model(batch_dict) if model is not None else self.model(batch_dict)
-        loss = self.criterion(output["predicted"], batch_dict["label"])
+        loss = self.criterion(output["pred"], batch_dict["label"])
         if self.entropy_constraint:
             loss += self.alpha * output["entropy"]
-        out_dict = {"label": batch_dict["label"], "loss": loss, "predict": output["predicted"]}
+        out_dict = {"label": batch_dict["label"], "loss": loss, "predict": output["pred"]}
         if self.calculate_entropy:
             out_dict.update({"attention_weight": output["attention"], "entropy": output["entropy"]})
         return out_dict
@@ -122,9 +122,14 @@ class NCTrainer(BaseTrainer):
         if data_loader is None:
             data_loader = self.data_loader
         topic_evaluation_method = self.config.get("topic_evaluation_method", None)
+        sort_score = self.config.get("sort_score", True)
         saved_name = f"topics_{self.config.seed}_{self.config.head_num}"
         if extra_str is not None:
             saved_name += f"_{extra_str}"
+        if sort_score:
+            saved_name += "_sorted"
+        else:
+            saved_name += "_unsorted"
         topics_dir = Path(self.config.model_dir, "topics", saved_name)
         coherence_dir = Path(self.config.model_dir, "coherence_score", saved_name)
         os.makedirs(coherence_dir, exist_ok=True)
@@ -172,7 +177,6 @@ class NCTrainer(BaseTrainer):
                 os.makedirs(topics_dir, exist_ok=True)
                 write_to_file(os.path.join(topics_dir, "topic_list.txt"), [" ".join(topics) for topics in topic_list])
                 for method, scores in topic_scores.items():
-                    sort_score = self.config.get("sort_score", True)
                     topic_file = os.path.join(topics_dir, f"{method}_{topic_result[method]}.txt")
                     coherence_file = os.path.join(coherence_dir, f"{method}_{topic_result[method]}.txt")
                     scores_list = zip(scores, topic_list)

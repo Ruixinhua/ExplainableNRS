@@ -21,12 +21,15 @@ def clean_df(data_df):
     :param data_df: input data frame, should contain title, body, and category columns
     :return: cleaned data frame
     """
-    data_df.dropna(subset=["title", "body"], inplace=True, how="all")
-    data_df.fillna("", inplace=True)
-    data_df["title"] = data_df.title.apply(lambda s: clean_text(s))
+    subset = ["title"]
+    if "body" in data_df.columns:
+        subset.append("body")
     if "abstract" in data_df.columns:
-        data_df["abstract"] = data_df.abstract.apply(lambda s: clean_text(s))
-    data_df["body"] = data_df.body.apply(lambda s: clean_text(s))
+        subset.append("abstract")
+    data_df.dropna(subset=subset, inplace=True, how="all")
+    data_df.fillna("", inplace=True)
+    for col in subset:
+        data_df[col] = data_df[col].apply(lambda s: clean_text(s))
     return data_df
 
 

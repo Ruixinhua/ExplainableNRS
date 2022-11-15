@@ -82,5 +82,5 @@ class NPARSModel(MindNRSBase):
         if "history_news" not in input_feat:  # no cache found
             input_feat["history_news"] = self.time_distributed(input_feat["history"], input_feat["history_mask"],
                                                                uid=input_feat["uid"])  # [N, H, E]
-        input_feat["user_embeds"] = self.user_encoder(input_feat)  # user modeling: [N, E]
+        input_feat["user_embed"] = self.user_encoder(input_feat)  # user modeling: [N, E]
         return self.predict(input_feat)

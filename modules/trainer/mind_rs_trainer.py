@@ -1,4 +1,7 @@
 import math
+from collections import defaultdict
+from pathlib import Path
+
 import torch
 import torch.distributed
 import pandas as pd
@@ -51,7 +54,7 @@ class MindRSTrainer(NCTrainer):
             batch_dict = load_batch_data(batch_dict, self.device)
             # setup model and train model
             self.optimizer.zero_grad()
-            output = self.model(batch_dict)
+            output = self.model(batch_dict)["pred"]
             loss = self.criterion(output, batch_dict["label"])
             if self.entropy_constraint:
                 loss += self.alpha * output["entropy"]
@@ -76,7 +79,7 @@ class MindRSTrainer(NCTrainer):
         :return: A log that contains information about validation
         """
         result_dict = {}
-        impression_bs = self.config.get("impression_batch_size", 1024)
+        impression_bs = self.config.get("impression_batch_size", 128)
         valid_method = self.config.get("valid_method", "fast_evaluation")
         if torch.distributed.is_initialized():
             model = self.model.module if model is None else model.module
@@ -85,32 +88,57 @@ class MindRSTrainer(NCTrainer):
         data_loader = self.mind_loader if data_loader is None else data_loader
         model.eval()
         self.valid_metrics.reset()
+        weight_dict = defaultdict(lambda: [])
+        return_weight = self.config.get("return_weight", False)
+        saved_weight_num = self.config.get("saved_weight_num", 250)
         with torch.no_grad():
             try:  # try to do fast evaluation: cache news embeddings
-                if valid_method == "fast_evaluation":
+                if valid_method == "fast_evaluation" and not return_weight:
                     news_embeds = get_news_embeds(model, data_loader, device=self.device, accelerator=self.accelerator)
                 else:
                     news_embeds = None
             except KeyError or RuntimeError:  # slow evaluation: re-calculate news embeddings every time
                 news_embeds = None
             imp_set = ImpressionDataset(data_loader.valid_set, news_embeds)
-            valid_loader = DataLoader(imp_set, impression_bs, collate_fn=data_loader.fn)
+            valid_loader = DataLoader(imp_set, impression_bs, collate_fn=data_loader.fn, shuffle=True)
             valid_loader = self.accelerator.prepare_data_loader(valid_loader)
-            for batch_dict in tqdm(valid_loader, total=len(valid_loader)):  # run model
+            for vi, batch_dict in tqdm(enumerate(valid_loader), total=len(valid_loader)):  # run model
                 batch_dict = load_batch_data(batch_dict, self.device)
                 label = batch_dict["label"].cpu().numpy()
-                pred = model(batch_dict).cpu().numpy()
+                out_dict = model(batch_dict)
+                pred = out_dict["pred"].cpu().numpy()
                 can_len = batch_dict["candidate_length"].cpu().numpy()
+                his_len = batch_dict["history_length"].cpu().numpy()
                 for i in range(len(label)):
                     index = batch_dict["impression_index"][i].cpu().tolist()  # record impression index
                     result_dict[index] = {m.__name__: m(label[i][:can_len[i]], pred[i][:can_len[i]])
                                           for m in self.metric_funcs}
+                    if return_weight:
+                        saved_items = {
+                            "impression_index": index, "results": result_dict[index], "label": label[i][:can_len[i]],
+                            "candidate_index": batch_dict["candidate_index"][i][:can_len[i]].cpu().tolist(),
+                            "history_index": batch_dict["history_index"][i][:his_len[i]].cpu().numpy(),
+                            "pred_score": pred[i][:can_len[i]]
+                        }
+                        for name, indices in saved_items.items():
+                            weight_dict[name].append(indices)
+                        for name, weight in out_dict.items():
+                            if "weight" in name:
+                                if "candidate" in name:
+                                    length = can_len[i]
+                                else:
+                                    length = his_len[i]
+                                weight_dict[name].append(weight[i][:length].cpu().numpy())
+                if vi >= saved_weight_num and return_weight:
+                    break
             result_dict = gather_dict(result_dict)  # gather results
             eval_result = dict(np.round(pd.DataFrame.from_dict(result_dict, orient="index").mean(), 4))  # average
             if self.config.get("evaluate_topic_by_epoch", False) and self.config.get("topic_evaluation_method", None):
                 eval_result.update(self.topic_evaluation(model, data_loader, extra_str=extra_str))
                 self.accelerator.wait_for_everyone()
                 # self.logger.info(f"validation time: {time.time() - start}")
+        if return_weight and self.accelerator.is_main_process:
+            torch.save(dict(weight_dict), Path(self.config["model_dir"], "weight", f"{self.config.get('head_num')}.pt"))
         return eval_result
 
     def evaluate(self, loader, model, epoch=0, prefix="val"):

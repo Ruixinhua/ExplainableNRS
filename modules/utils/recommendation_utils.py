@@ -21,7 +21,7 @@ def get_news_embeds(model, data_loader=None, news_loader=None, **kwargs):
         # load data to device
         batch_dict = load_batch_data(batch_dict, device)
         # run news encoder
-        news_vec = model.news_encoder(batch_dict)
+        news_vec = model.news_encoder(batch_dict)["news_embed"]
         # update news vectors
         news_embeds.update(dict(zip(batch_dict["index"].cpu().tolist(), news_vec.cpu().numpy())))
     return convert_dict_to_numpy(gather_dict(news_embeds))

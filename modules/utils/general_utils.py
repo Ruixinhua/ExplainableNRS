@@ -11,6 +11,17 @@ from pathlib import Path
 from typing import Union, Dict
 
 
+def reshape_tensor(input_tensor, **kwargs):
+    """
+
+    :param input_tensor:
+    :param kwargs:
+    :return:
+    """
+    input_shape = kwargs.get("input_shape", torch.Size([-1]) + input_tensor.size()[2:])
+    return input_tensor.contiguous().view(input_shape)
+
+
 def read_json(file: Union[str, os.PathLike]):
     """
     Read json from file

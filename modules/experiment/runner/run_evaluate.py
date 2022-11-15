@@ -4,18 +4,17 @@ from datetime import datetime
 
 from pathlib import Path
 
-from modules.config.configuration import Configuration, DEFAULT_CONFIGS
+from modules.config.configuration import Configuration
 from modules.config.config_utils import set_seed, load_cmd_line
 from modules.experiment.quick_run import setup_trainer
-from modules.utils import init_data_loader
-
+from modules.utils import init_data_loader, load_word_dict
 
 if __name__ == "__main__":
     # setup arguments used to run baseline models
     cmd_args = load_cmd_line()
     timestamp = datetime.now().strftime(r'%m%d_%H%M%S')
     saved_dir_name = cmd_args["saved_dir_name"] if "saved_dir_name" in cmd_args else "performance"
-    saved_dir = Path(cmd_args.get("saved_dir", DEFAULT_CONFIGS["saved_dir"])) / saved_dir_name  # init saved directory
+    saved_dir = Path(cmd_args.get("saved_dir", None)) / saved_dir_name  # init saved directory
     topic_evaluation_method = cmd_args.get("topic_evaluation_method", None)
     saved_filename = cmd_args.get("saved_filename", None)
     if saved_filename is not None:
@@ -23,19 +22,24 @@ if __name__ == "__main__":
     else:
         saved_filename = f"BATM_{timestamp}.csv"
     saved_name = cmd_args.get("saved_name", "evaluate")  # must specify a saved name
+    evaluate_dir = cmd_args.get("evaluate_dir", None)
+    evaluate_paths = []
     for ed in os.scandir(cmd_args.get("evaluate_dir")):
-        if "model_best" not in ed.name or not Path(ed).is_dir():
-            continue
-        config = Configuration(config_file=Path(ed, "config.json"))
+        if Path(ed).is_dir():
+            evaluate_paths.append(ed.path)
+    if len(evaluate_paths) == 0:  # only one checkpoint directory
+        evaluate_paths = [evaluate_dir]
+    for path in evaluate_paths:
+        config = Configuration(config_file=Path(path, "config.json"))
         logger = config.get_logger(saved_name, verbosity=2)
         start_time = time.time()
         data_loader = init_data_loader(config)
         set_seed(config["seed"])
         trainer = setup_trainer(config, data_loader=data_loader)
-        trainer.resume_checkpoint(ed.path)  # load the best model
+        trainer.resume_checkpoint(path)  # load the best model
         log = {
-            "arch_type": config.arch_type, "#Voc": len(data_loader.word_dict), "head_num": config.head_num,
-            "head_dim": config.head_dim, "max_length": config.max_length, "seed": config.seed,
+            "arch_type": config.arch_type, "#Voc": len(load_word_dict(**config.final_configs)), "seed": config.seed,
+            "head_num": config.head_num, "max_length": config.max_length, "head_dim": config.head_dim,
         }
         if "nc" in config.task.lower():
             # run validation
