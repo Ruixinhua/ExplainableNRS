@@ -14,12 +14,22 @@ from typing import Union, Dict
 def reshape_tensor(input_tensor, **kwargs):
     """
 
-    :param input_tensor:
-    :param kwargs:
-    :return:
+    :param input_tensor: input tensor to reshape
+    :param kwargs: output_shape that the shape of input_tensor will be reshaped to
+    :return: tensor with the shape of output_shape (default: [batch_size*input_tensor.shape[1], ...])
     """
-    input_shape = kwargs.get("input_shape", torch.Size([-1]) + input_tensor.size()[2:])
+    input_shape = kwargs.get("output_shape", torch.Size([-1]) + input_tensor.size()[2:])
     return input_tensor.contiguous().view(input_shape)
+
+
+def get_topn(scores, n):
+    """
+    get top n scores
+    :param scores: np.ndarray, scores to get top n
+    :param n: top n
+    :return: indices of top n scores
+    """
+    return np.argsort(scores)[::-1][:n]
 
 
 def read_json(file: Union[str, os.PathLike]):

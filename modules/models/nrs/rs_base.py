@@ -63,13 +63,13 @@ class MindNRSBase(BaseModel):
         news_dict = self.news_encoder(feat)
         batch_size = kwargs.get("batch_size", input_feat["label"].size(0))
         news_shape = kwargs.get("news_shape", (batch_size, -1, news_dict["news_embed"].size(-1)))
-        input_feat[f"{run_name}_news"] = reshape_tensor(news_dict["news_embed"], input_shape=news_shape)
+        input_feat[f"{run_name}_news"] = reshape_tensor(news_dict["news_embed"], output_shape=news_shape)
         if self.return_weight:
             weight_shape = kwargs.get("weight_shape", (batch_size, -1, news_dict["news_weight"].size(1)))
-            input_feat[f"{run_name}_weight"] = reshape_tensor(news_dict["news_weight"], input_shape=weight_shape)
+            input_feat[f"{run_name}_weight"] = reshape_tensor(news_dict["news_weight"], output_shape=weight_shape)
             if "topic_weight" in news_dict:
                 shape = (batch_size, -1, news_dict["topic_weight"].size(-2), news_dict["topic_weight"].size(-1))
-                input_feat[f"{run_name}_topic_weight"] = reshape_tensor(news_dict["topic_weight"], input_shape=shape)
+                input_feat[f"{run_name}_topic_weight"] = reshape_tensor(news_dict["topic_weight"], output_shape=shape)
         return input_feat, news_dict
 
     def acquire_news_dict(self, input_feat):
