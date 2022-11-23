@@ -9,7 +9,7 @@ from pathlib import Path
 from torch.utils.data.dataset import Dataset
 
 from collections import OrderedDict
-from modules.utils import read_json, news_sampling, Tokenizer, get_mind_dir, check_mind_set, clean_df, get_project_root
+from utils import read_json, news_sampling, Tokenizer, get_mind_dir, check_mind_set, write_json, get_project_root
 
 
 class MindRSDataset(Dataset):
@@ -25,15 +25,19 @@ class MindRSDataset(Dataset):
         data_root = kwargs.get("data_dir", Path(get_project_root()) / "dataset")  # get root of dataset
         default_uid_path = Path(data_root) / f"utils/MIND_uid_{kwargs.get('mind_type')}.json"
         self.uid2index = read_json(kwargs.get("uid_path", default_uid_path))
-
+        # TODO: keep_all news text for PLM
         self.news_features = OrderedDict({"article": [""]})  # default use title only, the first article is empty
         self.news_attr = {"article": kwargs.get("article_length", 30)}  # default only use title
+        tokenized_news_path = Path(kwargs.get("tokenized_news_path"))
+        tokenized_news = pd.read_csv(tokenized_news_path)
+        self.news_features["article"].extend(tokenized_news["tokenized_text"].tolist())
         default_nid_path = Path(data_root) / f"utils/MIND_nid_{kwargs.get('mind_type')}.json"
         nid_path = kwargs.get("nid_path", default_nid_path)  # get nid path from kwargs
         if nid_path is not None and os.path.exists(nid_path):
             self.nid2index = read_json(nid_path)
         else:
-            self.nid2index = {}
+            self.nid2index = dict(zip(tokenized_news.news_id, range(1, len(tokenized_news) + 1)))
+            write_json(self.nid2index, str(nid_path))
         self.train_strategy = kwargs.get("train_strategy", "pair_wise")  # pair wise uses negative sampling strategy
         self.category2id = kwargs.get("category2id", {})  # map category to index dictionary
         self.mind_dir = get_mind_dir(**kwargs)  # get directory of MIND dataset that stores news and behaviors
@@ -46,34 +50,7 @@ class MindRSDataset(Dataset):
             self.category2id[cat] = len(self.category2id) + 1
         return self.category2id[cat]
 
-    def _load_news_text(self, **kwargs):
-        """
-        Load news from news file
-        """
-        news_file = self.mind_dir / "news.tsv"  # define news file path
-        # initial data of corresponding news attributes, such as: title, entity, vert, subvert, abstract
-        columns = ["news_id", "category", "subvert", "title", "abstract", "url", "entity", "ab_entity"]
-        news_df = pd.read_table(news_file, header=None, names=columns)
-        if len(self.nid2index) == 0:  # init news index dictionary if it is empty
-            self.nid2index.update(dict(zip(news_df.news_id, range(1, len(news_df) + 1))))
-        article_path = self.mind_dir / "msn.json"
-        if os.path.exists(article_path):
-            articles = read_json(article_path)
-            news_df["body"] = news_df.news_id.apply(lambda nid: " ".join(articles[nid]) if nid in articles else "")
-        news_df = clean_df(news_df)
-        if kwargs.get("tokenized_method", "keep_all") == "keep_all":
-            news_df["docs"] = news_df["title"] + " " + news_df["abstract"] + " " + news_df["body"]
-            self.news_features["article"].extend(news_df.docs.tolist())
-        else:
-            tokenized_news_path = Path(kwargs.get("tokenized_news_path"))
-            tokenized_news = pd.read_csv(tokenized_news_path)
-            # news_df = pd.merge(news_df, tokenized_news, on="news_id", how="left")
-            # tokenized_text = tokenized_news["tokenized_text"].fillna("")
-            self.news_features["article"].extend(tokenized_news["tokenized_text"].tolist())
-        self.news_df = news_df
-
     def _load_news_matrix(self, **kwargs):
-        self._load_news_text(**kwargs)  # load news text from file first before made up news matrix
         self.feature_matrix = OrderedDict({  # init news text matrix
             k: np.stack(self.tokenizer.tokenize(news_text, self.news_attr[k], return_tensors=False))
             for k, news_text in self.news_features.items()
@@ -131,7 +108,7 @@ class MindRSDataset(Dataset):
             f"{input_name}_index": torch.tensor(indices, dtype=torch.long),
         }
         # pass news mask to the model
-        mask = np.where(input_feat[input_name] == self.tokenizer.pad_id, 0, 1)  # TODO: fix mask bug
+        mask = np.where(input_feat[input_name] == self.tokenizer.pad_id, 0, 1)
         input_feat[f"{input_name}_mask"] = torch.tensor(mask, dtype=torch.int32)
         return input_feat
 
