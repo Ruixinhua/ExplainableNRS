@@ -33,7 +33,8 @@ class NRMSRSModel(MindNRSBase):
         y = self.news_encode_layer(y, y, y)[0]  # the MHA layer for news encoding
         y = self.dropouts(y)  # TODO dropout layer
         # add activation function
-        return self.news_att_layer(y)[0]
+        y = self.news_att_layer(y)
+        return {"news_embed": y[0], "news_weight": y[1]}
 
     def user_encoder(self, input_feat):
         y = input_feat["history_news"]

@@ -31,7 +31,7 @@ class NAMLRSModel(MindNRSBase):
         # y = self.text_cnn(y.unsqueeze(dim=1)).squeeze(dim=3)  # Text CNN layer
         y = self.text_cnn(y.transpose(1, 2)).transpose(1, 2)
         # y = self.news_att_layer(self.dropouts(torch.relu(y)).transpose(1, 2))[0]
-        y = self.news_att_layer(y)[0]
+        y = self.news_att_layer(y)
         return y
 
     def news_encoder(self, input_feat):
@@ -39,9 +39,10 @@ class NAMLRSModel(MindNRSBase):
         if self.use_category or self.use_sub:  # TODO: optimize input format
             news, cat = input_feat["news"][:, :self.title_len], input_feat["news"][:, self.title_len:self.title_len+2]
             input_feat["news"] = news
-            news_embed, cat_embed = self.text_encode(input_feat), self.category_linear(cat)  # encode text and category
-            y = self.final_attention(torch.cat([torch.unsqueeze(news_embed, 1), cat_embed], dim=1))[0]
+            # encode text and category
+            news_embed, cat_embed = self.text_encode(input_feat)[0], self.category_linear(cat)
+            y = self.final_attention(torch.cat([torch.unsqueeze(news_embed, 1), cat_embed], dim=1))
         else:
             y = self.text_encode(input_feat)
         # add activation function
-        return y
+        return {"news_embed": y[0], "news_weight": y[1]}

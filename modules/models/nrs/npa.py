@@ -45,8 +45,8 @@ class NPARSModel(MindNRSBase):
         """input_feat: Size is [N * H, S]"""
         news_emb = self.text_encode(input_feat)
         user_emb = self.transform_news(self.user_embedding(input_feat["uid"]))
-        y = self.news_att_layer(news_emb, user_emb)[0]
-        return y
+        y = self.news_att_layer(news_emb, user_emb)
+        return {"news_embed": y[0], "news_weight": y[1]}
 
     def user_encoder(self, input_feat):
         if "history_news" in input_feat:
