@@ -17,7 +17,10 @@ class DotProduct(nn.Module):
             (shape): batch_size
         """
         # batch_size, candidate_size
-        probability = torch.bmm(candidate_news_vector, user_vector.unsqueeze(dim=-1)).squeeze(dim=-1)
+        if len(user_vector.shape) == 3:  # user_vector.shape = (batch_size, candidate_size, X)
+            probability = torch.sum(user_vector * candidate_news_vector, dim=-1)
+        else:
+            probability = torch.bmm(candidate_news_vector, user_vector.unsqueeze(dim=-1)).squeeze(dim=-1)
         return probability
 
 

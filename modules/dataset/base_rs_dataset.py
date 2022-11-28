@@ -22,13 +22,15 @@ class MindRSDataset(Dataset):
         self.phase = kwargs.get("phase", "train")  # RS phase: train, valid, test
         self.history_size = kwargs.get("history_size", 50)
         self.neg_pos_ratio = kwargs.get("neg_pos_ratio", 4)  # negative sampling ratio, default is 20% positive ratio
-        data_root = kwargs.get("data_dir", Path(get_project_root()) / "dataset")  # get root of dataset
-        default_uid_path = Path(data_root) / f"utils/MIND_uid_{kwargs.get('mind_type')}.json"
+        self.mind_type = kwargs.get("mind_type", "small")
+        data_root = Path(kwargs.get("data_dir", os.path.join(get_project_root(), "dataset")))  # get root of dataset
+        default_uid_path = Path(data_root) / f"utils/MIND_uid_{self.mind_type}.json"
         self.uid2index = read_json(kwargs.get("uid_path", default_uid_path))
         # TODO: keep_all news text for PLM
         self.news_features = OrderedDict({"article": [""]})  # default use title only, the first article is empty
         self.news_attr = {"article": kwargs.get("article_length", 30)}  # default only use title
-        tokenized_news_path = Path(kwargs.get("tokenized_news_path"))
+        news_path = data_root / f"data/MIND_{self.mind_type}_original.csv"
+        tokenized_news_path = Path(kwargs.get("tokenized_news_path", news_path))
         tokenized_news = pd.read_csv(tokenized_news_path)
         self.news_features["article"].extend(tokenized_news["tokenized_text"].tolist())
         default_nid_path = Path(data_root) / f"utils/MIND_nid_{kwargs.get('mind_type')}.json"

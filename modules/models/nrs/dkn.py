@@ -5,7 +5,7 @@ import torch.nn as nn
 from pathlib import Path
 
 from modules.models.nrs.rs_base import MindNRSBase
-from modules.models.general import AttLayer, DNNClickPredictor
+from modules.models.general import AttLayer, DNNClickPredictor, DotProduct
 from modules.utils import get_project_root, download_resources
 from modules.utils.graph_untils import construct_entity_embedding
 
@@ -15,6 +15,7 @@ class DKNRSModel(MindNRSBase):
         super(DKNRSModel, self).__init__(**kwargs)
         self.num_filters, self.layer_dim = kwargs.get("num_filters", 128), kwargs.get("layer_dim", 50)
         self.window_sizes = kwargs.get("window_sizes", [2, 3, 4])
+        self.predictor = kwargs.get("predictor", "dot_product")
         self.use_entity, self.use_context = kwargs.get("use_entity", None), kwargs.get("use_context", None)
         self.news_entity_num = self.title_len if self.use_entity else None
         self.entity_embedding_dim = kwargs.get("entity_embedding_dim", 100)  # default is 100
@@ -57,7 +58,11 @@ class DKNRSModel(MindNRSBase):
         self.additive_attention = AttLayer(self.num_filters, self.layer_dim)
         news_embed_dim = len(self.window_sizes) * self.num_filters * 2
         self.user_att = nn.Sequential(nn.Linear(news_embed_dim, 16), nn.Linear(16, 1))
-        self.click_predictor = DNNClickPredictor(news_embed_dim, self.layer_dim)
+        if self.predictor == "dot_product":
+            self.click_predictor = DotProduct()
+        elif self.predictor == "dnn":
+            self.click_predictor = DNNClickPredictor(news_embed_dim, self.layer_dim)
+        self.news_att_layer, self.user_att_layer = None, None  # No attention for user layer and news layer
 
     def kcnn(self, title_embed, entity_embed=None):
         """
@@ -121,14 +126,13 @@ class DKNRSModel(MindNRSBase):
             news_vector = self.kcnn(title_embed, entity_embed)
         else:
             news_vector = self.kcnn(self.embedding_layer(input_feat))
-        return news_vector
+        return {"news_embed": news_vector}
 
     def user_encoder(self, input_feat):
-        clicked_news_vector, candidate_news_vector = input_feat["history_news"], input_feat["candidate_news"]
+        history_news, candidate_news = input_feat["history_news"], input_feat["candidate_news"]
         # batch_size, 1 + K, len(window_sizes) * num_filters
-        user_vector = torch.stack([self.user_attention(x, clicked_news_vector)
-                                   for x in candidate_news_vector.transpose(0, 1)])
-        return user_vector
+        user_vector = torch.stack([self.user_attention(x, history_news) for x in candidate_news.transpose(0, 1)], dim=1)
+        return {"user_embed": user_vector}
 
     def predict(self, input_feat, **kwargs):
         """
@@ -137,7 +141,10 @@ class DKNRSModel(MindNRSBase):
         :return: softmax possibility of click candidate news
         """
         candidate_news, user_embed = input_feat["candidate_news"], input_feat["user_embed"]
-        shape = candidate_news.shape
-        pred = self.click_predictor(
-            candidate_news.view(shape[0]*shape[1], shape[2]), user_embed.view(shape[0]*shape[1], shape[2]))
-        return pred.view(shape[0], shape[1])
+        s = candidate_news.shape
+        if self.predictor == "dot_product":
+            # batch_size, 1 + K
+            return self.click_predictor(user_embed, candidate_news)
+        elif self.predictor == "dnn":
+            pred = self.click_predictor(candidate_news.view(s[0]*s[1], s[2]), user_embed.view(s[0]*s[1], s[2]))
+            return pred.view(s[0], s[1])

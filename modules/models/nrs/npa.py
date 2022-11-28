@@ -49,38 +49,8 @@ class NPARSModel(MindNRSBase):
         return {"news_embed": y[0], "news_weight": y[1]}
 
     def user_encoder(self, input_feat):
-        if "history_news" in input_feat:
-            news_emb = input_feat["history_news"]
-        else:
-            news_emb = self.time_distributed(input_feat["history"], input_feat["history_mask"],
-                                             uid=input_feat["uid"])  # [N, H, E]
+        news_emb = input_feat["history_news"]
         user_emb = self.transform_user(self.user_embedding(input_feat["uid"]))
-        y = self.user_att_layer(news_emb, user_emb)[0]
+        y = self.user_att_layer(news_emb, user_emb)
         # y = self.user_att_layer(news_emb)[0]  # default use last hidden output
-        return y
-
-    def time_distributed(self, news_index, news_mask=None, uid=None):
-        # calculate news features across multiple input news: [N * H, S]
-        x_shape = torch.Size([-1]) + news_index.size()[2:]
-        news_reshape = news_index.contiguous().view(x_shape)  # [N * H, S]
-        mask_reshape = news_mask.contiguous().view(x_shape) if news_mask is not None else news_mask
-        uid = uid.unsqueeze(1).expand((-1, news_index.shape[1])).reshape(-1)
-        feat = {"news": news_reshape, "news_mask": mask_reshape, "uid": uid}
-        y = self.news_encoder(feat)
-        y = y.contiguous().view(news_index.size(0), -1, y.size(-1))  # change size to (N, H, D)
-        return y
-
-    def forward(self, input_feat):
-        """
-        training logic: candidate news encoding->user modeling (history news)
-        :param input_feat: should include two keys, candidate and history
-        :return: prediction result in softmax possibility
-        """
-        if "candidate_news" not in input_feat:  # pass news embeddings cache in evaluation stage
-            input_feat["candidate_news"] = self.time_distributed(input_feat["candidate"], input_feat["candidate_mask"],
-                                                                 uid=input_feat["uid"])  # [N, C, E]
-        if "history_news" not in input_feat:  # no cache found
-            input_feat["history_news"] = self.time_distributed(input_feat["history"], input_feat["history_mask"],
-                                                               uid=input_feat["uid"])  # [N, H, E]
-        input_feat["user_embed"] = self.user_encoder(input_feat)  # user modeling: [N, E]
-        return self.predict(input_feat)
+        return {"user_embed": y[0], "user_weight": y[1]}

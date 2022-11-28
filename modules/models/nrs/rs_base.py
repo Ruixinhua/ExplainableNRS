@@ -13,6 +13,7 @@ class MindNRSBase(BaseModel):
         self.__dict__.update(kwargs)
         self.attention_hidden_dim = kwargs.get("attention_hidden_dim", 200)
         self.return_weight = kwargs.get("return_weight", False)
+        self.use_uid = kwargs.get("use_uid", False)
         self.embedding_layer = NewsEmbedding(**kwargs)
         self.embedding_dim = self.embedding_layer.embed_dim
         self.title_len, self.body_len = kwargs.get("title", 30), kwargs.get("body", None)
@@ -60,6 +61,8 @@ class MindNRSBase(BaseModel):
 
     def run_news_encoder(self, input_feat, run_name, **kwargs):
         feat = {"news": input_feat[run_name], "news_mask": input_feat[f"{run_name}_mask"]}
+        if self.use_uid:
+            feat["uid"] = input_feat["uid"]
         news_dict = self.news_encoder(feat)
         batch_size = kwargs.get("batch_size", input_feat["label"].size(0))
         news_shape = kwargs.get("news_shape", (batch_size, -1, news_dict["news_embed"].size(-1)))

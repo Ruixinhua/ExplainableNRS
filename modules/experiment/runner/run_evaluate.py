@@ -20,7 +20,7 @@ if __name__ == "__main__":
     if saved_filename is not None:
         saved_filename = f"{saved_filename}_{timestamp}.csv"
     else:
-        saved_filename = f"BATM_{timestamp}.csv"
+        saved_filename = f"{timestamp}.csv"
     saved_name = cmd_args.get("saved_name", "evaluate")  # must specify a saved name
     evaluate_dir = cmd_args.get("evaluate_dir", None)
     evaluate_paths = []

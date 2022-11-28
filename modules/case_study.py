@@ -8,7 +8,7 @@ import string
 from collections import defaultdict
 from pathlib import Path
 
-from modules.config import load_cmd_line
+from modules.config import load_cmd_line, COLOR_LIST
 from modules.utils import read_json, clean_df, get_project_root, get_topn
 
 
@@ -17,8 +17,14 @@ def acquire_news_info(imp_index, item_index, prefix="history"):
     news_id = f"<i>{index2nid[news_index]}</i>"  # display in table
     news = news_df[news_df["news_index"] == news_index]
     weights = np.round(weight_dict[f"{prefix}_weight"][imp_index][item_index], 6)
+    weights[topics_exclude] = 0  # mask topic weights with low topic coherence
     topic_index_sorted = get_topn(weights, show_topic_num)  # most important top 5 topics
-    top_topics = u"".join([f"<span style='color:{color_list[j]}'>Topic-{k}</span><br>" for j, k in
+    for j in topic_index_sorted:
+        if j not in involved_topic_dict:
+            involved_topic_dict[j] = len(involved_topic_dict)
+            topic_stat[j] = 1
+        topic_stat[j] += 1
+    top_topics = u"".join([f"<span style='color:{COLOR_LIST[involved_topic_dict[k]]}'>Topic-{k}</span><br>" for j, k in
                            enumerate(topic_index_sorted)])  # display in table
     topics = weight_dict[f"{prefix}_topic_weight"][i][item_index]
     tokenized_text = tokenized_news[news_index].split()
@@ -50,21 +56,24 @@ def acquire_news_info(imp_index, item_index, prefix="history"):
                 if score > best_score:
                     best_score = score
                     best_topic = tn
-            s = f"<span style='color:{color_list[list(topic_index_sorted).index(best_topic)]}'>{s}</span>"
+            # topic_index = involved_topic_dict[best_topic]
+            s = f"<span style='color:{COLOR_LIST[involved_topic_dict[best_topic]]}'>{s}</span>"
         if ti == 0 or s in string.punctuation:
             s = s
         else:
             s = f" {s}"
         news_contents += s
-        if k >= 100:
+        if k >= 100 or k >= len(tokenized_text):
             news_contents += "...</span>"
             break
     top_terms = "<br>".join(
         [",".join([f"{terms100[t]}" for t in get_topn(topic_terms100[ti], 10)]) for ti in topic_index_sorted]
     )
-    topic_weight_info = "<br>".join([f"<span style='color:{color_list[j]}'>Topic-{ti}({str(weights[ti])})</span>" 
-                                     for j, ti in enumerate(topic_index_sorted)])
-    topic_terms = "<br>".join([",".join(topics_list[ti][1]) for ti in topic_index_sorted])
+    topic_weight_info = "<br>".join([
+        f"<span style='color:{COLOR_LIST[involved_topic_dict[ti]]}'>Topic-{ti}({str(weights[ti])})</span>"
+        for j, ti in enumerate(topic_index_sorted)
+    ])
+    topic_terms = "<br>".join([",".join(topic_terms_list[ti]) for ti in topic_index_sorted])
     involved_topics.append([news_id, topic_weight_info, topic_terms, top_terms])
     return [news_index, news_id, news_contents, news["category"].values[0], news["subvert"].values[0], top_topics]
 
@@ -72,19 +81,27 @@ def acquire_news_info(imp_index, item_index, prefix="history"):
 if __name__ == "__main__":
     cmd_args = load_cmd_line()
     topic_num = cmd_args.get('topic_num', 300)
+    show_topic_num = cmd_args.get('show_topic_num', 5)
+    show_term_num = cmd_args.get('show_term_num', 5)
+    show_candidate_num = cmd_args.get('show_candidate_num', 5)
+    top_percent = cmd_args.get('top_percent', 0.1)
     project_root = Path(get_project_root())
+
     saved_dir = project_root / "saved"
     weight_dir = saved_dir / "models" / "MIND15" / "RS_BATM_base_att_small_base_tanh_hd30_20221107-223130" / "weight"
     weight_dict = torch.load(weight_dir / f"{topic_num}.pt")
     pp_word_dct = read_json(project_root / "dataset/utils/word_dict/post_process/PP100.json")
     default_topic_path = Path(saved_dir, "models", "MIND15", "RS_BATM_base_att_small_base_tanh_hd30_20221107-223130",
                               "topics", "topics_4_300_unsorted", "PP100_c_npmi_0.1392.txt")
-    # r"C:\Users\Rui\Documents\Explainable_AI\explainable_nrs\saved\models\MIND15\
-    # RS_BATM_base_att_small_base_tanh_hd30_20221107-223130\topics\topics_25_30_unsorted\PP100_c_npmi_0.1414.txt"
+    # r"
     topics_file = cmd_args.get("topics_file", default_topic_path)
     with open(topics_file) as reader:  # load unsorted topics
-        topics_list = [next(reader).split(":") for _ in range(int(topic_num))]
-        topics_list = [(eval(topics[0]), topics[1].split()) for topics in topics_list]
+        topic_list = [next(reader).split(":") for _ in range(int(topic_num))]
+        topic_terms_list = [topics[1].split() for topics in topic_list]
+        topic_scores_list = [eval(topics[0]) for topics in topic_list]
+    top_topics_indices = get_topn(topic_scores_list, int(len(topic_scores_list) * top_percent))
+    topics_exclude = np.ones_like(topic_scores_list, dtype=bool)
+    topics_exclude[top_topics_indices] = False
     mind_dir = project_root / Path(r"dataset/MIND/small/valid/")
     news_file = mind_dir / "news.tsv"  # define news file path
     columns = ["news_id", "category", "subvert", "title", "abstract", "url", "entity", "ab_entity"]
@@ -103,23 +120,22 @@ if __name__ == "__main__":
     tokenized_news.extend(pd.read_csv(tokenized_news_path)["tokenized_text"].tolist())
     # news_df = pd.merge(news_df, tokenized_news, on="news_id", how="left").fillna("")
     news_df["news_index"] = news_df.news_id.apply(lambda nid: nid2index[nid])
-    show_topic_num = 5
-    show_term_num = 5
-    color_list = ["rgb(255, 0, 0)", "rgb(0, 255, 0)", "rgb(0, 0, 255)", "rgb(0,255,255)", "rgb(255,0,255)"]
     news_columns = ["news_index", "news_id", "news_content", "category", "sub_category", "top_topics"]
     topic_columns = ["<b>News ID</b>", "<b>Topic No.(weight)</b>", "<b>Top-10 Topic Terms</b>",
                      "<b>Top-10 Topic Terms Among News</b>"]
     table_header = ["<b>News ID</b>", "<b>News Content</b>", "<b>Category</b>", "<b>Subcategory</b>",
                     "<b>Top Topics No.</b>"]
     history_header = table_header + ["<b>W(User-News)</b>"]
-    candidate_header = table_header + ["<b>Clicked</b>", "<b>Score</b>"]
+    candidate_header = table_header + ["<b>Clicked</b>", "<b>Rank</b>"]
     correct_indices = [index for index, result in enumerate(weight_dict["results"]) if result["group_auc"] >= 1]
     wrong_indices = [index for index, result in enumerate(weight_dict["results"]) if 0.8 < result["group_auc"] < 1]
-    for num, i in enumerate(wrong_indices):
+    for num, i in enumerate(correct_indices):
         pred_score = np.exp(weight_dict["pred_score"][i]) / sum(np.exp(weight_dict["pred_score"][i]))
         history_case = []
         history_index_sorted = get_topn(weight_dict["user_weight"][i], 5)
         involved_topics = []
+        involved_topic_dict = {}
+        topic_stat = {}
         for index in history_index_sorted:
             user_weight = weight_dict["user_weight"][i][index] / sum(
                 weight_dict["user_weight"][i][history_index_sorted])
@@ -134,20 +150,22 @@ if __name__ == "__main__":
             else:
                 negative_index.append(index)
         np.random.shuffle(negative_index)
-        candidate_sample = positive_index + negative_index[:max((5 - len(positive_index)), 0)]
+        candidate_sample = get_topn(pred_score, show_candidate_num)
+        # candidate_sample = positive_index + negative_index[:max((5 - len(positive_index)), 0)]
         # select top-n scores candidate news
-        for index in candidate_sample:
-            score = pred_score[index] / sum(pred_score[candidate_sample])
-            candidate_case.append(acquire_news_info(i, index, "candidate") + [weight_dict["label"][i][index], score])
-        candidate_case_df = pd.DataFrame.from_records(candidate_case, columns=news_columns + ["label", "score"])
+        for rank, index in enumerate(candidate_sample):
+            candidate_case.append(acquire_news_info(i, index, "candidate") + [weight_dict["label"][i][index], rank+1])
+        candidate_case_df = pd.DataFrame.from_records(candidate_case, columns=news_columns + ["label", "rank"])
+        category = candidate_case_df[candidate_case_df["rank"] == 1]["category"][0]
         involved_topics_df = pd.DataFrame.from_records(involved_topics, columns=topic_columns)
+        print(topic_stat)
         pd.set_option('colheader_justify', 'center')  # FOR TABLE <th>
         history_values = [history_case_df.news_id, history_case_df.news_content, history_case_df.category,
                           history_case_df.sub_category, history_case_df.top_topics, history_case_df.user_news_weight]
-        candidate_case_df["score"] = candidate_case_df.score.apply(lambda s: round(s, 4))
+        # candidate_case_df["score"] = candidate_case_df.score.apply(lambda s: round(s, 4))
         candidate_values = [candidate_case_df.news_id, candidate_case_df.news_content, candidate_case_df.category,
                             candidate_case_df.sub_category, candidate_case_df.top_topics, candidate_case_df.label,
-                            candidate_case_df.score]
+                            candidate_case_df["rank"]]
         history_df = pd.DataFrame.from_dict(dict(zip(history_header, history_values)))
         candidate_df = pd.DataFrame.from_dict(dict(zip(candidate_header, candidate_values)))
         css_style = """
@@ -218,7 +236,8 @@ if __name__ == "__main__":
           </body>
         </html>.
         '''
-
+        output_dir = saved_dir / f"case_study/TN{str(topic_num)}"
+        os.makedirs(output_dir, exist_ok=True)
         # OUTPUT AN HTML FILE
-        with open(f'case_study/TN{str(topic_num)}/TN{str(topic_num)}_case{num}.html', 'w') as f:
+        with open(output_dir / f'TN{str(topic_num)}_case_{category}{num}.html', 'w') as f:
             f.write(html_string)

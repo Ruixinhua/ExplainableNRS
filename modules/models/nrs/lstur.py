@@ -68,4 +68,4 @@ class LSTURRSModel(MindNRSBase):
             y = self.transform_layer(torch.cat((y.squeeze(dim=0), user_embed), dim=1))
         else:  # default use last hidden output from GRU network
             y = self.user_encode_layer(packed_y)[1].squeeze(dim=0)
-        return y
+        return {"user_embed": y}

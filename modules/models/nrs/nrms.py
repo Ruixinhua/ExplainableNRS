@@ -42,5 +42,5 @@ class NRMSRSModel(MindNRSBase):
             y = self.user_encode_layer(y, y, y)[0]  # the MHA layer for user encoding
         elif self.user_layer == "gru":
             y = self.user_encode_layer(y)[0]
-        y = self.user_att_layer(y)[0]  # additive attention layer
-        return y
+        y = self.user_att_layer(y)  # additive attention layer
+        return {"user_embed": y[0], "user_weight": y[1]}
