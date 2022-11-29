@@ -17,7 +17,7 @@ def get_news_embeds(model, data_loader=None, news_loader=None, **kwargs):
     device = kwargs.get("device")
     if accelerator:
         news_loader = accelerator.prepare_data_loader(news_loader)
-    for batch_dict in tqdm(news_loader, total=len(news_loader)):
+    for batch_dict in tqdm(news_loader, total=len(news_loader), desc="Get news embeddings"):
         # load data to device
         batch_dict = load_batch_data(batch_dict, device)
         # run news encoder

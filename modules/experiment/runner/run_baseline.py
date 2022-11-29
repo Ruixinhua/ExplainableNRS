@@ -72,9 +72,11 @@ if __name__ == "__main__":
             evaluate_run()
     else:
         for value, seed in product(test_values, seeds):
+            if value is None or len(value) == 0:
+                continue
             try:
                 config.set(arch_attr, ast.literal_eval(value))  # convert to int or float if it is a numerical value
-            except ValueError:
+            except (ValueError, SyntaxError):
                 config.set(arch_attr, value)
             log = {"arch_type": config.arch_type, "seed": config.seed, arch_attr: value}
             config.set("seed", seed)

@@ -8,7 +8,9 @@ from pathlib import Path
 
 def load_mind_df(mind_types, mind_path=None):
     if mind_path is None:
-        mind_path = get_project_root() / "dataset" / "MIND"
+        mind_path = Path(get_project_root(), "dataset", "MIND")
+    else:
+        mind_path = Path(mind_path)
     set_types = ["train", "valid", "test"]
     news_df = pd.DataFrame()
     columns = ["news_id", "category", "subvert", "title", "abstract", "url", "entity", "ab_entity"]
@@ -36,8 +38,8 @@ def save_jsonl(doc_df, path):
                 outfile.write("\n" + json_doc)
 
 
-def tokenize_mind(mind_type):
-    df = clean_df(load_mind_df([mind_type], mind_path=Path(dataset_path) / "MIND").drop_duplicates())
+def tokenize_mind(mt):
+    df = clean_df(load_mind_df([mt], mind_path=Path(dataset_path) / "MIND").drop_duplicates())
     df["tokenized_text"] = df.title + " " + df.abstract + " " + df.body
     df["tokenized_text"] = df.tokenized_text.apply(lambda ws: " ".join([s for s in word_tokenize(ws) if s in ori_dict]))
     return df

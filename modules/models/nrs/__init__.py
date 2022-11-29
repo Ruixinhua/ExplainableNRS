@@ -6,3 +6,4 @@ from .kred import *
 from .dkn import *
 from .naml import *
 from .npa import *
+from .rs_lda import *

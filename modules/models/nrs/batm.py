@@ -3,7 +3,6 @@ import torch.nn as nn
 
 from modules.models.general.topics import TopicLayer
 from modules.models.nrs.rs_base import MindNRSBase
-from modules.utils import reshape_tensor
 
 
 class BATMRSModel(MindNRSBase):

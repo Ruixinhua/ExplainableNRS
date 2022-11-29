@@ -65,14 +65,14 @@ class MindRSDataset(Dataset):
         positive_news: The index of news that clicked by users in impressions
         """
         behaviors_file = self.mind_dir / "behaviors.tsv"  # define behavior file path
-        attributes = ["uid", "impression_index", "history_news", "history_length", "candidate_news", "labels"]
+        attributes = ["uid", "index", "impression_index", "history_news", "history_length", "candidate_news", "labels"]
         self.behaviors = {attr: [] for attr in attributes}
         self.positive_news = []
         with open(behaviors_file, "r", encoding="utf-8") as rd:
-            imp_index = 0
-            for index in rd:
+            index = 0
+            for behavior in rd:
                 # read line of behaviors file
-                uid, _, history, candidates = index.strip("\n").split("\t")[-4:]
+                imp_index, uid, _, history, candidates = behavior.strip("\n").split("\t")
                 # deal with behavior data
                 history = [self.nid2index[i] for i in history.split() if i in self.nid2index] if len(history) else [0]
                 his_length = min(len(history), self.history_size)
@@ -82,18 +82,18 @@ class MindRSDataset(Dataset):
                                   for i in candidates.split()]
                 uindex = self.uid2index[uid] if uid in self.uid2index else 0
                 # define attributes value
-                behavior = [uindex, imp_index, history, his_length, candidate_news]
+                behavior = [uindex, index, int(imp_index), history, his_length, candidate_news]
                 if self.phase != "test":  # load labels for train and validation phase
                     labels = [int(i.split("-")[1]) for i in candidates.split()]
                     self.behaviors["labels"].append(labels)
                 if self.phase == "train":  # negative sampling for training
-                    pos_news = [(news, imp_index) for label, news in zip(labels, candidate_news) if label]
+                    pos_news = [(news, index) for label, news in zip(labels, candidate_news) if label]
                     if self.train_strategy == "pair_wise":
                         self.positive_news.extend(pos_news)
                 # update to the dictionary
                 for attr, value in zip(attributes[:-1], behavior):
                     self.behaviors[attr].append(value)
-                imp_index += 1
+                index += 1
         rd.close()
 
     def load_news_index(self, indices, input_name):
@@ -197,7 +197,7 @@ class ImpressionDataset(Dataset):
         candidate = self.behaviors["candidate_news"][index]
         history = self.behaviors["history_news"][index]
         input_feat = {
-            "impression_index": torch.tensor(index, dtype=torch.int32),  # index of impression and for user history
+            "impression_index": torch.tensor(self.behaviors["impression_index"][index], dtype=torch.int32),  # index
             "candidate_length": torch.tensor(len(candidate), dtype=torch.int32),  # length of candidate news
             "history_length": torch.tensor(self.behaviors["history_length"][index], dtype=torch.int32),
             "uid": torch.tensor(self.behaviors["uid"][index], dtype=torch.long)

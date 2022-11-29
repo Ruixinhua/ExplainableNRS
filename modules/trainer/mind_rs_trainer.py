@@ -102,10 +102,10 @@ class MindRSTrainer(NCTrainer):
             imp_set = ImpressionDataset(data_loader.valid_set, news_embeds)
             valid_loader = DataLoader(imp_set, impression_bs, collate_fn=data_loader.fn, shuffle=True)
             valid_loader = self.accelerator.prepare_data_loader(valid_loader)
-            for vi, batch_dict in tqdm(enumerate(valid_loader), total=len(valid_loader)):  # run model
+            for vi, batch_dict in tqdm(enumerate(valid_loader), total=len(valid_loader), desc="Impressions-Validation"):
                 batch_dict = load_batch_data(batch_dict, self.device)
                 label = batch_dict["label"].cpu().numpy()
-                out_dict = model(batch_dict)
+                out_dict = model(batch_dict)    # run model
                 pred = out_dict["pred"].cpu().numpy()
                 can_len = batch_dict["candidate_length"].cpu().numpy()
                 his_len = batch_dict["history_length"].cpu().numpy()
