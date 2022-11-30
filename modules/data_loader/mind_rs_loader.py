@@ -2,11 +2,10 @@ import torch
 import modules.dataset as module_dataset
 
 from collections import defaultdict
-from pathlib import Path
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data.dataloader import DataLoader
-from modules.dataset import NewsDataset, UserDataset, ImpressionDataset
-from modules.utils import Tokenizer, get_project_root, read_json
+from modules.dataset import NewsDataset, ImpressionDataset
+from modules.utils import Tokenizer
 
 
 def pad_feat(input_feat):
@@ -36,16 +35,15 @@ class MindDataLoader:
         # set tokenizer
         self.tokenizer = Tokenizer(**kwargs)
         self.word_dict = self.tokenizer.word_dict
-        bs, sampler = kwargs.get("batch_size", 64), None
+        bs = kwargs.get("batch_size", 64)
+        impression_bs = kwargs.get("impression_batch_size", 1)
         self.fn = collate_fn
         module_dataset_name = kwargs.get("dataset_class", "MindRSDataset")
         self.train_set = getattr(module_dataset, module_dataset_name)(self.tokenizer, phase="train", **kwargs)
-        self.train_loader = DataLoader(self.train_set, bs, pin_memory=True, sampler=sampler, collate_fn=self.fn)
+        self.train_loader = DataLoader(self.train_set, bs, pin_memory=True, collate_fn=self.fn)
         # setup news and user dataset
-        news_sampler = None
         self.valid_set = getattr(module_dataset, module_dataset_name)(self.tokenizer, phase="valid", **kwargs)
-        news_set, user_set = NewsDataset(self.valid_set), UserDataset(self.valid_set)
-        impression_set = ImpressionDataset(self.valid_set)
-        self.valid_loader = DataLoader(impression_set, 1, pin_memory=True, sampler=sampler, collate_fn=self.fn)
-        self.news_loader = DataLoader(news_set, kwargs.get("news_batch_size", 2048), sampler=news_sampler)
-        self.user_loader = DataLoader(user_set, bs, sampler=sampler, collate_fn=self.fn)
+        self.test_set = getattr(module_dataset, module_dataset_name)(self.tokenizer, phase="test", **kwargs)
+        news_set = NewsDataset(self.train_set)
+        self.news_loader = DataLoader(news_set, kwargs.get("news_batch_size", 2048))
+        self.valid_loader = DataLoader(ImpressionDataset(self.valid_set), impression_bs, collate_fn=self.fn)

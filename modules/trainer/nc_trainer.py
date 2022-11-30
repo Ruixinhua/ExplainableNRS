@@ -109,18 +109,18 @@ class NCTrainer(BaseTrainer):
         log = {f"{prefix}_{k}": v for k, v in self.valid_metrics.result().items()}  # return log with prefix
         return log
 
-    def topic_evaluation(self, model=None, data_loader=None, extra_str=None):
+    def topic_evaluation(self, model=None, word_dict=None, extra_str=None):
         """
         evaluate the topic quality of the BATM model using the topic coherence
         :param model: best model chosen from the training process
-        :param data_loader: should have a word_dict variable
+        :param word_dict: the word dictionary of the dataset
         :param extra_str: extra string to add to the file name
         :return: topic quality result of the best model
         """
         if model is None:
             model = self.model
-        if data_loader is None:
-            data_loader = self.data_loader
+        if word_dict is None:
+            word_dict = self.data_loader.word_dict
         topic_evaluation_method = self.config.get("topic_evaluation_method", None)
         sort_score = self.config.get("sort_score", True)
         saved_name = f"topics_{self.config.seed}_{self.config.head_num}"
@@ -133,8 +133,8 @@ class NCTrainer(BaseTrainer):
         topics_dir = Path(self.config.model_dir, "topics", saved_name)
         coherence_dir = Path(self.config.model_dir, "coherence_score", saved_name)
         os.makedirs(coherence_dir, exist_ok=True)
-        reverse_dict = {v: k for k, v in data_loader.word_dict.items()}
-        topic_dist = get_topic_dist(model, data_loader, self.config.get("topic_variant", "base"))
+        reverse_dict = {v: k for k, v in word_dict.items()}
+        topic_dist = get_topic_dist(model, word_dict)
         self.model = self.model.to(self.device)
         top_n, methods = self.config.get("top_n", 10), self.config.get("coherence_method", "c_npmi")
         post_word_dict_dir = self.config.get("post_word_dict_dir", None)
@@ -144,7 +144,7 @@ class NCTrainer(BaseTrainer):
                 if not path.name.endswith(".json"):
                     continue
                 post_word_dict = read_json(path)
-                removed_index = [v for k, v in data_loader.word_dict.items() if k not in post_word_dict]
+                removed_index = [v for k, v in word_dict.items() if k not in post_word_dict]
                 topic_dist_copy = copy.deepcopy(topic_dist)  # copy original topical distribution
                 topic_dist_copy[:, removed_index] = 0  # set removed terms to 0
                 topic_dists[path.name.replace(".json", "")] = topic_dist_copy
@@ -157,7 +157,7 @@ class NCTrainer(BaseTrainer):
             if "fast_eval" in topic_evaluation_method:
                 ref_texts = load_sparse(ref_data_path)
                 scorer = NPMI((ref_texts > 0).astype(int))
-                topic_index = [[data_loader.word_dict[word] - 1 for word in topic] for topic in topic_list]
+                topic_index = [[word_dict[word] - 1 for word in topic] for topic in topic_list]
                 topic_scores[f"{key}_c_npmi"] = scorer.compute_npmi(topics=topic_index, n=top_n)
             if "slow_eval" in topic_evaluation_method:
                 dataset_name = self.config.get("dataset_name", "MIND15")
@@ -169,7 +169,7 @@ class NCTrainer(BaseTrainer):
                 embeddings = model.embedding_layer.embedding.weight.cpu().detach().numpy()
                 # embeddings = load_embeddings(**self.config.final_configs)
                 count = top_n * (top_n - 1) / 2
-                topic_index = [[data_loader.word_dict[word] for word in topic] for topic in topic_list]
+                topic_index = [[word_dict[word] for word in topic] for topic in topic_list]
                 w2v_sim_list = [np.sum(np.triu(cosine_similarity(embeddings[i]), 1)) / count for i in topic_index]
                 topic_scores[f"{key}_w2v_sim"] = w2v_sim_list
             topic_result.update({m: np.round(np.mean(c), 4) for m, c in topic_scores.items()})

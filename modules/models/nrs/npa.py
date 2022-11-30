@@ -17,6 +17,7 @@ class NPARSModel(MindNRSBase):
         super().__init__(**kwargs)
         self.category_num, self.num_filters = kwargs.get("category_num", 300), kwargs.get("num_filters", 300)
         self.user_emb_dim, self.window_size = kwargs.get("user_emb_dim", 100), kwargs.get("window_size", 3)
+        self.use_uid = kwargs.get("use_uid", True)
         padding = (self.window_size - 1) // 2
         assert 2 * padding == self.window_size - 1, "Kernel size must be an odd number"
         self.news_encode_layer = nn.Sequential(

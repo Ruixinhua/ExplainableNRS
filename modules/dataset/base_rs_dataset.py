@@ -43,7 +43,7 @@ class MindRSDataset(Dataset):
         self.train_strategy = kwargs.get("train_strategy", "pair_wise")  # pair wise uses negative sampling strategy
         self.category2id = kwargs.get("category2id", {})  # map category to index dictionary
         self.mind_dir = get_mind_dir(**kwargs)  # get directory of MIND dataset that stores news and behaviors
-        check_mind_set(**kwargs)  # check if MIND dataset is ready
+        # check_mind_set(**kwargs)  # check if MIND dataset is ready
         self._load_news_matrix(**kwargs)  # load news matrix
         self._load_behaviors(**kwargs)  # load behavior file, default use mind dataset
 
@@ -83,7 +83,7 @@ class MindRSDataset(Dataset):
                 uindex = self.uid2index[uid] if uid in self.uid2index else 0
                 # define attributes value
                 behavior = [uindex, index, int(imp_index), history, his_length, candidate_news]
-                if self.phase != "test":  # load labels for train and validation phase
+                if self.phase != "final_test":  # load labels for train and validation phase
                     labels = [int(i.split("-")[1]) for i in candidates.split()]
                     self.behaviors["labels"].append(labels)
                 if self.phase == "train":  # negative sampling for training
@@ -150,30 +150,6 @@ class MindRSDataset(Dataset):
         return len(self.positive_news)
 
 
-class UserDataset(Dataset):
-    def __init__(self, dataset: MindRSDataset, news_vectors=None):
-        self.dataset = dataset
-        self.behaviors = dataset.behaviors
-        self.news_vectors = news_vectors  # news vectors are in the form of a numpy matrix
-
-    def __getitem__(self, i):
-        # get the matrix of corresponding news features with index
-        history = self.behaviors["history_news"][i]
-        input_feat = {
-            "impression_index": torch.tensor(i), "uid": torch.tensor(self.behaviors["uid"][i]),
-            # "padding": self.tokenizer.pad_id,  # TODO: pad sentence
-            "history_length": torch.tensor(self.behaviors["history_length"][i]),
-        }
-        if self.news_vectors is not None:  # if news vectors are provided, use them
-            input_feat["history_news"] = torch.tensor(self.news_vectors[history])
-        else:  # otherwise, load from news feat
-            input_feat.update(self.dataset.load_news_index(history, "history"))
-        return input_feat
-
-    def __len__(self):
-        return len(self.behaviors["impression_index"])
-
-
 class NewsDataset(Dataset):
     def __init__(self, dataset: MindRSDataset):
         self.dataset = dataset
@@ -202,7 +178,7 @@ class ImpressionDataset(Dataset):
             "history_length": torch.tensor(self.behaviors["history_length"][index], dtype=torch.int32),
             "uid": torch.tensor(self.behaviors["uid"][index], dtype=torch.long)
         }
-        if self.dataset.phase != "test":
+        if self.dataset.phase != "final_test":
             input_feat.update({"label": torch.tensor(self.behaviors["labels"][index])})  # load true label of behaviors
         if self.news_embeds is not None:
             input_feat["candidate_news"] = torch.tensor(self.news_embeds[candidate])  # load news embed from cache

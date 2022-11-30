@@ -135,22 +135,19 @@ def extract_topics_mha(model: torch.nn.Module, data_loader, device):
     return topic_dist
 
 
-def extract_topics(model: torch.nn.Module, data_loader, topic_variant: str, device):
-    word_seq = list(data_loader.word_dict.values())
-    if topic_variant == "MHA":
-        topic_dist = extract_topics_mha(model, data_loader, device)  # local topics (mha)
-    else:
-        topic_dist = extract_topics_base(model, word_seq, device)  # global topics (base)
+def extract_topics(model: torch.nn.Module, word_dict, device):
+    word_seq = list(word_dict.values())
+    topic_dist = extract_topics_base(model, word_seq, device)  # global topics (base)
     return topic_dist
 
 
-def get_topic_dist(model, data_loader, topic_variant: str):
+def get_topic_dist(model, word_dict):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")  # only run on one GPU
     try:
-        topic_dist = extract_topics(model, data_loader, topic_variant, device)
+        topic_dist = extract_topics(model, word_dict, device)
     except (RuntimeError, ):  # RuntimeError: CUDA out of memory, change to CPU
         device = torch.device("cpu")
-        topic_dist = extract_topics(model, data_loader, topic_variant, device)
+        topic_dist = extract_topics(model, word_dict, device)
     return topic_dist
 
 

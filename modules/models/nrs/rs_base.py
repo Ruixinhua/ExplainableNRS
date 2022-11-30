@@ -62,7 +62,8 @@ class MindNRSBase(BaseModel):
     def run_news_encoder(self, input_feat, run_name, **kwargs):
         feat = {"news": input_feat[run_name], "news_mask": input_feat[f"{run_name}_mask"]}
         if self.use_uid:
-            feat["uid"] = input_feat["uid"]
+            news_num = int(feat["news"].shape[0] / input_feat["uid"].shape[0])
+            feat["uid"] = input_feat["uid"].unsqueeze(1).expand((-1, news_num)).reshape(-1)
         news_dict = self.news_encoder(feat)
         batch_size = kwargs.get("batch_size", input_feat["label"].size(0))
         news_shape = kwargs.get("news_shape", (batch_size, -1, news_dict["news_embed"].size(-1)))

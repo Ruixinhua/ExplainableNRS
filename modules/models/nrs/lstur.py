@@ -17,6 +17,7 @@ class LSTURRSModel(MindNRSBase):
         super().__init__(**kwargs)
         self.category_num, self.num_filters = kwargs.get("category_num", 300), kwargs.get("num_filters", 300)
         self.use_category, self.use_sub = kwargs.get("use_category", 0), kwargs.get("use_subcategory", 0)
+        self.window_size = kwargs.get("window_size", 3)
         self.user_embed_method = kwargs.get("user_embed_method", "concat")
         padding = (self.window_size - 1) // 2
         assert 2 * padding == self.window_size - 1, "Kernel size must be an odd number"

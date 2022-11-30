@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 from modules.data_loader import collate_fn
 from modules.config.configuration import Configuration, DEFAULT_CONFIGS
-from modules.config.config_utils import load_cmd_line
+from modules.config.config_utils import load_cmd_line, set_seed
 from modules.utils import Tokenizer, init_model_class, load_batch_data, get_news_embeds, init_data_loader, init_obj
 
 if __name__ == "__main__":
@@ -25,6 +25,7 @@ if __name__ == "__main__":
     saved_dir_name = cmd_args["saved_dir_name"] if "saved_dir_name" in cmd_args else "prediction"
     evaluate_dir = cmd_args.get("evaluate_dir")  # evaluation directory: must be the directory of the saved model
     config = Configuration(config_file=Path(evaluate_dir, "config.json"))  # load configurations
+    set_seed(config["seed"])
     saved_dir = Path(cmd_args.get("saved_dir", DEFAULT_CONFIGS["saved_dir"])) / saved_dir_name  # init saved directory
     saved_name = config.get("saved_name", "MIND_Test")  # specify a saved name
     os.makedirs(saved_dir / saved_name, exist_ok=True)  # create empty directory

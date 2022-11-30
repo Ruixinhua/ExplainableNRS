@@ -2,17 +2,15 @@ from tqdm import tqdm
 from modules.utils import convert_dict_to_numpy, gather_dict, load_batch_data
 
 
-def get_news_embeds(model, data_loader=None, news_loader=None, **kwargs):
+def get_news_embeds(model, news_loader, **kwargs):
     """
     run news model and return news vectors (numpy matrix)
     :param model: target running model
-    :param data_loader: data loader object used to load news data
-    :param news_loader
+    :param news_loader: news loader with all news data
     :return: numpy matrix of news vectors (each row is a news vector)
     """
     news_embeds = {}
-    assert data_loader is not None or news_loader is not None, "data_loader and news_loader can't be both None"
-    news_loader = news_loader if news_loader else data_loader.news_loader
+    assert news_loader is not None, "must specify news_loader"
     accelerator = kwargs.get("accelerator", None)
     device = kwargs.get("device")
     if accelerator:

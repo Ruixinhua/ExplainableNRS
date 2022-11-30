@@ -22,13 +22,14 @@ def evaluate_run():
     log["#Voc"] = len(data_loader.word_dict)
     if "nc" in cmd_args["task"].lower():
         # run validation
-        log.update(trainer.evaluate(trainer.valid_loader, trainer.model, prefix="val"))
+        log.update(trainer.evaluate(data_loader.valid_loader, trainer.model, prefix="val"))
         # run test
         log.update(trainer.evaluate(data_loader.test_loader, trainer.model, prefix="test"))
     else:
-        log.update(trainer.evaluate(data_loader, trainer.model, prefix="val"))
+        log.update(trainer.evaluate(data_loader.valid_set, trainer.model, prefix="val"))
+        log.update(trainer.evaluate(data_loader.test_set, trainer.model, prefix="test"))
     if config.get("topic_evaluation_method", None) is not None:
-        log.update(trainer.topic_evaluation(data_loader=data_loader))
+        log.update(trainer.topic_evaluation(trainer.model, word_dict=data_loader.word_dict))
     log["Total Time"] = time.time() - start_time
     if trainer.accelerator.is_main_process:  # to avoid duplicated writing
         saved_path = saved_dir / saved_name / saved_filename

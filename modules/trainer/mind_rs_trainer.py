@@ -73,7 +73,7 @@ class MindRSTrainer(NCTrainer):
             self.lr_scheduler.step()
         return self._validation(epoch, length, False)
 
-    def _valid_epoch(self, model=None, data_loader=None, extra_str=None):
+    def _valid_epoch(self, model=None, valid_set=None, extra_str=None):
         """
         Validate after training an epoch
         :return: A log that contains information about validation
@@ -85,22 +85,22 @@ class MindRSTrainer(NCTrainer):
             model = self.model.module if model is None else model.module
         else:
             model = self.model if model is None else model
-        data_loader = self.mind_loader if data_loader is None else data_loader
+        valid_set = self.mind_loader.valid_set if valid_set is None else valid_set
         model.eval()
-        self.valid_metrics.reset()
         weight_dict = defaultdict(lambda: [])
         return_weight = self.config.get("return_weight", False)
         saved_weight_num = self.config.get("saved_weight_num", 250)
         with torch.no_grad():
             try:  # try to do fast evaluation: cache news embeddings
                 if valid_method == "fast_evaluation" and not return_weight:
-                    news_embeds = get_news_embeds(model, data_loader, device=self.device, accelerator=self.accelerator)
+                    news_loader = self.mind_loader.news_loader
+                    news_embeds = get_news_embeds(model, news_loader, device=self.device, accelerator=self.accelerator)
                 else:
                     news_embeds = None
             except KeyError or RuntimeError:  # slow evaluation: re-calculate news embeddings every time
                 news_embeds = None
-            imp_set = ImpressionDataset(data_loader.valid_set, news_embeds)
-            valid_loader = DataLoader(imp_set, impression_bs, collate_fn=data_loader.fn, shuffle=True)
+            imp_set = ImpressionDataset(valid_set, news_embeds)
+            valid_loader = DataLoader(imp_set, impression_bs, collate_fn=self.mind_loader.fn)
             valid_loader = self.accelerator.prepare_data_loader(valid_loader)
             for vi, batch_dict in tqdm(enumerate(valid_loader), total=len(valid_loader), desc="Impressions-Validation"):
                 batch_dict = load_batch_data(batch_dict, self.device)
@@ -134,18 +134,17 @@ class MindRSTrainer(NCTrainer):
             result_dict = gather_dict(result_dict)  # gather results
             eval_result = dict(np.round(pd.DataFrame.from_dict(result_dict, orient="index").mean(), 4))  # average
             if self.config.get("evaluate_topic_by_epoch", False) and self.config.get("topic_evaluation_method", None):
-                eval_result.update(self.topic_evaluation(model, data_loader, extra_str=extra_str))
+                eval_result.update(self.topic_evaluation(model, self.mind_loader.word_dict, extra_str=extra_str))
                 self.accelerator.wait_for_everyone()
                 # self.logger.info(f"validation time: {time.time() - start}")
         if return_weight and self.accelerator.is_main_process:
             torch.save(dict(weight_dict), Path(self.config["model_dir"], "weight", f"{self.config.get('head_num')}.pt"))
         return eval_result
 
-    def evaluate(self, loader, model, epoch=0, prefix="val"):
+    def evaluate(self, dataset, model, epoch=0, prefix="val"):
         """call this method after training"""
         model.eval()
-        self.valid_metrics.reset()
-        log = self._valid_epoch(model, loader)
+        log = self._valid_epoch(model, dataset)
         for name, p in model.named_parameters():  # add histogram of model parameters to the tensorboard
             self.writer.add_histogram(name, p, bins="auto")
         return {f"{prefix}_{k}": v for k, v in log.items()}  # return log with prefix
