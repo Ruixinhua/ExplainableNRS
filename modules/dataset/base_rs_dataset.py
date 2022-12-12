@@ -9,7 +9,7 @@ from pathlib import Path
 from torch.utils.data.dataset import Dataset
 
 from collections import OrderedDict
-from utils import read_json, news_sampling, Tokenizer, get_mind_dir, check_mind_set, write_json, get_project_root
+from utils import read_json, news_sampling, Tokenizer, get_mind_dir, write_json, get_project_root, load_category_dict
 
 
 class MindRSDataset(Dataset):
@@ -18,45 +18,75 @@ class MindRSDataset(Dataset):
     def __init__(self, tokenizer: Tokenizer, **kwargs):
         # setup some default configurations for MindRSDataset
         self.tokenizer = tokenizer
+        self._init_vars(**kwargs)
+        self.news_df = pd.read_csv(self.data_root / f"MIND/{self.mind_type}/news.csv")
+        self.news_df.fillna("", inplace=True)
+        self.news_df["use_all"] = self.news_df["title"] + " " + self.news_df["abstract"] + " " + self.news_df["body"]
+        default_nid_path = Path(self.data_root) / f"utils/MIND_nid_{kwargs.get('mind_type')}.json"
+        nid_path = kwargs.get("nid_path", default_nid_path)  # get nid path from kwargs
+        if nid_path is not None and os.path.exists(nid_path):
+            self.nid2index = read_json(nid_path)
+        else:
+            self.nid2index = dict(zip(self.news_df.news_id, range(1, len(self.news_df) + 1)))
+            write_json(self.nid2index, str(nid_path))
+        self.news_df["index"] = self.news_df["news_id"].apply(lambda x: self.nid2index[x])
+        self.news_features = OrderedDict({k: [""] * (len(self.nid2index)+1) for k in self.news_info})
+        for attr in self.news_info:
+            self.append_feature(attr)
+        self.feature_matrix = OrderedDict({  # init news text matrix
+            k: np.stack(self.tokenizer.tokenize(news_text, self.news_attr[k], return_tensors=False))
+            for k, news_text in self.news_features.items()
+        })  # tokenize news text (title, abstract, body, all) and convert to numpy array
+
+        self._load_category(**kwargs)  # load category information
+        self._load_behaviors(**kwargs)  # load behavior file, default use mind dataset
+
+    def append_feature(self, attr):
+        news_info = dict(zip(self.news_df["index"].values, self.news_df[attr].values))
+        for i, value in news_info.items():
+            self.news_features[attr][i] = value
+
+    def _load_category(self, **kwargs):
+        self.use_category = kwargs.get("use_category", False)  # use category or not
+        if self.use_category:
+            cat, subvert = self.news_df["category"].unique(), self.news_df["subvert"].unique()
+            self.category2id, self.subvert2id = load_category_dict(category_set=cat, subvert_set=subvert, **kwargs)
+            for attr in ["category", "subvert"]:
+                self.news_features[attr] = [""] * (len(self.nid2index)+1)
+                self.append_feature(attr)
+            self.feature_matrix.update({
+                "category": np.stack([self.convert_cat(c, "category") for c in self.news_features["category"]]),
+                "subvert": np.stack([self.convert_cat(c, "subvert") for c in self.news_features["subvert"]])
+            })
+
+    def convert_cat(self, cat, dict_name):
+        if dict_name == "category":
+            return self.category2id[cat] if cat in self.category2id else 0
+        elif dict_name == "subvert":
+            return self.subvert2id[cat] if cat in self.subvert2id else 0
+
+    def _init_vars(self, **kwargs):
         self.flatten_article = kwargs.get("flatten_article", True)
         self.phase = kwargs.get("phase", "train")  # RS phase: train, valid, test
         self.history_size = kwargs.get("history_size", 50)
         self.neg_pos_ratio = kwargs.get("neg_pos_ratio", 4)  # negative sampling ratio, default is 20% positive ratio
         self.mind_type = kwargs.get("mind_type", "small")
-        data_root = Path(kwargs.get("data_dir", os.path.join(get_project_root(), "dataset")))  # get root of dataset
-        default_uid_path = Path(data_root) / f"utils/MIND_uid_{self.mind_type}.json"
-        self.uid2index = read_json(kwargs.get("uid_path", default_uid_path))
-        # TODO: keep_all news text for PLM
-        self.news_features = OrderedDict({"article": [""]})  # default use title only, the first article is empty
-        self.news_attr = {"article": kwargs.get("article_length", 30)}  # default only use title
-        news_path = data_root / f"data/MIND_{self.mind_type}_original.csv"
-        tokenized_news_path = Path(kwargs.get("tokenized_news_path", news_path))
-        tokenized_news = pd.read_csv(tokenized_news_path)
-        self.news_features["article"].extend(tokenized_news["tokenized_text"].tolist())
-        default_nid_path = Path(data_root) / f"utils/MIND_nid_{kwargs.get('mind_type')}.json"
-        nid_path = kwargs.get("nid_path", default_nid_path)  # get nid path from kwargs
-        if nid_path is not None and os.path.exists(nid_path):
-            self.nid2index = read_json(nid_path)
-        else:
-            self.nid2index = dict(zip(tokenized_news.news_id, range(1, len(tokenized_news) + 1)))
-            write_json(self.nid2index, str(nid_path))
         self.train_strategy = kwargs.get("train_strategy", "pair_wise")  # pair wise uses negative sampling strategy
         self.category2id = kwargs.get("category2id", {})  # map category to index dictionary
         self.mind_dir = get_mind_dir(**kwargs)  # get directory of MIND dataset that stores news and behaviors
-        # check_mind_set(**kwargs)  # check if MIND dataset is ready
-        self._load_news_matrix(**kwargs)  # load news matrix
-        self._load_behaviors(**kwargs)  # load behavior file, default use mind dataset
-
-    def convert_category(self, cat):
-        if cat not in self.category2id:
-            self.category2id[cat] = len(self.category2id) + 1
-        return self.category2id[cat]
-
-    def _load_news_matrix(self, **kwargs):
-        self.feature_matrix = OrderedDict({  # init news text matrix
-            k: np.stack(self.tokenizer.tokenize(news_text, self.news_attr[k], return_tensors=False))
-            for k, news_text in self.news_features.items()
-        })  # the order of news info: title(abstract), category, sub-category, sentence embedding, entity feature
+        self.news_info = kwargs.get("news_info", ["use_all"])  # limited in ["title", "abstract", "body", "use_all"]
+        self.news_lengths = kwargs.get("news_lengths", [30])
+        if isinstance(self.news_info, str):
+            self.news_info = [self.news_info]
+        if isinstance(self.news_lengths, int):
+            self.news_lengths = [self.news_lengths]
+        for attr in self.news_info:
+            if attr not in ["title", "abstract", "body", "use_all"]:
+                self.news_info.remove(attr)
+        self.data_root = Path(kwargs.get("data_dir", os.path.join(get_project_root(), "dataset")))  # root directory
+        default_uid_path = Path(self.data_root) / f"utils/MIND_uid_{self.mind_type}.json"
+        self.uid2index = read_json(kwargs.get("uid_path", default_uid_path))
+        self.news_attr = {k: length for k, length in zip(self.news_info, self.news_lengths)}
 
     def _load_behaviors(self, **kwargs):
         """"
@@ -104,14 +134,16 @@ class MindRSDataset(Dataset):
         :return: a default dictionary with keys called name.
         """
         # get the matrix of corresponding news features with index
-        news = [self.feature_matrix[k][indices] for k in self.feature_matrix.keys()]
-        input_feat = {
-            input_name: torch.tensor(np.concatenate(news, axis=-1), dtype=torch.long),
-            f"{input_name}_index": torch.tensor(indices, dtype=torch.long),
-        }
-        # pass news mask to the model
-        mask = np.where(input_feat[input_name] == self.tokenizer.pad_id, 0, 1)
-        input_feat[f"{input_name}_mask"] = torch.tensor(mask, dtype=torch.int32)
+        input_feat = {f"{input_name}_index": torch.tensor(indices, dtype=torch.long)}
+        for feature in self.feature_matrix.keys():
+            if feature == "use_all":
+                feature_name = input_name
+            else:
+                feature_name = f"{input_name}_{feature}"
+            feature_vector = self.feature_matrix[feature][indices]
+            input_feat[feature_name] = torch.tensor(feature_vector, dtype=torch.long)
+            mask = np.where(feature_vector == self.tokenizer.pad_id, 0, 1)
+            input_feat[f"{feature_name}_mask"] = torch.tensor(mask, dtype=torch.int32)
         return input_feat
 
     def __getitem__(self, index):

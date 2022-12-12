@@ -38,7 +38,7 @@ class NPARSModel(MindNRSBase):
         # self.user_att_layer = AttLayer(self.embedding_dim, self.attention_hidden_dim)
 
     def text_encode(self, input_feat):
-        y = self.dropouts(self.embedding_layer(input_feat))
+        y = self.dropouts(self.embedding_layer(**input_feat))
         y = self.dropouts(self.news_encode_layer(y.transpose(1, 2)).transpose(1, 2))
         return y
 

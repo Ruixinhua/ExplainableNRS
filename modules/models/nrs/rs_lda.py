@@ -19,7 +19,7 @@ class LDARSModel(MindNRSBase):
         default only use title, and body is added after title.
         Dim S contains: title(30) + body(100) + document_embed(300/768) + entity_feature(4*entity_num)
         """
-        embedding = self.dropouts(self.embedding_layer(input_feat))
+        embedding = self.dropouts(self.embedding_layer(**input_feat))
         topic_weight = self.topic_embedding(input_feat["news"]).transpose(1, 2)  # (N, H, S)
         topic_vec = self.final(torch.matmul(topic_weight, embedding))  # (N, H, E)
         y = self.news_att_layer(topic_vec)

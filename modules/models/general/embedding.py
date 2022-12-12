@@ -42,11 +42,11 @@ class NewsEmbedding(nn.Module):
         else:
             raise ValueError("Unknown embedding type")
 
-    def forward(self, input_feat):
+    def forward(self, news, news_mask, **kwargs):
         if self.embedding_type in ["glove", "init"]:
-            embedding = self.embedding(input_feat["news"])
+            embedding = self.embedding(news)
         else:  # for bert like language model
-            input_feat["embedding"] = input_feat["embedding"] if "embedding" in input_feat else None
-            output = self.embedding(input_feat["news"], input_feat["news_mask"], inputs_embeds=input_feat["embedding"])
+            embedding = kwargs.get("embedding", None)
+            output = self.embedding(news, news_mask, inputs_embeds=embedding)
             embedding = output[0]
         return embedding

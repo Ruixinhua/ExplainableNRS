@@ -29,7 +29,7 @@ class BaseClassifyModel(BaseModel):
 
     def forward(self, input_feat, **kwargs):
         input_feat["embedding"] = input_feat.get("embedding", kwargs.get("inputs_embeds"))
-        embedding = self.dropout(self.embedding_layer(input_feat))
+        embedding = self.dropout(self.embedding_layer(**input_feat))
         if self.embedding_type == "glove" or self.embedding_type == "init":
             embedding = torch.mean(embedding, dim=1)
         else:

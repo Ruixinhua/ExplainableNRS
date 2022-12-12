@@ -35,7 +35,7 @@ class FastformerClassifyModel(BaseClassifyModel):
 
     def forward(self, input_feat, **kwargs):
         mask = input_feat["news"].bool().float()
-        embedding = self.embedding_layer(input_feat)
+        embedding = self.embedding_layer(**input_feat)
         text_vec = self.fastformer_model(embedding, mask)
         output = self.classify_layer(text_vec)
         return output

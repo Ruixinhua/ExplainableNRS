@@ -3,7 +3,7 @@ import torch.nn as nn
 
 from modules.base.base_model import BaseModel
 from modules.models.general import AttLayer, DotProduct, DNNClickPredictor, NewsEmbedding
-from modules.utils import reshape_tensor
+from modules.utils import reshape_tensor, load_category_dict
 
 
 class MindNRSBase(BaseModel):
@@ -14,9 +14,20 @@ class MindNRSBase(BaseModel):
         self.attention_hidden_dim = kwargs.get("attention_hidden_dim", 200)
         self.return_weight = kwargs.get("return_weight", False)
         self.use_uid = kwargs.get("use_uid", False)
+        self.title_len, self.body_len = kwargs.get("title", 30), kwargs.get("body", None)
+        self.reshape_tensors = ["candidate", "candidate_mask", "history", "history_mask"]
+        self.use_category = kwargs.get("use_category", False)
+        if self.use_category:
+            category2id, subvert2id = load_category_dict(**kwargs)
+            self.category_dim = kwargs.get("category_dim", 100)
+            self.category_embedding = nn.Embedding(num_embeddings=len(category2id) + 1, embedding_dim=self.category_dim)
+            self.subvert_embedding = nn.Embedding(num_embeddings=len(subvert2id) + 1, embedding_dim=self.category_dim)
+            self.reshape_tensors.extend([
+                "candidate_category", "candidate_subvert", "history_category", "history_subvert"
+            ])
+        # initialize model components
         self.embedding_layer = NewsEmbedding(**kwargs)
         self.embedding_dim = self.embedding_layer.embed_dim
-        self.title_len, self.body_len = kwargs.get("title", 30), kwargs.get("body", None)
         self.news_att_layer = AttLayer(self.embedding_dim, self.attention_hidden_dim)
         self.user_att_layer = AttLayer(self.embedding_dim, self.attention_hidden_dim)
         self.dropouts = nn.Dropout(self.dropout_rate)
@@ -25,21 +36,13 @@ class MindNRSBase(BaseModel):
         else:
             self.click_predictor = DNNClickPredictor(self.document_embedding_dim * 2, self.attention_hidden_dim)
 
-    def load_news_feat(self, input_feat, **kwargs):
-        """the order of news info: title(abstract), category, sub-category, sentence embedding, entity feature"""
-        use_category, use_sent_embed = kwargs.get("use_category", 0), kwargs.get("use_sent_embed", 0)
-        news_info = [input_feat["news"][:, :self.title_len]]  # default only use title
-        if use_category:
-            news_info.append(input_feat["news"][:, self.title_len:self.title_len + 2])  # add category and sub category
-        return news_info
-
     def news_encoder(self, input_feat):
         """
         input_feat["news"]: [N * H, S],
         default only use title, and body is added after title.
         Dim S contains: title(30) + body(100) + document_embed(300/768) + entity_feature(4*entity_num)
         """
-        y = self.embedding_layer(input_feat)
+        y = self.embedding_layer(**input_feat)
         y = self.news_att_layer(y)
         return {"news_embed": y[0], "news_weight": y[1]}
 
@@ -59,11 +62,19 @@ class MindNRSBase(BaseModel):
         pred = self.click_predictor(candidate_news, user_embed)
         return pred
 
-    def run_news_encoder(self, input_feat, run_name, **kwargs):
+    def organize_feat(self, input_feat, **kwargs):
+        run_name = kwargs.get("run_name")
         feat = {"news": input_feat[run_name], "news_mask": input_feat[f"{run_name}_mask"]}
         if self.use_uid:
             news_num = int(feat["news"].shape[0] / input_feat["uid"].shape[0])
             feat["uid"] = input_feat["uid"].unsqueeze(1).expand((-1, news_num)).reshape(-1)
+        if self.use_category:
+            feat["category"] = input_feat[f"{run_name}_category"]
+            feat["subvert"] = input_feat[f"{run_name}_subvert"]
+        return feat
+
+    def run_news_encoder(self, input_feat, run_name, **kwargs):
+        feat = self.organize_feat(input_feat, run_name=run_name)
         news_dict = self.news_encoder(feat)
         batch_size = kwargs.get("batch_size", input_feat["label"].size(0))
         news_shape = kwargs.get("news_shape", (batch_size, -1, news_dict["news_embed"].size(-1)))
@@ -77,8 +88,7 @@ class MindNRSBase(BaseModel):
         return input_feat, news_dict
 
     def acquire_news_dict(self, input_feat):
-        reshape_tensors = ["candidate", "candidate_mask", "history", "history_mask"]
-        for tensor_name in reshape_tensors:
+        for tensor_name in self.reshape_tensors:
             if tensor_name in input_feat:
                 input_feat[tensor_name] = reshape_tensor(input_feat[tensor_name])
         news_dict = []

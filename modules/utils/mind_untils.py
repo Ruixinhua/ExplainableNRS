@@ -7,8 +7,7 @@ import requests
 import numpy as np
 from tqdm import tqdm
 from pathlib import Path
-
-from modules.utils import get_project_root, write_json
+from modules.utils import get_project_root, write_json, read_json
 
 
 def load_entity(entity: str):
@@ -18,6 +17,24 @@ def load_entity(entity: str):
     :return: entities extracted from the input string
     """
     return " ".join([" ".join(e["SurfaceForms"]) for e in json.loads(entity)])
+
+
+def load_category_dict(**kwargs):
+    data_root = Path(kwargs.get("data_dir", os.path.join(get_project_root(), "dataset")))
+    default_cid_path = Path(data_root) / f"utils/MIND_cat2id_{kwargs.get('mind_type')}.json"
+    default_sid_path = Path(data_root) / f"utils/MIND_subvert2id_{kwargs.get('mind_type')}.json"
+    category2id_path = kwargs.get("category2id_path", default_cid_path)
+    subvert2id_path = kwargs.get("subvert2id_path", default_sid_path)
+    if os.path.exists(category2id_path) and os.path.exists(subvert2id_path):
+        category2id = read_json(category2id_path)
+        subvert2id = read_json(subvert2id_path)
+    else:
+        unique_cat, unique_subvert = kwargs.get("category_set"), kwargs.get("subvert_set")
+        category2id = dict(zip(unique_cat, range(1, len(unique_cat)+1)))
+        subvert2id = dict(zip(unique_subvert, range(1, len(unique_subvert)+1)))
+        write_json(category2id, category2id_path)
+        write_json(subvert2id, subvert2id_path)
+    return category2id, subvert2id
 
 
 def get_mind_dir(**kwargs):

@@ -22,7 +22,7 @@ class TextCNNClassifyModel(BaseClassifyModel):
         return x
 
     def forward(self, input_feat, **kwargs):
-        x = self.embedding_layer(input_feat).unsqueeze(1)
+        x = self.embedding_layer(**input_feat).unsqueeze(1)
         x = torch.cat([self.conv_and_pool(x, conv) for conv in self.conv_layers], 1)
         x = nn.Dropout(self.dropout_rate)(x)
         return self.classify_layer(x)
@@ -36,7 +36,7 @@ class NRMSNewsEncoderModel(BaseClassifyModel):
         self.news_att = AttLayer(self.embed_dim, 128)
 
     def forward(self, input_feat, **kwargs):
-        x = self.embedding_layer(input_feat)
+        x = self.embedding_layer(**input_feat)
         if self.variant_name == "one_att":
             x = self.news_att(x)[0]
         else:
@@ -64,7 +64,7 @@ class GRUAttClassifierModel(BaseClassifyModel):
         return y
 
     def forward(self, input_feat, **kwargs):
-        x = self.embedding_layer(input_feat)
+        x = self.embedding_layer(**input_feat)
         length = torch.sum(input_feat["mask"], dim=-1)
         x = self.run_gru(x, length)
         x = nn.Dropout(self.dropout_rate)(x)

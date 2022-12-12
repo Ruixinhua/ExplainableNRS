@@ -73,7 +73,7 @@ if __name__ == "__main__":
             evaluate_run()
     else:
         for value, seed in product(test_values, seeds):
-            if value is None or len(value) == 0:
+            if value is None or not bool(value):  # check if value is None or False (empty string)
                 continue
             try:
                 config.set(arch_attr, ast.literal_eval(value))  # convert to int or float if it is a numerical value

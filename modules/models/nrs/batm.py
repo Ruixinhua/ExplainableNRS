@@ -21,7 +21,7 @@ class BATMRSModel(MindNRSBase):
         self.dropout = nn.Dropout(self.dropout_rate)
 
     def extract_topic(self, input_feat):
-        input_feat["news_embeddings"] = self.dropout(self.embedding_layer(input_feat))
+        input_feat["news_embeddings"] = self.dropout(self.embedding_layer(**input_feat))
         return self.topic_layer(input_feat)
 
     def news_encoder(self, input_feat):

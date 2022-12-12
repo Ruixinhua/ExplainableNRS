@@ -16,7 +16,7 @@ class BiAttentionClassifyModel(BaseClassifyModel):
         self.calculate_entropy = kwargs.get("calculate_entropy", False)
 
     def extract_topic(self, input_feat):
-        input_feat["news_embeddings"] = self.dropout(self.embedding_layer(input_feat))
+        input_feat["news_embeddings"] = self.dropout(self.embedding_layer(**input_feat))
         return self.topic_layer(input_feat)
 
     def forward(self, input_feat, inputs_embeds=None, return_attention=False, **kwargs):

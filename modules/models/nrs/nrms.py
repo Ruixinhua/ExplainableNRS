@@ -29,7 +29,7 @@ class NRMSRSModel(MindNRSBase):
 
     def news_encoder(self, input_feat):
         """input_feat: Size is [N * H, S]"""
-        y = self.dropouts(self.embedding_layer(input_feat))
+        y = self.dropouts(self.embedding_layer(**input_feat))
         y = self.news_encode_layer(y, y, y)[0]  # the MHA layer for news encoding
         y = self.dropouts(y)  # TODO dropout layer
         # add activation function
