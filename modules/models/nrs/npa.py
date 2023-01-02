@@ -1,5 +1,5 @@
 import os
-import torch
+import torch.nn.functional as F
 import torch.nn as nn
 
 from modules.models import PersonalizedAttentivePooling
@@ -34,24 +34,21 @@ class NPARSModel(MindNRSBase):
         self.transform_user = nn.Linear(self.user_emb_dim, self.attention_hidden_dim)
         self.news_att_layer = PersonalizedAttentivePooling(self.num_filters, self.attention_hidden_dim)
         self.user_att_layer = PersonalizedAttentivePooling(self.num_filters, self.attention_hidden_dim)
-        # self.news_att_layer = AttLayer(self.embedding_dim, self.attention_hidden_dim)
-        # self.user_att_layer = AttLayer(self.embedding_dim, self.attention_hidden_dim)
 
     def text_encode(self, input_feat):
-        y = self.dropouts(self.embedding_layer(**input_feat))
-        y = self.dropouts(self.news_encode_layer(y.transpose(1, 2)).transpose(1, 2))
-        return y
+        news_vector = self.dropouts(self.embedding_layer(**input_feat))
+        news_vector = self.dropouts(self.news_encode_layer(news_vector.transpose(1, 2)).transpose(1, 2))
+        return news_vector
 
     def news_encoder(self, input_feat):
         """input_feat: Size is [N * H, S]"""
         news_emb = self.text_encode(input_feat)
-        user_emb = self.transform_news(self.user_embedding(input_feat["uid"]))
-        y = self.news_att_layer(news_emb, user_emb)
-        return {"news_embed": y[0], "news_weight": y[1]}
+        user_emb = F.relu(self.transform_news(self.user_embedding(input_feat["uid"])), inplace=True)
+        news_vector, news_weight = self.news_att_layer(news_emb, user_emb)
+        return {"news_embed": news_vector, "news_weight": news_weight}
 
     def user_encoder(self, input_feat):
         news_emb = input_feat["history_news"]
-        user_emb = self.transform_user(self.user_embedding(input_feat["uid"]))
-        y = self.user_att_layer(news_emb, user_emb)
-        # y = self.user_att_layer(news_emb)[0]  # default use last hidden output
-        return {"user_embed": y[0], "user_weight": y[1]}
+        user_emb = F.relu(self.transform_user(self.user_embedding(input_feat["uid"])), inplace=True)
+        user_vector, user_weight = self.user_att_layer(news_emb, user_emb)
+        return {"user_embed": user_vector, "user_weight": user_weight}

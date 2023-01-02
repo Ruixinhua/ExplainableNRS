@@ -21,3 +21,4 @@ if __name__ == "__main__":
     stat_df = pd.read_csv(stat_path / stat_file)
     stat_df = del_index_column(stat_df.drop_duplicates())
     write_to_file(Path(latex_dir, stat_file.replace(".csv", ".txt")), stat_df.to_latex(index=False))
+    print("write to file:", latex_dir / stat_file.replace(".csv", ".txt"))

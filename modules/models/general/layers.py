@@ -30,16 +30,15 @@ class AttLayer(nn.Module):
         super().__init__()
         # build attention network
         self.attention = nn.Sequential(
-            nn.Linear(word_emb_dim, attention_hidden_dim),
+            nn.Linear(word_emb_dim, attention_hidden_dim, bias=True),
             nn.Tanh(),
-            nn.Linear(attention_hidden_dim, 1),
-            nn.Flatten(),
-            nn.Softmax(dim=-1)
+            nn.Linear(attention_hidden_dim, 1, bias=False),
+            nn.Softmax(dim=-2)
         )
 
     def forward(self, x):
-        attention_weight = torch.unsqueeze(self.attention(x), 2)
-        y = torch.sum(x * attention_weight, dim=1)
+        attention_weight = self.attention(x)
+        y = torch.sum(x * attention_weight, dim=-2)
         return y, attention_weight
 
 

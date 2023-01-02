@@ -62,5 +62,7 @@ if __name__ == "__main__":
         stat_df = old_stat_df
     stat_df = del_index_column(stat_df).drop_duplicates()
     stat_df.to_csv(output_path)  # save to csv
+    print("write statistic data to file:", output_path)
     # save to file in latex format
     write_to_file(latex_dir / input_file_name.replace(".csv", ".txt"), stat_df.to_latex())
+    print("save latex data to file:", latex_dir / input_file_name.replace(".csv", ".txt"))

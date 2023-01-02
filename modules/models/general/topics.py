@@ -49,7 +49,7 @@ class TopicLayer(nn.Module):
         else:
             raise ValueError("Specify correct variant name!")
 
-    def mha_topics(self, topic_vector, input_feat):
+    def mha_topics(self, topic_vector, mask):
         if self.token_layer == "distribute_topic":
             topic_vector = self.token_weight(topic_vector)  # (N, S, H)
             topic_vector = topic_vector.transpose(1, 2)     # (N, H, S)
@@ -57,36 +57,32 @@ class TopicLayer(nn.Module):
             topic_vector = topic_vector.view(-1, topic_vector.shape[1], self.head_num, self.head_dim)
             topic_vector = topic_vector.transpose(1, 2)  # (N, H, S, D)
             topic_vector = self.token_weight(topic_vector).squeeze(-1)  # (N, H, S)
-        mask = input_feat["news_mask"].expand(self.head_num, topic_vector.size(0), -1).transpose(0, 1) == 0
         topic_weight = topic_vector.masked_fill(mask, -1e4)
         topic_weight = torch.softmax(topic_weight, dim=-1)  # (N, H, S)
         return topic_weight
 
-    def forward(self, input_feat: Dict[str, torch.Tensor]) -> (torch.Tensor, torch.Tensor):
+    def forward(self, news_embeddings, news_mask, **kwargs) -> (torch.Tensor, torch.Tensor):
         """
         Topic forward pass, return topic vector and topic weights
-        :param input_feat: Dict[str, torch.Tensor], input feature contains "news" or "news_embeddings"
-        :return:
         """
-        embedding = input_feat["news_embeddings"]
-        mask = input_feat["news_mask"].expand(self.head_num, embedding.size(0), -1).transpose(0, 1) == 0
+        mask = news_mask.expand(self.head_num, news_embeddings.size(0), -1).transpose(0, 1) == 0
         if self.variant_name == "topic_embed":
-            topic_weight = self.topic_layer(input_feat["news"]).transpose(1, 2)  # (N, H, S)
+            topic_weight = self.topic_layer(kwargs.get("news")).transpose(1, 2)  # (N, H, S)
         elif self.variant_name == "MHA":
-            hidden_score, _ = self.sentence_encoder(embedding, embedding, embedding)
-            topic_weight = self.mha_topics(hidden_score, input_feat)
+            hidden_score, _ = self.sentence_encoder(news_embeddings, news_embeddings, news_embeddings)
+            topic_weight = self.mha_topics(hidden_score, mask)
         elif self.variant_name == "topic_matrix":
-            embeds_trans = self.transform(embedding)  # (N, S, D)
+            embeds_trans = self.transform(news_embeddings)  # (N, S, D)
             topic_vector = self.topic_matrix.weight.unsqueeze(dim=0).transpose(1, 2)  # (1, D, H)
             topic_weight = embeds_trans @ topic_vector  # (N, S, H)
             topic_weight = topic_weight.transpose(1, 2)  # (N, H, S)
             topic_weight = torch.softmax(topic_weight.masked_fill(mask, -1e4), dim=-1).masked_fill(mask, 0)
         else:
-            topic_weight = self.topic_layer(embedding).transpose(1, 2)  # (N, H, S)
+            topic_weight = self.topic_layer(news_embeddings).transpose(1, 2)  # (N, H, S)
             # expand mask to the same size as topic weights
             # fill zero entry with -INF when doing softmax and fill in zeros after that
             topic_weight = torch.softmax(topic_weight.masked_fill(mask, -1e4), dim=-1).masked_fill(mask, 0)
             # topic_weight = torch.softmax(topic_weight, dim=1).masked_fill(mask, 0)  # external attention
             # topic_weight = topic_weight / torch.sum(topic_weight, dim=-1, keepdim=True)
-        topic_vec = self.final(torch.matmul(topic_weight, embedding))  # (N, H, E)
+        topic_vec = self.final(torch.matmul(topic_weight, news_embeddings))  # (N, H, E)
         return topic_vec, topic_weight

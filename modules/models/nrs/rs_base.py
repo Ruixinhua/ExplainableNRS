@@ -14,17 +14,29 @@ class MindNRSBase(BaseModel):
         self.attention_hidden_dim = kwargs.get("attention_hidden_dim", 200)
         self.return_weight = kwargs.get("return_weight", False)
         self.use_uid = kwargs.get("use_uid", False)
-        self.title_len, self.body_len = kwargs.get("title", 30), kwargs.get("body", None)
-        self.reshape_tensors = ["candidate", "candidate_mask", "history", "history_mask"]
+        self.reshape_tensors = []
         self.use_category = kwargs.get("use_category", False)
+        self.news_info = kwargs.get("news_info", ["use_all"])
+        if isinstance(self.news_info, str):
+            self.news_info = [self.news_info]
+        for attr in self.news_info:
+            if attr not in ["title", "abstract", "body", "use_all"]:
+                self.news_info.remove(attr)
+        if "title" in self.news_info:
+            self.news_info.append("title_mask")
+        if "body" in self.news_info:
+            self.news_info.append("body_mask")
         if self.use_category:
+            self.news_info.extend(["category", "subvert"])
             category2id, subvert2id = load_category_dict(**kwargs)
             self.category_dim = kwargs.get("category_dim", 100)
             self.category_embedding = nn.Embedding(num_embeddings=len(category2id) + 1, embedding_dim=self.category_dim)
             self.subvert_embedding = nn.Embedding(num_embeddings=len(subvert2id) + 1, embedding_dim=self.category_dim)
-            self.reshape_tensors.extend([
-                "candidate_category", "candidate_subvert", "history_category", "history_subvert"
-            ])
+        for feature in self.news_info:
+            if feature == "use_all":
+                self.reshape_tensors.extend(["candidate", "candidate_mask", "history", "history_mask"])
+            else:
+                self.reshape_tensors.extend([f"candidate_{feature}", f"history_{feature}"])
         # initialize model components
         self.embedding_layer = NewsEmbedding(**kwargs)
         self.embedding_dim = self.embedding_layer.embed_dim
@@ -63,8 +75,14 @@ class MindNRSBase(BaseModel):
         return pred
 
     def organize_feat(self, input_feat, **kwargs):
+        """Fetch features from reshaped input_feat and pass them to the news encoder"""
         run_name = kwargs.get("run_name")
-        feat = {"news": input_feat[run_name], "news_mask": input_feat[f"{run_name}_mask"]}
+        feat = {}
+        for feature in self.news_info:
+            if feature == "use_all":
+                feat.update({"news": input_feat[run_name], "news_mask": input_feat[f"{run_name}_mask"]})
+            else:
+                feat[feature] = input_feat[f"{run_name}_{feature}"]
         if self.use_uid:
             news_num = int(feat["news"].shape[0] / input_feat["uid"].shape[0])
             feat["uid"] = input_feat["uid"].unsqueeze(1).expand((-1, news_num)).reshape(-1)
