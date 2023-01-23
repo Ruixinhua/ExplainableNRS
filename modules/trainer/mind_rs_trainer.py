@@ -1,4 +1,5 @@
 import math
+import os
 from collections import defaultdict
 from pathlib import Path
 
@@ -99,7 +100,7 @@ class MindRSTrainer(NCTrainer):
                     news_embeds = None
             except KeyError or RuntimeError:  # slow evaluation: re-calculate news embeddings every time
                 news_embeds = None
-            imp_set = ImpressionDataset(valid_set, news_embeds)
+            imp_set = ImpressionDataset(valid_set, news_embeds, selected_imp=self.config.get("selected_imp", None))
             valid_loader = DataLoader(imp_set, impression_bs, collate_fn=self.mind_loader.fn)
             valid_loader = self.accelerator.prepare_data_loader(valid_loader)
             for vi, batch_dict in tqdm(enumerate(valid_loader), total=len(valid_loader), desc="Impressions-Validation"):
@@ -138,7 +139,9 @@ class MindRSTrainer(NCTrainer):
                 self.accelerator.wait_for_everyone()
                 # self.logger.info(f"validation time: {time.time() - start}")
         if return_weight and self.accelerator.is_main_process:
-            torch.save(dict(weight_dict), Path(self.config["model_dir"], "weight", f"{self.config.get('head_num')}.pt"))
+            weight_dir = Path(self.config["model_dir"], "weight")
+            os.makedirs(weight_dir, exist_ok=True)
+            torch.save(dict(weight_dict), weight_dir / f"{self.config.get('head_num')}.pt")
         return eval_result
 
     def evaluate(self, dataset, model, epoch=0, prefix="val"):

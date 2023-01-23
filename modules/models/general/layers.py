@@ -32,7 +32,7 @@ class AttLayer(nn.Module):
         self.attention = nn.Sequential(
             nn.Linear(word_emb_dim, attention_hidden_dim, bias=True),
             nn.Tanh(),
-            nn.Linear(attention_hidden_dim, 1, bias=False),
+            nn.Linear(attention_hidden_dim, 1, bias=True),
             nn.Softmax(dim=-2)
         )
 

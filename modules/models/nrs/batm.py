@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn.utils.rnn import pack_padded_sequence
 
 from modules.models.general import TopicLayer, AttLayer
 from modules.models.nrs.rs_base import MindNRSBase
@@ -48,8 +49,12 @@ class BATMRSModel(MindNRSBase):
     def user_encoder(self, input_feat):
         history_news = input_feat["history_news"]
         if self.user_encoder_name == "gru":
-            y = self.user_encode_layer(history_news)[0]
-            user_vector, user_weight = self.user_att_layer(y)  # additive attention layer
+            history_length = input_feat["history_length"].cpu()
+            packed_y = pack_padded_sequence(history_news, history_length, batch_first=True, enforce_sorted=False)
+            user_vector = self.user_encode_layer(packed_y)[1].squeeze(dim=0)
+            user_weight = None
+            # y = self.user_encode_layer(history_news)[0]
+            # user_vector, user_weight = self.user_att_layer(y)  # additive attention layer
         elif self.user_encoder_name == "batm":
             user_weight = self.user_encode_layer(history_news).transpose(1, 2)
             # mask = input_feat["news_mask"].expand(self.head_num, y.size(0), -1).transpose(0, 1) == 0

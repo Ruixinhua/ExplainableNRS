@@ -196,9 +196,12 @@ class NewsDataset(Dataset):
 
 
 class ImpressionDataset(Dataset):
-    def __init__(self, dataset: MindRSDataset, news_embeds=None):
+    def __init__(self, dataset: MindRSDataset, news_embeds=None, selected_imp=None):
         self.dataset = dataset
         self.behaviors = dataset.behaviors
+        if selected_imp:
+            indices = [self.behaviors["impression_index"].index(i) for i in selected_imp]
+            self.behaviors = {k: v[indices] for k, v in self.behaviors.items()}
         self.news_embeds = news_embeds  # news embeddings (numpy matrix)
 
     def __getitem__(self, index):
