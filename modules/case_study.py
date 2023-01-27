@@ -84,6 +84,7 @@ if __name__ == "__main__":
     show_topic_num = cmd_args.get('show_topic_num', 5)
     show_term_num = cmd_args.get('show_term_num', 5)
     show_candidate_num = cmd_args.get('show_candidate_num', 5)
+    show_history_num = cmd_args.get('show_history_num', 5)
     top_percent = cmd_args.get('top_percent', 0.1)
     correct_only = cmd_args.get('correct_only', True)
     out_name = cmd_args.get('out_name', f"TN{str(topic_num)}")
@@ -93,11 +94,16 @@ if __name__ == "__main__":
     weight_dir = saved_dir / "models" / "MIND15" / "RS_BATM_base_att_small_base_tanh_hd30_20221107-223130" / "weight"
     weight_dir = Path(cmd_args.get('weight_dir', weight_dir))
     weight_dict = torch.load(weight_dir / f"{topic_num}.pt")
+    impression_index = weight_dict["impression_index"]
+    selected_index = cmd_args.get("selected_imp", None)
+    if selected_index:
+        indices = [impression_index.index(i) for i in selected_index]
+        weight_dict = {k: [v[i] for i in indices] for k, v in weight_dict.items()}
     pp_word_dct = read_json(project_root / "dataset/utils/word_dict/post_process/PP100.json")
     default_topic_file = Path(saved_dir, "models", "MIND15", "RS_BATM_base_att_small_base_tanh_hd30_20221107-223130",
                               "topics", "topics_4_300_unsorted", "PP100_c_npmi_0.1392.txt")
     # r"
-    topics_file = cmd_args.get("topics_file", default_topic_file)
+    topics_file = cmd_args.get("topic_file", default_topic_file)
     with open(topics_file) as reader:  # load unsorted topics
         topic_list = [next(reader).split(":") for _ in range(int(topic_num))]
         topic_terms_list = [topics[1].split() for topics in topic_list]
@@ -132,12 +138,12 @@ if __name__ == "__main__":
     history_header = table_header + ["<b>W(User-News)</b>"]
     candidate_header = table_header + ["<b>Clicked</b>", "<b>Rank</b>"]
     correct_indices = [index for index, result in enumerate(weight_dict["results"]) if result["group_auc"] >= 1]
-    all_indices = [index for index, result in enumerate(weight_dict["results"]) if 0.8 < result["group_auc"] <= 1]
+    all_indices = [index for index, result in enumerate(weight_dict["results"])]
     indices = correct_indices if correct_only else all_indices
     for num, i in enumerate(indices):
         pred_score = np.exp(weight_dict["pred_score"][i]) / sum(np.exp(weight_dict["pred_score"][i]))
         history_case = []
-        history_index_sorted = get_topn(weight_dict["user_weight"][i], 5)
+        history_index_sorted = get_topn(weight_dict["user_weight"][i], show_history_num)
         involved_topics = []
         involved_topic_dict = {}
         topic_stat = {}
@@ -227,9 +233,10 @@ if __name__ == "__main__":
                 text-align: left;
             }
         """
+        group_auc = round(weight_dict["results"][i]["group_auc"], 2)
         html_string = f'''
         <html>
-          <head><title>HTML Pandas Dataframe with CSS</title></head>
+          <head><title>TN{str(topic_num)}-{category}{impression_index}-{group_auc}</title></head>
 
             <style>
             /* includes alternating gray and white with on-hover color */
@@ -248,7 +255,6 @@ if __name__ == "__main__":
         output_dir = saved_dir / f"case_study/{out_name}"
         os.makedirs(output_dir, exist_ok=True)
         # OUTPUT AN HTML FILE
-        group_auc = round(weight_dict["results"][i]["group_auc"], 2)
         impression_index = weight_dict["impression_index"][i]
         with open(output_dir / f'TN{str(topic_num)}-{category}{impression_index}-{group_auc}.html', 'w') as f:
             f.write(html_string)

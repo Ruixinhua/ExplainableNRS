@@ -39,13 +39,14 @@ def convert_config_dict(config_dict):
     r"""This function convert the str parameters to their original type.
 
     """
+    check_set = (str, int, float, list, tuple, dict, bool, Enum)
     for key in config_dict:
         param = config_dict[key]
         if not isinstance(param, str):
             continue
         try:
             value = eval(param)  # convert str to int, float, list, tuple, dict, bool. use ',' to split integer values
-            if value is not None and not isinstance(value, (str, int, float, list, tuple, dict, bool, Enum)):
+            if value is not None and not isinstance(value, check_set):
                 value = param
         except (NameError, SyntaxError, TypeError):
             if isinstance(param, str):
@@ -54,7 +55,18 @@ def convert_config_dict(config_dict):
                 elif param.lower() == "false":
                     value = False
                 else:
-                    value = param.split(",") if "," in param else param  # split by ',' if it is a string
+                    if "," in param:  # split by ',' if it is a string
+                        value = []
+                        for v in param.split(","):
+                            if len(v) == 0:
+                                continue
+                            try:
+                                v = eval(v)
+                            except (NameError, SyntaxError, TypeError):
+                                v = v
+                            value.append(v)
+                    else:
+                        value = param
             else:
                 value = param
         config_dict[key] = value

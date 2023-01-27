@@ -55,8 +55,8 @@ class MindRSTrainer(NCTrainer):
             batch_dict = load_batch_data(batch_dict, self.device)
             # setup model and train model
             self.optimizer.zero_grad()
-            output = self.model(batch_dict)["pred"]
-            loss = self.criterion(output, batch_dict["label"])
+            output = self.model(batch_dict)
+            loss = self.criterion(output["pred"], batch_dict["label"])
             if self.entropy_constraint:
                 loss += self.alpha * output["entropy"]
             self.accelerator.backward(loss)
@@ -74,7 +74,7 @@ class MindRSTrainer(NCTrainer):
             self.lr_scheduler.step()
         return self._validation(epoch, length, False)
 
-    def _valid_epoch(self, model=None, valid_set=None, extra_str=None):
+    def _valid_epoch(self, model=None, valid_set=None, extra_str=None, prefix="val"):
         """
         Validate after training an epoch
         :return: A log that contains information about validation
@@ -141,13 +141,19 @@ class MindRSTrainer(NCTrainer):
         if return_weight and self.accelerator.is_main_process:
             weight_dir = Path(self.config["model_dir"], "weight")
             os.makedirs(weight_dir, exist_ok=True)
-            torch.save(dict(weight_dict), weight_dir / f"{self.config.get('head_num')}.pt")
+            weight_path = weight_dir / f"{self.config.get('head_num')}.pt"
+            if weight_path.exists():
+                old_weights = torch.load(weight_path)
+                for key in weight_dict.keys():
+                    weight_dict[key].extend(old_weights[key])
+            torch.save(dict(weight_dict), weight_path)
+            self.logger.info(f"Saved weight to {weight_path}")
         return eval_result
 
     def evaluate(self, dataset, model, epoch=0, prefix="val"):
         """call this method after training"""
         model.eval()
-        log = self._valid_epoch(model, dataset)
+        log = self._valid_epoch(model, dataset, prefix=prefix)
         for name, p in model.named_parameters():  # add histogram of model parameters to the tensorboard
             self.writer.add_histogram(name, p, bins="auto")
         return {f"{prefix}_{k}": v for k, v in log.items()}  # return log with prefix

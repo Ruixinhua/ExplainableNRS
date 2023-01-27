@@ -200,8 +200,10 @@ class ImpressionDataset(Dataset):
         self.dataset = dataset
         self.behaviors = dataset.behaviors
         if selected_imp:
-            indices = [self.behaviors["impression_index"].index(i) for i in selected_imp]
-            self.behaviors = {k: v[indices] for k, v in self.behaviors.items()}
+            imp_indices = self.behaviors["impression_index"]
+            indices = [imp_indices.index(int(i)) for i in selected_imp if i in imp_indices]
+            self.behaviors = {k: [v[i] for i in indices] for k, v in self.behaviors.items()}
+            print(self.behaviors)
         self.news_embeds = news_embeds  # news embeddings (numpy matrix)
 
     def __getitem__(self, index):

@@ -13,6 +13,7 @@ class MindNRSBase(BaseModel):
         self.__dict__.update(kwargs)
         self.attention_hidden_dim = kwargs.get("attention_hidden_dim", 200)
         self.return_weight = kwargs.get("return_weight", False)
+        self.entropy_constraint = kwargs.get("entropy_constraint", False)
         self.use_uid = kwargs.get("use_uid", False)
         self.reshape_tensors = []
         self.use_category = kwargs.get("use_category", False)
@@ -97,12 +98,18 @@ class MindNRSBase(BaseModel):
         batch_size = kwargs.get("batch_size", input_feat["label"].size(0))
         news_shape = kwargs.get("news_shape", (batch_size, -1, news_dict["news_embed"].size(-1)))
         input_feat[f"{run_name}_news"] = reshape_tensor(news_dict["news_embed"], output_shape=news_shape)
+        if "topic_weight" in news_dict:
+            shape = (batch_size, -1, news_dict["topic_weight"].size(-2), news_dict["topic_weight"].size(-1))
+            news_dict["topic_weight"] = reshape_tensor(news_dict["topic_weight"], output_shape=shape)
         if self.return_weight:
             weight_shape = kwargs.get("weight_shape", (batch_size, -1, news_dict["news_weight"].size(1)))
             input_feat[f"{run_name}_weight"] = reshape_tensor(news_dict["news_weight"], output_shape=weight_shape)
             if "topic_weight" in news_dict:
-                shape = (batch_size, -1, news_dict["topic_weight"].size(-2), news_dict["topic_weight"].size(-1))
-                input_feat[f"{run_name}_topic_weight"] = reshape_tensor(news_dict["topic_weight"], output_shape=shape)
+                input_feat[f"{run_name}_topic_weight"] = news_dict["topic_weight"]
+        if self.entropy_constraint:
+            topic_weight = news_dict["topic_weight"]
+            entropy_sum = torch.sum(-topic_weight * torch.log(1e-4 + topic_weight)).squeeze() / self.head_num
+            input_feat["entropy"] = entropy_sum if "entropy" not in input_feat else input_feat["entropy"] + entropy_sum
         return input_feat, news_dict
 
     def acquire_news_dict(self, input_feat):
@@ -137,4 +144,6 @@ class MindNRSBase(BaseModel):
             for name, values in input_feat.items():
                 if name.endswith("_weight"):
                     out_dict[name] = values
+        if self.entropy_constraint:
+            out_dict["entropy"] = input_feat["entropy"]
         return out_dict

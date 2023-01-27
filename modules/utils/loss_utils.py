@@ -23,6 +23,10 @@ def categorical_loss(predict, target, epsilon=1e-12):
     return -torch.sum(target * torch.log(predict + 1e-9)) / predict.shape[0]
 
 
+def kl_divergence(predict, target):
+    return F.kl_div(predict, target)
+
+
 def bce_loss(predict, target, smooth_lambda=10):
     predict, target = predict.float(), target.float()
     return nn.BCELoss()(nn.Softmax(dim=-1)(smooth_lambda * predict), target)
