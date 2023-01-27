@@ -90,10 +90,11 @@ class MindRSTrainer(NCTrainer):
         model.eval()
         weight_dict = defaultdict(lambda: [])
         return_weight = self.config.get("return_weight", False)
+        entropy_constraint = self.config.get("entropy_constraint", False)
         saved_weight_num = self.config.get("saved_weight_num", 250)
         with torch.no_grad():
             try:  # try to do fast evaluation: cache news embeddings
-                if valid_method == "fast_evaluation" and not return_weight:
+                if valid_method == "fast_evaluation" and not return_weight and not entropy_constraint:
                     news_loader = self.mind_loader.news_loader
                     news_embeds = get_news_embeds(model, news_loader, device=self.device, accelerator=self.accelerator)
                 else:

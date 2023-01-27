@@ -110,23 +110,20 @@ class MindNRSBase(BaseModel):
             topic_weight = news_dict["topic_weight"]
             entropy_sum = torch.sum(-topic_weight * torch.log(1e-4 + topic_weight)).squeeze() / self.head_num
             input_feat["entropy"] = entropy_sum if "entropy" not in input_feat else input_feat["entropy"] + entropy_sum
-        return input_feat, news_dict
+        return input_feat
 
     def acquire_news_dict(self, input_feat):
         for tensor_name in self.reshape_tensors:
             if tensor_name in input_feat:
                 input_feat[tensor_name] = reshape_tensor(input_feat[tensor_name])
-        news_dict = []
-        if "candidate_news" not in input_feat or self.return_weight:  # pass news embeddings cache or return weight
-            input_feat, candidate_dict = self.run_news_encoder(input_feat, "candidate")
+        if "candidate_news" not in input_feat or self.return_weight or self.entropy_constraint:
+            # pass news embeddings cache or return weight
+            input_feat = self.run_news_encoder(input_feat, "candidate")
             # output candidate news embedding shape: [N, C, E], C is the number of candidate news
-            news_dict.append(candidate_dict)
-        if "history_news" not in input_feat or self.return_weight:  # no cache found
-            input_feat, history_dict = self.run_news_encoder(input_feat, "history")
+        if "history_news" not in input_feat or self.return_weight or self.entropy_constraint:  # no cache found
+            input_feat = self.run_news_encoder(input_feat, "history")
             # output history news embedding shape: [N, H, E], H is the number of history news
-            news_dict.append(history_dict)
-        news_dict.append(input_feat)
-        return news_dict
+        return input_feat
 
     def forward(self, input_feat):
         """
@@ -134,8 +131,7 @@ class MindNRSBase(BaseModel):
         :param input_feat: should include two keys, candidate and history
         :return: prediction result in softmax possibility
         """
-        news_dict = self.acquire_news_dict(input_feat)
-        input_feat = news_dict[-1]
+        input_feat = self.acquire_news_dict(input_feat)
         user_dict = self.user_encoder(input_feat)
         input_feat["user_embed"] = user_dict["user_embed"]
         out_dict = {"pred": self.predict(input_feat)}
