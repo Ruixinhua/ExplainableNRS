@@ -35,16 +35,21 @@ class BATMRSModel(MindNRSBase):
         if self.news_encoder_name == "multi_view":
             title = self.dropouts(self.embedding_layer(news=input_feat["title"], news_mask=input_feat["title_mask"]))
             body = self.dropouts(self.embedding_layer(news=input_feat["body"], news_mask=input_feat["body_mask"]))
-            title_vector, title_topics = self.topic_layer(news_embeddings=title, news_mask=input_feat["title_mask"])
-            body_vector, body_topics = self.topic_layer(news_embeddings=body, news_mask=input_feat["body_mask"])
-            topic_weight = torch.cat([title_topics, body_topics], dim=-1)
-            topic_vector, news_weight = self.topic_att(torch.cat([title_vector, body_vector], dim=-1))
+            title_topics = self.topic_layer(news_embeddings=title, news_mask=input_feat["title_mask"])
+            topic_dict = self.topic_layer(news_embeddings=body, news_mask=input_feat["body_mask"])
+            topic_weight = torch.cat([title_topics["topic_weight"], topic_dict["topic_weight"]], dim=-1)
+            all_vec = torch.cat([title_topics["topic_vec"], topic_dict["topic_vec"]], dim=-1)
+            topic_vector, news_weight = self.topic_att(all_vec)
             news_vector = F.relu(self.topic_affine(topic_vector), inplace=True)
         else:
-            topic_vector, topic_weight = self.extract_topic(input_feat)
+            topic_dict = self.extract_topic(input_feat)
+            topic_weight = topic_dict["topic_weight"]
             # add activation function
-            news_vector, news_weight = self.news_att_layer(self.dropouts(topic_vector))
-        return {"news_embed": news_vector, "news_weight": news_weight.squeeze(-1), "topic_weight": topic_weight}
+            news_vector, news_weight = self.news_att_layer(self.dropouts(topic_dict["topic_vec"]))
+        out_dict = {"news_embed": news_vector, "news_weight": news_weight.squeeze(-1), "topic_weight": topic_weight}
+        if self.topic_variant == "variational_topic":
+            out_dict["kl_divergence"] = topic_dict["kl_divergence"]
+        return out_dict
 
     def user_encoder(self, input_feat):
         history_news = input_feat["history_news"]

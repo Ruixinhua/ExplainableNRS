@@ -21,8 +21,9 @@ class BiAttentionClassifyModel(BaseClassifyModel):
 
     def forward(self, input_feat, inputs_embeds=None, return_attention=False, **kwargs):
         input_feat["embedding"] = input_feat.get("embedding", inputs_embeds)
-        topic_vec, topic_weight = self.extract_topic(input_feat)
-        doc_embedding, doc_topic = self.projection(topic_vec)  # (N, E), (N, H)
+        topic_dict = self.extract_topic(input_feat)
+        topic_weight = topic_dict["topic_weight"]
+        doc_embedding, doc_topic = self.projection(topic_dict["topic_vec"])  # (N, E), (N, H)
         output = self.classify_layer(doc_embedding, topic_weight, return_attention=return_attention)
         if self.entropy_constraint or self.calculate_entropy:
             entropy_sum = torch.sum(-topic_weight * torch.log(1e-4 + topic_weight)).squeeze() / self.head_num

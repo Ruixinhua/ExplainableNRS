@@ -1,5 +1,3 @@
-from typing import Dict
-
 import torch
 import numpy as np
 from torch import nn
@@ -46,6 +44,11 @@ class TopicLayer(nn.Module):
                 self.token_weight = nn.Linear(self.head_dim * self.head_num, self.head_num)
             else:
                 self.token_weight = nn.Linear(self.head_dim, 1)
+        elif self.variant_name == "variational_topic":
+            self.topic_layer = nn.Sequential(nn.Linear(self.embedding_dim, self.hidden_dim), self.act_layer,
+                                             nn.Linear(self.hidden_dim, self.hidden_dim), self.act_layer)
+            self.mu_q_theta = nn.Linear(self.hidden_dim, self.head_num, bias=True)
+            self.logsigma_q_theta = nn.Linear(self.hidden_dim, self.head_num, bias=True)
         else:
             raise ValueError("Specify correct variant name!")
 
@@ -61,11 +64,12 @@ class TopicLayer(nn.Module):
         topic_weight = torch.softmax(topic_weight, dim=-1)  # (N, H, S)
         return topic_weight
 
-    def forward(self, news_embeddings, news_mask, **kwargs) -> (torch.Tensor, torch.Tensor):
+    def forward(self, news_embeddings, news_mask, **kwargs):
         """
         Topic forward pass, return topic vector and topic weights
         """
         mask = news_mask.expand(self.head_num, news_embeddings.size(0), -1).transpose(0, 1) == 0
+        out_dict = {}
         if self.variant_name == "topic_embed":
             topic_weight = self.topic_layer(kwargs.get("news")).transpose(1, 2)  # (N, H, S)
         elif self.variant_name == "MHA":
@@ -77,6 +81,20 @@ class TopicLayer(nn.Module):
             topic_weight = embeds_trans @ topic_vector  # (N, S, H)
             topic_weight = topic_weight.transpose(1, 2)  # (N, H, S)
             topic_weight = torch.softmax(topic_weight.masked_fill(mask, -1e4), dim=-1).masked_fill(mask, 0)
+        elif self.variant_name == "variational_topic":
+            topic_vector = self.topic_layer(news_embeddings)
+            mu_q_theta = self.mu_q_theta(topic_vector)
+            log_q_theta = self.logsigma_q_theta(topic_vector)
+            kl_divergence = -0.5 * torch.sum(1 + log_q_theta - mu_q_theta.pow(2) - log_q_theta.exp(), dim=-1).mean()
+            out_dict["kl_divergence"] = kl_divergence
+            if self.training:
+                std = torch.exp(0.5 * log_q_theta)
+                eps = torch.randn_like(std)
+                topic_weight = eps.mul_(std).add_(mu_q_theta)
+            else:
+                topic_weight = mu_q_theta
+            topic_weight = topic_weight.transpose(1, 2)
+            topic_weight = torch.softmax(topic_weight.masked_fill(mask, -1e4), dim=-1).masked_fill(mask, 0)
         else:
             topic_weight = self.topic_layer(news_embeddings).transpose(1, 2)  # (N, H, S)
             # expand mask to the same size as topic weights
@@ -85,4 +103,5 @@ class TopicLayer(nn.Module):
             # topic_weight = torch.softmax(topic_weight, dim=1).masked_fill(mask, 0)  # external attention
             # topic_weight = topic_weight / torch.sum(topic_weight, dim=-1, keepdim=True)
         topic_vec = self.final(torch.matmul(topic_weight, news_embeddings))  # (N, H, E)
-        return topic_vec, topic_weight
+        out_dict.update({"topic_vec": topic_vec, "topic_weight": topic_weight})
+        return out_dict

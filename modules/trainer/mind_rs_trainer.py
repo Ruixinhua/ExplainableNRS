@@ -59,6 +59,8 @@ class MindRSTrainer(NCTrainer):
             loss = self.criterion(output["pred"], batch_dict["label"])
             if self.entropy_constraint:
                 loss += self.alpha * output["entropy"]
+            if self.config.topic_variant == "variational_topic":
+                loss += self.beta * output["kl_divergence"]
             self.accelerator.backward(loss)
             self.optimizer.step()
             # record loss

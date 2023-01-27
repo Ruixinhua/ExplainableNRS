@@ -14,6 +14,7 @@ class MindNRSBase(BaseModel):
         self.attention_hidden_dim = kwargs.get("attention_hidden_dim", 200)
         self.return_weight = kwargs.get("return_weight", False)
         self.entropy_constraint = kwargs.get("entropy_constraint", False)
+        self.topic_variant = kwargs.get("topic_variant", "base")
         self.use_uid = kwargs.get("use_uid", False)
         self.reshape_tensors = []
         self.use_category = kwargs.get("use_category", False)
@@ -110,6 +111,11 @@ class MindNRSBase(BaseModel):
             topic_weight = news_dict["topic_weight"]
             entropy_sum = torch.sum(-topic_weight * torch.log(1e-4 + topic_weight)).squeeze() / self.head_num
             input_feat["entropy"] = entropy_sum if "entropy" not in input_feat else input_feat["entropy"] + entropy_sum
+        if self.topic_variant == "variational_topic":
+            if "kl_divergence" not in input_feat:
+                input_feat["kl_divergence"] = news_dict["kl_divergence"]
+            else:
+                input_feat["kl_divergence"] += news_dict["kl_divergence"]
         return input_feat
 
     def acquire_news_dict(self, input_feat):
@@ -142,4 +148,6 @@ class MindNRSBase(BaseModel):
                     out_dict[name] = values
         if self.entropy_constraint:
             out_dict["entropy"] = input_feat["entropy"]
+        if self.topic_variant == "variational_topic":
+            out_dict["kl_divergence"] = input_feat["kl_divergence"]
         return out_dict
