@@ -105,7 +105,8 @@ def extract_topics_base(model, word_seq, device):
     with torch.no_grad():
         word_feat = {"news": torch.tensor(word_seq).unsqueeze(0).to(device),
                      "news_mask": torch.ones(len(word_seq)).unsqueeze(0).to(device)}
-        _, topic_weight = model.extract_topic(word_feat)  # (B, H, N)
+        topic_dict = model.extract_topic(word_feat)  # (B, H, N)
+        topic_weight = topic_dict["topic_weight"]
         topic_dist[:, word_seq] = topic_weight.squeeze().cpu().data
     return topic_dist
 
@@ -125,7 +126,8 @@ def extract_topics_mha(model: torch.nn.Module, data_loader, device):
             news_nonzero = np.nonzero(news_index)  # calculate nonzero values
             news = news_index[news_nonzero]
             batch_dict = {k: v.to(device) for k, v in batch_dict.items()}
-            _, weights = model.extract_topic(batch_dict)
+            topic_dict = model.extract_topic(batch_dict)  # (B, H, N)
+            weights = topic_dict["topic_weight"]
             weights = torch.transpose(weights, 1, 2).cpu().numpy()[news_nonzero]
             for index, weight in zip(news, weights):
                 topic_dist[:, index] += weight
