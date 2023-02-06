@@ -25,6 +25,7 @@ class MindRSTrainer(NCTrainer):
         super().__init__(model, config, data_loader, **kwargs)
         self.valid_interval = config.get("valid_interval", 0.1)
         self.fast_evaluation = config.get("fast_evaluation", True)
+        self.topic_variant = config.get("topic_variant", "base")
         self.train_strategy = config.get("train_strategy", "pair_wise")
         self.mind_loader = data_loader
         self.behaviors = data_loader.valid_set.behaviors
@@ -57,17 +58,20 @@ class MindRSTrainer(NCTrainer):
             self.optimizer.zero_grad()
             output = self.model(batch_dict)
             loss = self.criterion(output["pred"], batch_dict["label"])
+            bar_description = f"Train Epoch: {epoch} Loss: {loss.item()}"
             if self.entropy_constraint:
                 loss += self.alpha * output["entropy"]
-            if self.config.topic_variant == "variational_topic":
-                loss += self.beta * output["kl_divergence"]
+                bar_description += f" Entropy loss: {self.alpha * output['entropy'].item()}"
+            if self.topic_variant == "variational_topic":
+                # loss += self.beta * output["kl_divergence"]
+                bar_description += f" KL divergence: {output['kl_divergence'].item()}"
             self.accelerator.backward(loss)
             self.optimizer.step()
             # record loss
             self.writer.set_step((epoch - 1) * self.len_epoch + batch_idx)
             self.train_metrics.update("loss", loss.item())
             if batch_idx % self.log_step == 0:
-                bar.set_description(f"Train Epoch: {epoch} Loss: {loss.item()}")
+                bar.set_description(bar_description)
             if batch_idx == self.len_epoch:
                 break
             if (batch_idx + 1) % math.ceil(length * self.valid_interval) == 0 and (batch_idx + 1) < length:
@@ -91,12 +95,14 @@ class MindRSTrainer(NCTrainer):
         valid_set = self.mind_loader.valid_set if valid_set is None else valid_set
         model.eval()
         weight_dict = defaultdict(lambda: [])
+        topic_variant = self.config.get("topic_variant", "base")
         return_weight = self.config.get("return_weight", False)
         entropy_constraint = self.config.get("entropy_constraint", False)
         saved_weight_num = self.config.get("saved_weight_num", 250)
         with torch.no_grad():
             try:  # try to do fast evaluation: cache news embeddings
-                if valid_method == "fast_evaluation" and not return_weight and not entropy_constraint:
+                if valid_method == "fast_evaluation" and not return_weight and not entropy_constraint and \
+                        not topic_variant == "variational_topic":
                     news_loader = self.mind_loader.news_loader
                     news_embeds = get_news_embeds(model, news_loader, device=self.device, accelerator=self.accelerator)
                 else:

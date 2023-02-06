@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import torch.distributed
 from pathlib import Path
+from scipy.stats import entropy
 from modules.base.base_trainer import BaseTrainer
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
@@ -140,7 +141,7 @@ class NCTrainer(BaseTrainer):
         top_n, methods = self.config.get("top_n", 10), self.config.get("coherence_method", "c_npmi")
         post_word_dict_dir = self.config.get("post_word_dict_dir", None)
         topic_dists = {"original": topic_dist}
-        if post_word_dict_dir is not None:
+        if post_word_dict_dir is not None and os.path.exists(post_word_dict_dir):
             for path in os.scandir(post_word_dict_dir):
                 if not path.name.endswith(".json"):
                     continue
@@ -149,16 +150,18 @@ class NCTrainer(BaseTrainer):
                 topic_dist_copy = copy.deepcopy(topic_dist)  # copy original topical distribution
                 topic_dist_copy[:, removed_index] = 0  # set removed terms to 0
                 topic_dists[path.name.replace(".json", "")] = topic_dist_copy
-        topic_result, topic_scores = {}, {}
+        topic_result = {}
         if torch.distributed.is_initialized():
             model = model.module
         for key, dist in topic_dists.items():  # calculate topic quality for different Post processing methods
+            topic_scores = {}
             topic_list = get_topic_list(dist, top_n, reverse_dict)  # convert to tokens list
             ref_data_path = self.config.get("ref_data_path", Path(get_project_root()) / "dataset/data/MIND15.csv")
             if "fast_eval" in topic_evaluation_method:
                 ref_texts = load_sparse(ref_data_path)
                 scorer = NPMI((ref_texts > 0).astype(int))
                 topic_index = [[word_dict[word] - 1 for word in topic] for topic in topic_list]
+                # convert to index list: minus 1 because the index starts from 0 (0 is for padding)
                 topic_scores[f"{key}_c_npmi"] = scorer.compute_npmi(topics=topic_index, n=top_n)
             if "slow_eval" in topic_evaluation_method:
                 dataset_name = self.config.get("dataset_name", "MIND15")
@@ -177,14 +180,19 @@ class NCTrainer(BaseTrainer):
             if self.accelerator.is_main_process:  # save topic info
                 os.makedirs(topics_dir, exist_ok=True)
                 write_to_file(os.path.join(topics_dir, "topic_list.txt"), [" ".join(topics) for topics in topic_list])
+                entropy_scores = np.array(entropy(dist, axis=1))
                 for method, scores in topic_scores.items():
                     topic_file = os.path.join(topics_dir, f"{method}_{topic_result[method]}.txt")
                     coherence_file = os.path.join(coherence_dir, f"{method}_{topic_result[method]}.txt")
-                    scores_list = zip(scores, topic_list)
+                    entropy_file = os.path.join(topics_dir, f"{method}_{topic_result[method]}_entropy.txt")
+                    scores_list = zip(scores, topic_list, entropy_scores, range(len(scores)))
                     if sort_score:  # sort topics by scores
-                        scores_list = sorted(zip(scores, topic_list), reverse=True, key=lambda x: x[0])
-                    for score, topics in scores_list:
+                        scores_list = sorted(scores_list, reverse=True, key=lambda x: x[0])
+                    for score, topics, es, i in scores_list:
+                        word_weights = [f"{word}({round(dist[i, word_dict[word]], 5)})" for word in topics]
+                        entropy_str = f"{np.round(score, 4)}({np.round(es, 4)}): {' '.join(word_weights)}\n"
                         write_to_file(topic_file, f"{np.round(score, 4)}: {' '.join(topics)}\n", "a+")
+                        write_to_file(entropy_file, entropy_str, "a+")
                         write_to_file(coherence_file, f"{np.round(score, 4)}\n", "a+")
                     write_to_file(topic_file, f"Average score: {topic_result[method]}\n", "a+")
         if not len(topic_result):

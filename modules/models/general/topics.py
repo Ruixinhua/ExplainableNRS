@@ -45,10 +45,10 @@ class TopicLayer(nn.Module):
             else:
                 self.token_weight = nn.Linear(self.head_dim, 1)
         elif self.variant_name == "variational_topic":
-            self.topic_layer = nn.Sequential(nn.Linear(self.embedding_dim, self.hidden_dim), self.act_layer,
-                                             nn.Linear(self.hidden_dim, self.hidden_dim), self.act_layer)
-            self.mu_q_theta = nn.Linear(self.hidden_dim, self.head_num, bias=True)
-            self.logsigma_q_theta = nn.Linear(self.hidden_dim, self.head_num, bias=True)
+            self.topic_layer = nn.Sequential(nn.Linear(self.embedding_dim, topic_dim, bias=True), self.act_layer,
+                                             nn.Linear(topic_dim, self.head_num, bias=True))
+            self.logsigma_q_theta = nn.Sequential(nn.Linear(self.embedding_dim, topic_dim, bias=True), self.act_layer,
+                                                  nn.Linear(topic_dim, self.head_num, bias=True))
         else:
             raise ValueError("Specify correct variant name!")
 
@@ -82,17 +82,14 @@ class TopicLayer(nn.Module):
             topic_weight = topic_weight.transpose(1, 2)  # (N, H, S)
             topic_weight = torch.softmax(topic_weight.masked_fill(mask, -1e4), dim=-1).masked_fill(mask, 0)
         elif self.variant_name == "variational_topic":
-            topic_vector = self.topic_layer(news_embeddings)
-            mu_q_theta = self.mu_q_theta(topic_vector)
-            log_q_theta = self.logsigma_q_theta(topic_vector)
-            kl_divergence = -0.5 * torch.sum(1 + log_q_theta - mu_q_theta.pow(2) - log_q_theta.exp(), dim=-1).mean()
+            topic_weight = self.topic_layer(news_embeddings)
+            log_q_theta = self.logsigma_q_theta(news_embeddings)
+            kl_divergence = -0.5 * torch.sum(1 + log_q_theta - topic_weight.pow(2) - log_q_theta.exp(), dim=-1).mean()
             out_dict["kl_divergence"] = kl_divergence
-            if self.training:
+            if self.training:  # reparameterization topic weight in training
                 std = torch.exp(0.5 * log_q_theta)
                 eps = torch.randn_like(std)
-                topic_weight = eps.mul_(std).add_(mu_q_theta)
-            else:
-                topic_weight = mu_q_theta
+                topic_weight = eps.mul_(std).add_(topic_weight)
             topic_weight = topic_weight.transpose(1, 2)
             topic_weight = torch.softmax(topic_weight.masked_fill(mask, -1e4), dim=-1).masked_fill(mask, 0)
         else:
