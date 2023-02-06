@@ -6,17 +6,22 @@ from datetime import datetime
 from pathlib import Path
 from itertools import product
 
+from accelerate import Accelerator
+
 from modules.config.configuration import Configuration
 from modules.config.default_config import TEST_CONFIGS
 from modules.config.config_utils import set_seed, load_cmd_line
 from modules.experiment.quick_run import run
-from modules.utils import get_project_root, init_data_loader
+from modules.utils import get_project_root, init_data_loader, log_params, log_metrics, set_experiment
 
 
 def evaluate_run():
     start_time = time.time()
-    data_loader = init_data_loader(config)
     set_seed(config["seed"])
+    experiment = set_experiment(config.get("experiment_name", "default"))
+    if Accelerator().is_main_process:
+        log_params(config.final_configs, run_name=config["arch_type"], experiment_id=experiment.experiment_id)
+    data_loader = init_data_loader(config)
     trainer = run(config, data_loader=data_loader)
     trainer.resume_checkpoint()  # load the best model
     log["#Voc"] = len(data_loader.word_dict)
@@ -32,6 +37,7 @@ def evaluate_run():
         log.update(trainer.topic_evaluation(trainer.model, word_dict=data_loader.word_dict))
     log["Total Time"] = time.time() - start_time
     if trainer.accelerator.is_main_process:  # to avoid duplicated writing
+        log_metrics(log, run_name=config["arch_type"], experiment_id=experiment.experiment_id)
         saved_path = saved_dir / saved_name / saved_filename
         os.makedirs(saved_path.parent, exist_ok=True)
         trainer.save_log(log, saved_path=saved_path)
