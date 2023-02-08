@@ -121,8 +121,8 @@ class MindRSTrainer(NCTrainer):
                 his_len = batch_dict["history_length"].cpu().numpy()
                 for i in range(len(label)):
                     index = batch_dict["impression_index"][i].cpu().tolist()  # record impression index
-                    result_dict[index] = {m.__name__: m(label[i][:can_len[i]], pred[i][:can_len[i]])
-                                          for m in self.metric_funcs}
+                    result_dict[index] = {m.__name__: m(label[i][:can_len[i]], pred[i][:can_len[i]]) * 100
+                                          for m in self.metric_funcs}  # convert to percentage
                     if return_weight:
                         saved_items = {
                             "impression_index": index, "results": result_dict[index], "label": label[i][:can_len[i]],

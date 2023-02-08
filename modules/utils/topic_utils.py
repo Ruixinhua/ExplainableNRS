@@ -160,9 +160,9 @@ def get_topic_list(matrix, top_n, reverse_dict):
     return topic_list
 
 
-def compute_coherence(topic_list, texts, method="c_v", top_n=25):
+def compute_coherence(topic_list, texts, **kwargs):
     dictionary = Dictionary(texts)
-    cm = CoherenceModel(topics=topic_list, texts=texts, dictionary=dictionary, coherence=method, topn=top_n)
+    cm = CoherenceModel(topics=topic_list, texts=texts, dictionary=dictionary, **kwargs)
     return cm.get_coherence_per_topic()
 
 

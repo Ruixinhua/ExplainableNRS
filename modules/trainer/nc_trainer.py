@@ -1,6 +1,7 @@
 import copy
 import os
 import numpy as np
+import pandas as pd
 import torch
 import torch.distributed
 from pathlib import Path
@@ -138,7 +139,7 @@ class NCTrainer(BaseTrainer):
         reverse_dict = {v: k for k, v in word_dict.items()}
         topic_dist = get_topic_dist(model, word_dict)
         self.model = self.model.to(self.device)
-        top_n, methods = self.config.get("top_n", 10), self.config.get("coherence_method", "c_npmi")
+        top_n, methods = self.config.get("top_n", 10), self.config.get("coherence_method", ["c_npmi"])
         post_word_dict_dir = self.config.get("post_word_dict_dir", None)
         topic_dists = {"original": topic_dist}
         if post_word_dict_dir is not None and os.path.exists(post_word_dict_dir):
@@ -164,11 +165,16 @@ class NCTrainer(BaseTrainer):
                 # convert to index list: minus 1 because the index starts from 0 (0 is for padding)
                 topic_scores[f"{key}_c_npmi"] = scorer.compute_npmi(topics=topic_index, n=top_n)
             if "slow_eval" in topic_evaluation_method:
-                dataset_name = self.config.get("dataset_name", "MIND15")
                 tokenized_method = self.config.get("tokenized_method", "use_tokenize")
-                ref_df, _ = load_dataset_df(dataset_name, data_path=ref_data_path, tokenized_method=tokenized_method)
-                ref_texts = [word_tokenize(doc, tokenized_method) for doc in ref_df["data"].values]
-                topic_scores.update({f"{key}_{m}": compute_coherence(topic_list, ref_texts, m, top_n) for m in methods})
+                ws = self.config.get("window_size", 100)
+                ps = self.config.get("processes", 35)
+                tokenized_data_path = Path(get_project_root()) / f"dataset/data/MIND_tokenized.csv"
+                ref_df = pd.read_csv(self.config.get("slow_ref_data_path", tokenized_data_path))
+                ref_texts = [word_tokenize(doc, tokenized_method) for doc in ref_df["tokenized_text"].values]
+                topic_scores.update({
+                    f"{key}_{m}": compute_coherence(topic_list, ref_texts, coherence=m, topn=top_n, window_size=ws,
+                                                    processes=ps) for m in methods
+                })
             if "w2v_sim" in topic_evaluation_method:  # compute word embedding similarity of top-10 words for each topic
                 embeddings = model.embedding_layer.embedding.weight.cpu().detach().numpy()
                 # embeddings = load_embeddings(**self.config.final_configs)
@@ -181,6 +187,7 @@ class NCTrainer(BaseTrainer):
                 os.makedirs(topics_dir, exist_ok=True)
                 write_to_file(os.path.join(topics_dir, "topic_list.txt"), [" ".join(topics) for topics in topic_list])
                 entropy_scores = np.array(entropy(dist, axis=1))
+                topic_result[f"{key}_entropy"] = np.round(np.mean(entropy_scores), 4)
                 for method, scores in topic_scores.items():
                     topic_file = os.path.join(topics_dir, f"{method}_{topic_result[method]}.txt")
                     coherence_file = os.path.join(coherence_dir, f"{method}_{topic_result[method]}.txt")
