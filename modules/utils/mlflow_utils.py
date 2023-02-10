@@ -22,8 +22,7 @@ def set_experiment(experiment_name):
 
 
 def get_experiment_id(experiment_name):
-    try:
-        experiment = mlflow.get_experiment_by_name(experiment_name)
-    except mlflow.exceptions.MlflowException:
-        experiment = mlflow.create_experiment(experiment_name)
+    experiment = mlflow.get_experiment_by_name(experiment_name)
+    if experiment is None:
+        return mlflow.create_experiment(experiment_name)
     return experiment.experiment_id

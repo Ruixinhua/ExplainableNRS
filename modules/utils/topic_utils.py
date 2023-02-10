@@ -162,7 +162,8 @@ def get_topic_list(matrix, top_n, reverse_dict):
 
 def compute_coherence(topic_list, texts, **kwargs):
     dictionary = Dictionary(texts)
-    cm = CoherenceModel(topics=topic_list, texts=texts, dictionary=dictionary, **kwargs)
+    corpus = [dictionary.doc2bow(text) for text in texts]
+    cm = CoherenceModel(topics=topic_list, texts=texts, dictionary=dictionary, corpus=corpus, **kwargs)
     return cm.get_coherence_per_topic()
 
 

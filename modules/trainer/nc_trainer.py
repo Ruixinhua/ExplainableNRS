@@ -166,7 +166,7 @@ class NCTrainer(BaseTrainer):
                 topic_scores[f"{key}_c_npmi"] = scorer.compute_npmi(topics=topic_index, n=top_n)
             if "slow_eval" in topic_evaluation_method:
                 tokenized_method = self.config.get("tokenized_method", "use_tokenize")
-                ws = self.config.get("window_size", 100)
+                ws = self.config.get("window_size", 200)
                 ps = self.config.get("processes", 35)
                 tokenized_data_path = Path(get_project_root()) / f"dataset/data/MIND_tokenized.csv"
                 ref_df = pd.read_csv(self.config.get("slow_ref_data_path", tokenized_data_path))
