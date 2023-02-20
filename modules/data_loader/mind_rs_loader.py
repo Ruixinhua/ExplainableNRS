@@ -45,5 +45,5 @@ class MindDataLoader:
         self.valid_set = getattr(module_dataset, module_dataset_name)(self.tokenizer, phase="valid", **kwargs)
         self.test_set = getattr(module_dataset, module_dataset_name)(self.tokenizer, phase="test", **kwargs)
         news_set = NewsDataset(self.train_set)
-        self.news_loader = DataLoader(news_set, kwargs.get("news_batch_size", 2048))
+        self.news_loader = DataLoader(news_set, kwargs.get("news_batch_size", 128))
         self.valid_loader = DataLoader(ImpressionDataset(self.valid_set), impression_bs, collate_fn=self.fn)

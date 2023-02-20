@@ -99,7 +99,7 @@ def load_word_dict(**kwargs):
         word_dict = read_json(word_dict_path)
     else:
         word_dict = {"[UNK]": 0}
-        dataset_name = kwargs.get("dataset_name", "MIND15")
+        dataset_name = kwargs.get("dataset_name", "MIND")
         if dataset_name is None:
             raise ValueError("dataset name should be provided: MIND15 or News26")
         data_path = kwargs.get("data_path", Path(data_root) / "data" / f"{dataset_name}.csv")
@@ -165,7 +165,7 @@ def load_embeddings(**kwargs):
     :return:
     """
     embed_method = kwargs.get("embed_method", "use_all")
-    dataset_name = kwargs.get("dataset_name", "MIND15")
+    dataset_name = kwargs.get("dataset_name", "MIND")
     data_root = kwargs.get("data_dir", Path(get_project_root()) / "dataset")
     word_dict = kwargs.get("word_dict", load_word_dict(**kwargs))  # load word dictionary
     embed_file = kwargs.get("embed_file", f"{dataset_name}_{len(word_dict)}.npy")
@@ -173,7 +173,9 @@ def load_embeddings(**kwargs):
     if os.path.exists(embed_path):
         return np.load(str(embed_path))
     else:
-        glove_path = kwargs.get("glove_path", None)
+        glove_path = kwargs.get("glove_path", Path(get_project_root(), "dataset", "glove", "glove.840B.300d.txt"))
+        if not os.path.exists(glove_path):
+            raise ValueError("glove path is not correct or glove.840B.300d.txt is not exist")
         embed_path = embed_path.parent / embed_file
         if os.path.exists(embed_path):
             return np.load(str(embed_path))

@@ -63,7 +63,7 @@ class BaseTrainer:
         # build optimizer according to specified optimizer config
         trainable_params = filter(lambda p: p.requires_grad, self.model.parameters())
         learner = kwargs.pop("learner", self.config.get("learner", "Adam"))
-        learning_rate = kwargs.pop("learning_rate", self.config.get("learning_rate", 0.001))
+        learning_rate = kwargs.pop("learning_rate", self.config.get("learning_rate", 0.0005))
         weight_decay = kwargs.pop("weight_decay", self.config.get("weight_decay", 0))
         optimizer = getattr(torch.optim, learner)(trainable_params, lr=learning_rate, weight_decay=weight_decay)
         return optimizer
@@ -71,7 +71,7 @@ class BaseTrainer:
     def _build_lr_scheduler(self, **kwargs):
         # build learning rate scheduler according to specified scheduler config
         scheduler = kwargs.pop("scheduler", self.config.get("scheduler", "StepLR"))
-        step_size = kwargs.pop("step_size", self.config.get("step_size", 50))  # default after 50 epochs lr=0.1*lr
+        step_size = kwargs.pop("step_size", self.config.get("step_size", 1))  # default after 50 epochs lr=0.1*lr
         gamma = kwargs.pop("gamma", self.config.get("gamma", 0.1))
         return getattr(torch.optim.lr_scheduler, scheduler)(self.optimizer, step_size=step_size, gamma=gamma)
 

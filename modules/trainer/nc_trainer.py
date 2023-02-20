@@ -140,7 +140,8 @@ class NCTrainer(BaseTrainer):
         topic_dist = get_topic_dist(model, word_dict)
         self.model = self.model.to(self.device)
         top_n, methods = self.config.get("top_n", 10), self.config.get("coherence_method", ["c_npmi"])
-        post_word_dict_dir = self.config.get("post_word_dict_dir", None)
+        default_post_dict_path = Path(get_project_root(), "dataset", "utils", "word_dict", "post_process")
+        post_word_dict_dir = self.config.get("post_word_dict_dir", default_post_dict_path)
         topic_dists = {"original": topic_dist}
         if post_word_dict_dir is not None and os.path.exists(post_word_dict_dir):
             for path in os.scandir(post_word_dict_dir):
@@ -165,7 +166,7 @@ class NCTrainer(BaseTrainer):
                 # convert to index list: minus 1 because the index starts from 0 (0 is for padding)
                 topic_scores[f"{key}_c_npmi"] = scorer.compute_npmi(topics=topic_index, n=top_n)
             if "slow_eval" in topic_evaluation_method:
-                tokenized_method = self.config.get("tokenized_method", "use_tokenize")
+                tokenized_method = self.config.get("tokenized_method", "keep_all")
                 ws = self.config.get("window_size", 200)
                 ps = self.config.get("processes", 35)
                 tokenized_data_path = Path(get_project_root()) / f"dataset/data/MIND_tokenized.csv"

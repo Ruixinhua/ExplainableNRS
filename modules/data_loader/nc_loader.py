@@ -1,8 +1,7 @@
 from pathlib import Path
 from torch.utils.data import DataLoader
 from modules.base.nc_dataset import NCDatasetBert, NCDataset
-from modules.utils import load_dataset_df, load_word_dict, load_embeddings
-from utils import split_df
+from modules.utils import load_dataset_df, load_word_dict, load_embeddings, split_df, get_project_root
 
 
 class NewsDataLoader:
@@ -29,7 +28,7 @@ class NewsDataLoader:
         self.method = kwargs.get("tokenized_method", "keep_all")
         self.set_name = kwargs.get("dataset_name", "MIND15")
         self.max_length, self.embedding_type = kwargs.get("max_length", 512), kwargs.get("embedding_type", "glove")
-        self.data_dir = kwargs.get("data_dir", "../../dataset")
+        self.data_dir = kwargs.get("data_dir", Path(get_project_root(), "dataset"))
         self.data_path = kwargs.get("data_path", Path(self.data_dir) / f"MIND/news_classification/{self.set_name}.csv")
         kwargs["data_path"] = self.data_path
         df, self.label_dict = load_dataset_df(**kwargs)
