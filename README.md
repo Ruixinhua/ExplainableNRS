@@ -30,16 +30,13 @@ mkdir MIND && cd MIND
 gdown https://drive.google.com/uc?id=1JUq6UzeGVYifpyupjOD11aKZjaG0Elur
 unzip small.zip
 rm small.zip
-gdown https://drive.google.com/uc?id=1Q4ADdzdmA0K1RiZ44dGQsfDOzCeQgKwZ
-
+cd ../utils
+gdown https://drive.google.com/uc?id=1bC4WgcVrDOAmjVu2o2jR-aETGqbLbveI
 ```
 ```bash
+cd ../../ # back to the root directory
 export PYTHONPATH=PYTHONPATH:./:./modules  # set current directory and the module directory as PYTHONPATH
-accelerate launch --config_file config.yaml modules/experiment/runner/run_baseline.py --task=RS_BATM \
---arch_type=BATMRSModel --mind_type=small \
---news_info=use_all --news_lengths=100 \
---word_dict_file=MIND_40910.json \
---ref_data_path=$ref_data_path --topic_evaluation_method=fast_eval,w2v_sim 
+accelerate launch --config_file config.yaml modules/experiment/runner/run_baseline.py --task=RS_BATM --arch_type=BATMRSModel --mind_type=small --news_info=use_all --news_lengths=100 --word_dict_file=MIND_40910.json --ref_data_path=dataset/utils//ref.dtm.npz --topic_evaluation_method=fast_eval,w2v_sim 
 ```
 ## Credits
 

@@ -67,7 +67,7 @@ def del_index_column(df):
 
 
 def get_project_root(**kwargs):
-    project_name = kwargs.pop("project_name", "explainable_nrs")
+    project_name = kwargs.pop("project_name", "ExplainableNRS")
     file_parts = Path(os.getcwd()).parts
     abs_path = Path(f"{os.sep}".join(file_parts[:file_parts.index(project_name) + 1]))
     return os.path.relpath(abs_path, os.getcwd())
