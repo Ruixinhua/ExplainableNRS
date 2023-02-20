@@ -173,13 +173,13 @@ def load_embeddings(**kwargs):
     if os.path.exists(embed_path):
         return np.load(str(embed_path))
     else:
-        glove_path = kwargs.get("glove_path", Path(get_project_root(), "dataset", "glove", "glove.840B.300d.txt"))
-        if not os.path.exists(glove_path):
+        path = kwargs.get("glove_path", os.path.join(get_project_root(), "dataset", "glove", "glove.840B.300d.txt"))
+        if not os.path.exists(path):
             raise ValueError("glove path is not correct or glove.840B.300d.txt is not exist")
         embed_path = embed_path.parent / embed_file
         if os.path.exists(embed_path):
             return np.load(str(embed_path))
-        embed_dict = load_embedding_from_path(glove_path)
+        embed_dict = load_embedding_from_path(path)
         embeddings = load_embedding_from_dict(embed_dict, word_dict, embed_method)
         os.makedirs(embed_path.parent, exist_ok=True)
         if not os.path.exists(embed_path):
