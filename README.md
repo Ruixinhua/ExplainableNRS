@@ -9,19 +9,17 @@ generate _explainable topic_ for both news classification task and news recommen
 
 Clone the repository and install the dependencies.
 ```bash
-git clone https://github.com/Ruixinhua/ExplainedNRS
-cd ExplainedNRS
+git clone https://github.com/Ruixinhua/ExplainableNRS
+cd ExplainableNRS
 pip install -r requirements.txt
 ```
 Download the MIND dataset from [here](https://msnews.github.io/). The dataset is licensed under the 
-[Microsoft Research License Terms](https://go.microsoft.com/fwlink/?LinkID=206977). We suggest to put the dataset in the 
-dataset folder as follows. 
-Download the MIND dataset and GloVe embeddings manually if automatically download failed and put it in the dataset 
-folder as follows.
+[Microsoft Research License Terms](https://go.microsoft.com/fwlink/?LinkID=206977). We suggest to use the following 
+commands to download the processed dataset and pre-trained GloVe word embedding.
 
 ```bash
 cd dataset
-# Download GloVe pre-trained word embedding and preprocess MIND dataset
+# Download GloVe pre-trained word embedding and preprocessed MIND dataset
 wget https://nlp.stanford.edu/data/glove.840B.300d.zip
 apt install unzip
 unzip glove.840B.300d.zip -d glove
@@ -32,11 +30,15 @@ unzip small.zip
 rm small.zip
 cd ../utils
 gdown https://drive.google.com/uc?id=1bC4WgcVrDOAmjVu2o2jR-aETGqbLbveI
+rm ref.dtm.npz
 ```
+To run the code for training the basic BATMRS model and evaluating its performance, follow these commands:
 ```bash
 cd ../../ # back to the root directory
 export PYTHONPATH=PYTHONPATH:./:./modules  # set current directory and the module directory as PYTHONPATH
-accelerate launch --config_file config.yaml modules/experiment/runner/run_baseline.py --task=RS_BATM --arch_type=BATMRSModel --mind_type=small --news_info=use_all --news_lengths=100 --word_dict_file=MIND_40910.json --ref_data_path=dataset/utils//ref.dtm.npz --topic_evaluation_method=fast_eval,w2v_sim 
+accelerate launch modules/experiment/runner/run_baseline.py --task=RS_BATM --arch_type=BATMRSModel --mind_type=small --news_info=use_all --news_lengths=100 --word_dict_file=MIND_40910.json --ref_data_path=dataset/utils//ref.dtm.npz --topic_evaluation_method=fast_eval,w2v_sim 
+# use default configuration of accelerate to launch the training script; add "--config_file config.yaml" after launch to use the configuration file
+# check [accelerate documentation](https://huggingface.co/docs/accelerate/) for more details
 ```
 ## Credits
 
