@@ -9,7 +9,7 @@ from scipy.stats import entropy
 from modules.base.base_trainer import BaseTrainer
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
-from modules.utils import get_topic_list, get_project_root, get_topic_dist, load_sparse, load_dataset_df, \
+from modules.utils import get_topic_list, get_project_root, get_topic_dist, load_sparse, \
     read_json, NPMI, compute_coherence, write_to_file, MetricTracker, load_batch_data, word_tokenize
 
 

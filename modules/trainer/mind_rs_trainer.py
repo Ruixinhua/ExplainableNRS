@@ -145,7 +145,7 @@ class MindRSTrainer(NCTrainer):
             eval_result = dict(np.round(pd.DataFrame.from_dict(result_dict, orient="index").mean(), 4))  # average
             if self.config.get("evaluate_topic_by_epoch", False) and self.config.get("topic_evaluation_method", None):
                 eval_result.update(self.topic_evaluation(model, self.mind_loader.word_dict, extra_str=extra_str))
-                self.accelerator.wait_for_everyone()
+                # self.accelerator.wait_for_everyone()
                 # self.logger.info(f"validation time: {time.time() - start}")
         if return_weight and self.accelerator.is_main_process:
             weight_dir = Path(self.config["model_dir"], "weight")

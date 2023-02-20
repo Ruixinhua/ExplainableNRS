@@ -14,24 +14,25 @@ class NPMI:
     NPMI (Normalized Pointwise Mutual Information) is a measure of association between two words: usually used to 
     evaluate topic quality.
     """
+
     def __init__(
-        self,
-        bin_ref_counts: Union[np.ndarray, sparse.spmatrix],
-        vocab: Dict[str, int] = None,
+            self,
+            bin_ref_counts: Union[np.ndarray, sparse.spmatrix],
+            vocab: Dict[str, int] = None,
     ):
         assert bin_ref_counts.max() == 1
         self.bin_ref_counts = bin_ref_counts
         if sparse.issparse(self.bin_ref_counts):
             self.bin_ref_counts = self.bin_ref_counts.tocsc()
-        self.npmi_cache = {} # calculating NPMI is somewhat expensive, so we cache results
+        self.npmi_cache = {}  # calculating NPMI is somewhat expensive, so we cache results
         self.vocab = vocab
 
     def compute_npmi(
-        self,
-        beta: np.ndarray = None,
-        topics: Union[np.ndarray, List] = None,
-        vocab: Dict[str, int] = None,
-        n: int = 10
+            self,
+            beta: np.ndarray = None,
+            topics: Union[np.ndarray, List] = None,
+            vocab: Dict[str, int] = None,
+            n: int = 10
     ) -> np.ndarray:
         """
         Compute NPMI for an estimated beta (topic-word distribution) parameter using
@@ -54,7 +55,7 @@ class NPMI:
         if topics is not None:
             topics = [topic[:n] for topic in topics]
         if vocab is not None:
-            assert(len(vocab) == self.bin_ref_counts.shape[1])
+            assert (len(vocab) == self.bin_ref_counts.shape[1])
             topics = [[vocab[w] for w in topic[:n]] for topic in topics]
 
         num_docs = self.bin_ref_counts.shape[0]
@@ -62,7 +63,7 @@ class NPMI:
         for indices in topics:
             npmi_vals = []
             for i, idx_i in enumerate(indices):
-                for idx_j in indices[i+1:]:
+                for idx_j in indices[i + 1:]:
                     ij = frozenset([idx_i, idx_j])
                     try:
                         npmi = self.npmi_cache[ij]
@@ -79,16 +80,16 @@ class NPMI:
                             npmi = 0.0
                         else:
                             npmi = (
-                                (np.log(num_docs) + np.log(c_ij) - np.log(c_i) - np.log(c_j))
-                                / (np.log(num_docs) - np.log(c_ij))
+                                    (np.log(num_docs) + np.log(c_ij) - np.log(c_i) - np.log(c_j))
+                                    / (np.log(num_docs) - np.log(c_ij))
                             )
                         self.npmi_cache[ij] = npmi
                     npmi_vals.append(npmi)
             npmi_means.append(np.mean(npmi_vals))
 
         return np.array(npmi_means)
-    
-    
+
+
 def load_sparse(input_file):
     return sparse.load_npz(input_file).tocsr()
 
@@ -147,7 +148,7 @@ def get_topic_dist(model, word_dict):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")  # only run on one GPU
     try:
         topic_dist = extract_topics(model, word_dict, device)
-    except (RuntimeError, ):  # RuntimeError: CUDA out of memory, change to CPU
+    except (RuntimeError,):  # RuntimeError: CUDA out of memory, change to CPU
         device = torch.device("cpu")
         topic_dist = extract_topics(model, word_dict, device)
     return topic_dist
@@ -168,5 +169,13 @@ def compute_coherence(topic_list, texts, **kwargs):
 
 
 def evaluate_entropy(topic_dist):
-    token_entropy, topic_entropy = np.mean(entropy(topic_dist, axis=0)),  np.mean(entropy(topic_dist, axis=1))
+    token_entropy, topic_entropy = np.mean(entropy(topic_dist, axis=0)), np.mean(entropy(topic_dist, axis=1))
     return token_entropy, topic_entropy
+
+
+def calc_topic_diversity(topic_words):
+    """topic_words is in the form of [[w11,w12,...],[w21,w22,...]]"""
+    vocab = set(sum(topic_words, []))
+    n_total = len(topic_words) * len(topic_words[0])
+    topic_div = len(vocab) / n_total
+    return topic_div
