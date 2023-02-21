@@ -30,8 +30,11 @@ class BaseTrainer:
         # get function handles of loss and metrics
         self.criterion = getattr(module_loss, config["loss"])
         self.metric_funcs = [getattr(module_metric, met) for met in config["metrics"]]
+        tensorboard_dir = config.get("tensorboard_dir", config.model_dir)
+        if not os.path.exists(tensorboard_dir):
+            os.makedirs(tensorboard_dir, exist_ok=True)
         # setup visualization writer instance
-        self.writer = TensorboardWriter(config.model_dir, self.logger, config["tensorboard"])
+        self.writer = TensorboardWriter(tensorboard_dir, self.logger, config["tensorboard"])
 
         # build optimizer, learning rate scheduler. delete every lines containing lr_scheduler for disabling scheduler
         self.optimizer = self._build_optimizer()
@@ -88,6 +91,8 @@ class BaseTrainer:
         # print logged information to the screen
         for key, value in log.items():
             self.logger.info("    {:15s}: {}".format(str(key), value))
+            if self.writer.writer is not None:
+                self.writer.writer.add_scalar(key, value)
 
     def save_log(self, log, **kwargs):
         log["seed"] = self.config["seed"]

@@ -80,9 +80,10 @@ class MindRSTrainer(NCTrainer):
             self.lr_scheduler.step()
         return self._validation(epoch, length, False)
 
-    def _valid_epoch(self, model=None, valid_set=None, extra_str=None, prefix="val"):
+    def _valid_epoch(self, model=None, valid_set=None, extra_str=None, prefix="val", epoch=0):
         """
         Validate after training an epoch
+        :param epoch:
         :return: A log that contains information about validation
         """
         result_dict = {}
@@ -144,7 +145,7 @@ class MindRSTrainer(NCTrainer):
             result_dict = gather_dict(result_dict)  # gather results
             eval_result = dict(np.round(pd.DataFrame.from_dict(result_dict, orient="index").mean(), 4))  # average
             if self.config.get("evaluate_topic_by_epoch", False) and self.config.get("topic_evaluation_method", None):
-                eval_result.update(self.topic_evaluation(model, self.mind_loader.word_dict, extra_str=extra_str))
+                eval_result.update(self.topic_evaluation(model, self.mind_loader.word_dict, epoch, epoch))
                 # self.accelerator.wait_for_everyone()
                 # self.logger.info(f"validation time: {time.time() - start}")
         if return_weight and self.accelerator.is_main_process:
@@ -162,7 +163,7 @@ class MindRSTrainer(NCTrainer):
     def evaluate(self, dataset, model, epoch=0, prefix="val"):
         """call this method after training"""
         model.eval()
-        log = self._valid_epoch(model, dataset, prefix=prefix)
+        log = self._valid_epoch(model, dataset, prefix=prefix, epoch=epoch)
         for name, p in model.named_parameters():  # add histogram of model parameters to the tensorboard
             self.writer.add_histogram(name, p, bins="auto")
         return {f"{prefix}_{k}": v for k, v in log.items()}  # return log with prefix
