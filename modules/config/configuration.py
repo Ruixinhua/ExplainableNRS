@@ -34,8 +34,20 @@ class Configuration:
             raise AttributeError(f"'Config' object has no attribute 'final_config_dict'")
         if item in self.final_configs:
             return self.final_configs[item]
-        # TODO: getattr of configuration, check if this is the right way to handle this
+        for k, v in self.final_configs.items():
+            if isinstance(v, dict) and item in v:
+                return v[item]
         raise AttributeError(f"'Config' object has no attribute '{item}'")
+
+    def __hasattr__(self, item):
+        if "final_configs" not in self.__dict__:
+            return False
+        if item in self.final_configs:
+            return True
+        for k, v in self.final_configs.items():
+            if isinstance(v, dict) and item in v:
+                return True
+        return False
 
     def __getitem__(self, item):
         """Access items like ordinary dict."""
@@ -45,8 +57,10 @@ class Configuration:
         self.set(key, value)
 
     def __str__(self):
-        # TODO: add more information
+        # print the configuration
         args_info = "\n"
+        for k, v in self.final_configs.items():
+            args_info += f"{k}: {v}\n"
         return args_info
 
     def get_logger(self, name, verbosity=2):
@@ -60,11 +74,10 @@ class Configuration:
         if hasattr(self, key):
             return getattr(self, key)
         else:
-            return default
+            return self.final_configs.get(key, default)
 
     def set(self, key, value):
-        if hasattr(self, key):
-            self.final_configs[key] = value
+        self.final_configs[key] = value
 
     def update(self, config_dict: Dict[str, Any]):
         """

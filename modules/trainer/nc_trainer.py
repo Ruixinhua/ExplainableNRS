@@ -112,10 +112,9 @@ class NCTrainer(BaseTrainer):
         log = {f"{prefix}_{k}": v for k, v in self.valid_metrics.result().items()}  # return log with prefix
         return log
 
-    def topic_evaluation(self, model=None, word_dict=None, epoch=0, extra_str=None):
+    def topic_evaluation(self, model=None, word_dict=None, extra_str=None):
         """
         evaluate the topic quality of the BATM model using the topic coherence
-        :param epoch: the epoch of the training process
         :param model: best model chosen from the training process
         :param word_dict: the word dictionary of the dataset
         :param extra_str: extra string to add to the file name
@@ -206,7 +205,4 @@ class NCTrainer(BaseTrainer):
                     write_to_file(topic_file, f"Average score: {topic_result[method]}\n", "a+")
         if not len(topic_result):
             raise ValueError("No correct topic evaluation method is specified!")
-        # add coherence score to tensorboard
-        for method, score in topic_result.items():
-            self.writer.writer.add_scalar(f"topic_quality/{method}", score, epoch)
         return topic_result

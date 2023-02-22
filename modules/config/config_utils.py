@@ -48,7 +48,7 @@ def convert_config_dict(config_dict):
             value = eval(param)  # convert str to int, float, list, tuple, dict, bool. use ',' to split integer values
             if value is not None and not isinstance(value, check_set):
                 value = param
-        except (NameError, SyntaxError, TypeError):
+        except (NameError, SyntaxError, TypeError, ValueError):
             if isinstance(param, str):
                 if param.lower() == "true":
                     value = True
@@ -62,7 +62,7 @@ def convert_config_dict(config_dict):
                                 continue
                             try:
                                 v = eval(v)
-                            except (NameError, SyntaxError, TypeError):
+                            except (NameError, SyntaxError, TypeError, ValueError):
                                 v = v
                             value.append(v)
                     else:

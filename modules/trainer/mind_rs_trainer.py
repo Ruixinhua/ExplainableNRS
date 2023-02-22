@@ -32,8 +32,13 @@ class MindRSTrainer(NCTrainer):
 
     def _validation(self, epoch, batch_idx, do_monitor=True):
         # do validation when reach the interval
+        self.writer.set_step((epoch - 1) * len(self.train_loader) + batch_idx, "valid")
         log = {"epoch/step": f"{epoch}/{batch_idx}"}
-        log.update(**{"val_" + k: v for k, v in self._valid_epoch(extra_str=f"{epoch}_{batch_idx}").items()})
+        val_log = self._valid_epoch(extra_str=f"{epoch}_{batch_idx}")
+        log.update({"val_" + k: v for k, v in val_log.items()})
+        for k, v in val_log.items():
+            self.writer.add_scalar(k, v)
+            self.logger.info(f"val_{k}: {v}")
         if do_monitor:
             self._monitor(log, epoch)
         self.model.train()  # reset to training mode
@@ -80,10 +85,9 @@ class MindRSTrainer(NCTrainer):
             self.lr_scheduler.step()
         return self._validation(epoch, length, False)
 
-    def _valid_epoch(self, model=None, valid_set=None, extra_str=None, prefix="val", epoch=0):
+    def _valid_epoch(self, model=None, valid_set=None, extra_str=None):
         """
         Validate after training an epoch
-        :param epoch:
         :return: A log that contains information about validation
         """
         result_dict = {}
@@ -145,9 +149,8 @@ class MindRSTrainer(NCTrainer):
             result_dict = gather_dict(result_dict)  # gather results
             eval_result = dict(np.round(pd.DataFrame.from_dict(result_dict, orient="index").mean(), 4))  # average
             if self.config.get("evaluate_topic_by_epoch", False) and self.config.get("topic_evaluation_method", None):
-                eval_result.update(self.topic_evaluation(model, self.mind_loader.word_dict, epoch, epoch))
+                eval_result.update(self.topic_evaluation(model, self.mind_loader.word_dict, extra_str))
                 # self.accelerator.wait_for_everyone()
-                # self.logger.info(f"validation time: {time.time() - start}")
         if return_weight and self.accelerator.is_main_process:
             weight_dir = Path(self.config["model_dir"], "weight")
             os.makedirs(weight_dir, exist_ok=True)
@@ -163,7 +166,7 @@ class MindRSTrainer(NCTrainer):
     def evaluate(self, dataset, model, epoch=0, prefix="val"):
         """call this method after training"""
         model.eval()
-        log = self._valid_epoch(model, dataset, prefix=prefix, epoch=epoch)
+        log = self._valid_epoch(model, dataset)
         for name, p in model.named_parameters():  # add histogram of model parameters to the tensorboard
             self.writer.add_histogram(name, p, bins="auto")
         return {f"{prefix}_{k}": v for k, v in log.items()}  # return log with prefix

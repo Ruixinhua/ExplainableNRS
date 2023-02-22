@@ -91,12 +91,6 @@ class BaseTrainer:
         # print logged information to the screen
         for key, value in log.items():
             self.logger.info("    {:15s}: {}".format(str(key), value))
-            if self.config.tensorboard:
-                try:
-                    value = eval(value)
-                    self.writer.add_scalar(key, value)
-                except (NameError, SyntaxError, TypeError):
-                    pass
 
     def save_log(self, log, **kwargs):
         log["seed"] = self.config["seed"]
