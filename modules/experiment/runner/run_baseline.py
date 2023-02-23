@@ -93,5 +93,5 @@ if __name__ == "__main__":
                 config.set(arch_attr, value)
             log = {"arch_type": config.arch_type, "seed": config.seed, arch_attr: value}
             config.set("seed", seed)
-            config.set("identifier", f"{arch_attr}_{value}")
+            config.set("identifier", f"{arch_attr}_{value}_{config.seed}")
             evaluate_run()
