@@ -30,7 +30,8 @@ class BaseTrainer:
         # get function handles of loss and metrics
         self.criterion = getattr(module_loss, config["loss"])
         self.metric_funcs = [getattr(module_metric, met) for met in config["metrics"]]
-        tensorboard_dir = config.get("tensorboard_dir", config.model_dir)
+        tensorboard_root = config.get("tensorboard_dir", config.model_dir)
+        tensorboard_dir = Path(tensorboard_root, config.get("identifier", datetime.now().strftime("%Y%m%d-%H%M%S")))
         if not os.path.exists(tensorboard_dir):
             os.makedirs(tensorboard_dir, exist_ok=True)
         # setup visualization writer instance
