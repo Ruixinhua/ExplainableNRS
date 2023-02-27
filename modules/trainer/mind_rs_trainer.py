@@ -73,8 +73,8 @@ class MindRSTrainer(NCTrainer):
                 if self.entropy_mode == "static":
                     entropy_loss = self.alpha * output["entropy"]
                 else:  # dynamic change based on the magnitude of entropy and loss
-                    magnitude = int(np.log10((output["entropy"] / loss).cpu().item())) + 1
-                    entropy_loss = (1 / (10**magnitude)) * output["entropy"]
+                    magnitude = int(np.log10((output["entropy"] / loss).cpu().item()))
+                    entropy_loss = self.alpha * (1 / (10**magnitude)) * output["entropy"]
                 loss += entropy_loss
                 bar_description += f" Entropy(Scaled): {round(entropy_loss.item(), 4)}"
                 bar_description += f" Entropy(Origin): {round(output['entropy'].item(), 4)}"
