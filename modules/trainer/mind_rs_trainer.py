@@ -64,7 +64,7 @@ class MindRSTrainer(NCTrainer):
             output = self.model(batch_dict)
             loss = self.criterion(output["pred"], batch_dict["label"])
             # gpu_used = torch.cuda.memory_allocated() / 1024 ** 3
-            free_mem, gpu_mem = torch.cuda.mem_get_info(device=self.device)
+            free_mem, gpu_mem = torch.cuda.mem_get_info()
             gpu_mem = round(gpu_mem / 1024 ** 3, 2)
             free_mem = round(free_mem / 1024 ** 3, 2)
             gpu_used = gpu_mem - free_mem
