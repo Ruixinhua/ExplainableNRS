@@ -63,12 +63,17 @@ class MindRSTrainer(NCTrainer):
             self.optimizer.zero_grad()
             output = self.model(batch_dict)
             loss = self.criterion(output["pred"], batch_dict["label"])
-            bar_description = f"Train Epoch: {epoch} Loss: {round(loss.item(), 4)}"
+            # gpu_used = torch.cuda.memory_allocated() / 1024 ** 3
+            free_mem, gpu_mem = torch.cuda.mem_get_info(device=self.device)
+            gpu_mem = round(gpu_mem / 1024 ** 3, 2)
+            free_mem = round(free_mem / 1024 ** 3, 2)
+            gpu_used = gpu_mem - free_mem
+            bar_description = f"Train Epoch: {epoch} GPU: {gpu_used}/{free_mem}/{gpu_mem} Loss: {round(loss.item(), 4)}"
             if self.entropy_constraint:
                 if self.entropy_mode == "static":
                     entropy_loss = self.alpha * output["entropy"]
                 else:  # dynamic change based on the magnitude of entropy and loss
-                    magnitude = int(np.log10(output["entropy"] / loss))
+                    magnitude = int(np.log10(output["entropy"].item() / loss))
                     entropy_loss = (1 / (10**magnitude)) * output["entropy"]
                 loss += entropy_loss
                 bar_description += f" Entropy (Scaled): {round(entropy_loss.item(), 4)}"
