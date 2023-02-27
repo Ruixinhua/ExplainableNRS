@@ -38,7 +38,6 @@ class MindRSTrainer(NCTrainer):
         log.update({"val_" + k: v for k, v in val_log.items()})
         for k, v in val_log.items():
             self.writer.add_scalar(k, v)
-            self.logger.info(f"val_{k}: {v}")
         if do_monitor:
             self._monitor(log, epoch)
         self.model.train()  # reset to training mode
@@ -57,6 +56,8 @@ class MindRSTrainer(NCTrainer):
         bar = tqdm(enumerate(self.train_loader), total=length)
         # self._validation(epoch, 0)
         for batch_idx, batch_dict in bar:
+            # set step for tensorboard
+            self.writer.set_step((epoch - 1) * self.len_epoch + batch_idx)
             # load data to device
             batch_dict = load_batch_data(batch_dict, self.device)
             # setup model and train model
@@ -68,7 +69,7 @@ class MindRSTrainer(NCTrainer):
             gpu_mem = round(gpu_mem / 1024 ** 3, 2)
             free_mem = round(free_mem / 1024 ** 3, 2)
             gpu_used = round(gpu_mem - free_mem, 2)
-            bar_description = f"Epoch: {epoch} GPU: {gpu_used}/{free_mem}/{gpu_mem}GB Loss: {round(loss.item(), 4)}"
+            bar_description = f"Epoch: {epoch} GPU: {gpu_used}GB/{free_mem}GB/{gpu_mem}GB"
             if self.entropy_constraint:
                 if self.entropy_mode == "static":
                     entropy_loss = self.alpha * output["entropy"]
@@ -78,13 +79,15 @@ class MindRSTrainer(NCTrainer):
                 loss += entropy_loss
                 bar_description += f" Entropy(Scaled): {round(entropy_loss.item(), 4)}"
                 bar_description += f" Entropy(Origin): {round(output['entropy'].item(), 4)}"
+                self.train_metrics.update("entropy(origin)", output["entropy"].item())
+                self.train_metrics.update("entropy_loss", entropy_loss.item())
             if self.topic_variant == "variational_topic":
                 # loss += self.beta * output["kl_divergence"]
                 bar_description += f" KL divergence: {output['kl_divergence'].item()}"
+            bar_description += f" Loss: {round(loss.item(), 4)}"
             self.accelerator.backward(loss)
             self.optimizer.step()
             # record loss
-            self.writer.set_step((epoch - 1) * self.len_epoch + batch_idx)
             self.train_metrics.update("loss", loss.item())
             if batch_idx % self.log_step == 0:
                 bar.set_description(bar_description)
