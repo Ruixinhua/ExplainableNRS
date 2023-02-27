@@ -67,16 +67,17 @@ class MindRSTrainer(NCTrainer):
             free_mem, gpu_mem = torch.cuda.mem_get_info()
             gpu_mem = round(gpu_mem / 1024 ** 3, 2)
             free_mem = round(free_mem / 1024 ** 3, 2)
-            gpu_used = gpu_mem - free_mem
-            bar_description = f"Train Epoch: {epoch} GPU: {gpu_used}/{free_mem}/{gpu_mem} Loss: {round(loss.item(), 4)}"
+            gpu_used = round(gpu_mem - free_mem, 2)
+            bar_description = f"Epoch: {epoch} GPU: {gpu_used}/{free_mem}/{gpu_mem}GB Loss: {round(loss.item(), 4)}"
             if self.entropy_constraint:
                 if self.entropy_mode == "static":
                     entropy_loss = self.alpha * output["entropy"]
                 else:  # dynamic change based on the magnitude of entropy and loss
-                    magnitude = int(np.log10((output["entropy"] / loss).cpu().item()))
+                    magnitude = int(np.log10((output["entropy"] / loss).cpu().item())) + 1
                     entropy_loss = (1 / (10**magnitude)) * output["entropy"]
                 loss += entropy_loss
-                bar_description += f" Entropy (Scaled): {round(entropy_loss.item(), 4)}"
+                bar_description += f" Entropy(Scaled): {round(entropy_loss.item(), 4)}"
+                bar_description += f" Entropy(Origin): {round(output['entropy'].item(), 4)}"
             if self.topic_variant == "variational_topic":
                 # loss += self.beta * output["kl_divergence"]
                 bar_description += f" KL divergence: {output['kl_divergence'].item()}"
