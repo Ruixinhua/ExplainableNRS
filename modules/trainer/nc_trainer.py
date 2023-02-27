@@ -24,6 +24,7 @@ class NCTrainer(BaseTrainer):
         self.train_loader = data_loader.train_loader
         self.entropy_constraint = config.get("entropy_constraint", False)
         self.calculate_entropy = config.get("calculate_entropy", self.entropy_constraint)
+        self.entropy_mode = config.get("entropy_mode", "static")
         self.alpha = config.get("alpha", 0.001)
         self.beta = config.get("beta", 0.1)
         self.len_epoch = len(self.train_loader)

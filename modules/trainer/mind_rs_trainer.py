@@ -63,10 +63,15 @@ class MindRSTrainer(NCTrainer):
             self.optimizer.zero_grad()
             output = self.model(batch_dict)
             loss = self.criterion(output["pred"], batch_dict["label"])
-            bar_description = f"Train Epoch: {epoch} Loss: {loss.item()}"
+            bar_description = f"Train Epoch: {epoch} Loss: {round(loss.item(), 4)}"
             if self.entropy_constraint:
-                loss += self.alpha * output["entropy"]
-                bar_description += f" Entropy loss: {self.alpha * output['entropy'].item()}"
+                if self.entropy_mode == "static":
+                    entropy_loss = self.alpha * output["entropy"]
+                else:  # dynamic change based on the magnitude of entropy and loss
+                    magnitude = int(np.log10(output["entropy"] / loss))
+                    entropy_loss = (1 / (10**magnitude)) * output["entropy"]
+                loss += entropy_loss
+                bar_description += f" Entropy (Scaled): {round(entropy_loss.item(), 4)}"
             if self.topic_variant == "variational_topic":
                 # loss += self.beta * output["kl_divergence"]
                 bar_description += f" KL divergence: {output['kl_divergence'].item()}"
