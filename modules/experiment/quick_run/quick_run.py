@@ -8,8 +8,10 @@ def setup_trainer(config: Configuration, **kwargs):
     logger = config.get_logger("train", 2)
     data_loader = kwargs.get("data_loader")
     model_params = {}
-    if hasattr(data_loader, "label_dict") and hasattr(data_loader, "word_dict"):  # for news classification task
-        model_params.update({"num_classes": len(data_loader.label_dict), "word_dict": data_loader.word_dict})
+    if hasattr(data_loader, "label_dict"):  # for news classification task
+        model_params.update({"num_classes": len(data_loader.label_dict)})
+    if hasattr(data_loader, "word_dict"):
+        model_params.update({"word_dict": data_loader.word_dict})
     model = init_model_class(config, **model_params)
     logger.info(model)
     module_trainer = importlib.import_module("modules.trainer")

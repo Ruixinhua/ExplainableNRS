@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+import torch.nn.functional as F
 from torch import nn
 
 from modules.models.general.layers import MultiHeadedAttention, activation_layer
@@ -26,7 +27,8 @@ class TopicLayer(nn.Module):
             self.topic_layer = nn.Sequential(nn.Linear(self.embedding_dim, self.hidden_dim), self.act_layer,
                                              nn.Linear(self.hidden_dim, self.head_num))
         elif self.variant_name == "topic_embed":
-            self.topic_layer = nn.Embedding(len(self.word_dict), self.head_num)
+            self.rho = nn.Linear(self.embedding_dim, len(self.word_dict), bias=False)
+            self.topic_layer = nn.Linear(self.embedding_dim, self.head_num)
             self.topic_embed_path = kwargs.get("topic_embed_path", None)
             if self.topic_embed_path is not None:
                 self.freeze_topic = kwargs.get("freeze_topic", True)
@@ -71,7 +73,9 @@ class TopicLayer(nn.Module):
         mask = news_mask.expand(self.head_num, news_embeddings.size(0), -1).transpose(0, 1) == 0
         out_dict = {}
         if self.variant_name == "topic_embed":
-            topic_weight = self.topic_layer(kwargs.get("news")).transpose(1, 2)  # (N, H, S)
+            # topic_weight = self.topic_layer(kwargs.get("news")).transpose(1, 2)  # (N, H, S)
+            weights = F.softmax(self.topic_layer(self.rho.weight), dim=0)
+            topic_weight = weights[kwargs.get("news")].transpose(1, 2)  # (N, H, S)
         elif self.variant_name == "MHA":
             hidden_score, _ = self.sentence_encoder(news_embeddings, news_embeddings, news_embeddings)
             topic_weight = self.mha_topics(hidden_score, mask)
