@@ -45,7 +45,7 @@ if __name__ == "__main__":
     columns = group_by + metrics_per + extra_stat
     stat_df = pd.DataFrame(columns=columns)
     for group_names, group in per_df.groupby(group_by):
-        mean_values = [get_mean_std(group[m].values * 100) for m in metrics_per]
+        mean_values = [get_mean_std(group[m].values) for m in metrics_per]
         extra_values = [get_mean_std(group[m].values, r=4) for m in extra_stat]
         mean_series = pd.Series(list(group_names) + mean_values + extra_values, index=columns)
         stat_df = stat_df.append(mean_series, ignore_index=True)
