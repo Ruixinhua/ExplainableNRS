@@ -12,6 +12,8 @@ class BATMRSModel(MindNRSBase):
         super().__init__(**kwargs)
         self.news_encoder_name = kwargs.pop("news_encoder_name", "base")
         self.user_encoder_name = kwargs.pop("user_encoder_name", "base")
+        self.user_history_connect = kwargs.get("user_history_connect", "stack")  # limited in ["concat", "stack"]
+        # concat means concatenate user history clicked news(list of words) , stack means stack user history(matrix)
         self.topic_layer = TopicLayer(**kwargs)
         topic_dim = self.head_num * self.head_dim
         # the structure of basic model
@@ -42,6 +44,10 @@ class BATMRSModel(MindNRSBase):
             topic_vector, news_weight = self.topic_att(all_vec)
             news_vector = F.relu(self.topic_affine(topic_vector), inplace=True)
         else:
+            if input_feat.get("run_name", None) == "history" and self.user_history_connect == "concat":
+                news_shape = input_feat.get("batch_size", 64), -1, input_feat["news"].size(-1)
+                input_feat["news"] = input_feat["news"].reshape(news_shape).reshape(news_shape[0], -1)
+                input_feat["news_mask"] = input_feat["news_mask"].reshape(news_shape).reshape(news_shape[0], -1).bool()
             topic_dict = self.extract_topic(input_feat)
             topic_weight = topic_dict["topic_weight"]
             # add activation function
@@ -53,6 +59,8 @@ class BATMRSModel(MindNRSBase):
 
     def user_encoder(self, input_feat):
         history_news = input_feat["history_news"]
+        if self.user_history_connect == "concat":
+            return {"user_embed": history_news, "user_weight": None}
         if self.user_encoder_name == "gru":
             history_length = input_feat["history_length"].cpu()
             packed_y = pack_padded_sequence(history_news, history_length, batch_first=True, enforce_sorted=False)

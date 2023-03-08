@@ -79,7 +79,7 @@ class MindNRSBase(BaseModel):
     def organize_feat(self, input_feat, **kwargs):
         """Fetch features from reshaped input_feat and pass them to the news encoder"""
         run_name = kwargs.get("run_name")
-        feat = {}
+        feat = {"run_name": run_name, "batch_size": input_feat["uid"].shape[0]}
         for feature in self.news_info:
             if feature == "use_all":
                 feat.update({"news": input_feat[run_name], "news_mask": input_feat[f"{run_name}_mask"]})
