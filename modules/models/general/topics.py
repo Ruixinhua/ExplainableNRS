@@ -20,6 +20,11 @@ class TopicLayer(nn.Module):
         if self.variant_name == "base":  # default using two linear layers
             self.topic_layer = nn.Sequential(nn.Linear(self.embedding_dim, topic_dim), self.act_layer,
                                              nn.Linear(topic_dim, self.head_num))
+        elif self.variant_name == "base_gate":  # add a gate to the topic layer
+            self.topic_layer = nn.Sequential(nn.Linear(self.embedding_dim, topic_dim), self.act_layer,
+                                             nn.Linear(topic_dim, self.head_num))
+            self.gate_layer = nn.Linear(self.head_num, self.head_num)
+            # self.gate_layer = nn.Linear(self.max_length, self.head_num)
         elif self.variant_name == "raw":  # a simpler model using only one linear layer to encode topic weights
             # can not extract any meaningful topics from documents
             self.topic_layer = nn.Sequential(nn.Linear(self.embedding_dim, self.head_num), self.act_layer)
@@ -57,7 +62,7 @@ class TopicLayer(nn.Module):
     def mha_topics(self, topic_vector, mask):
         if self.token_layer == "distribute_topic":
             topic_vector = self.token_weight(topic_vector)  # (N, S, H)
-            topic_vector = topic_vector.transpose(1, 2)     # (N, H, S)
+            topic_vector = topic_vector.transpose(1, 2)  # (N, H, S)
         else:
             topic_vector = topic_vector.view(-1, topic_vector.shape[1], self.head_num, self.head_dim)
             topic_vector = topic_vector.transpose(1, 2)  # (N, H, S, D)
@@ -96,6 +101,12 @@ class TopicLayer(nn.Module):
                 topic_weight = eps.mul_(std).add_(topic_weight)
             topic_weight = topic_weight.transpose(1, 2)
             topic_weight = torch.softmax(topic_weight.masked_fill(mask, -1e4), dim=-1).masked_fill(mask, 0)
+        elif self.variant_name == "base_gate":
+            topic_weight = self.topic_layer(news_embeddings).transpose(1, 2)  # (N, H, S)
+            topic_weight = torch.softmax(topic_weight.masked_fill(mask, -1e4), dim=-1).masked_fill(mask, 0)
+            topic_entropy = torch.sum(-topic_weight * torch.log2(1e-9 + topic_weight), dim=-1)
+            topic_reg = torch.where(self.gate_layer(topic_entropy) > 0, 1.0, 0.0)
+            topic_weight = topic_reg.unsqueeze(-1) * topic_weight
         else:
             topic_weight = self.topic_layer(news_embeddings).transpose(1, 2)  # (N, H, S)
             # expand mask to the same size as topic weights
