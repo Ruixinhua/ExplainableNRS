@@ -15,6 +15,7 @@ class TopicLayer(nn.Module):
         self.embedding_dim = kwargs.get("embedding_dim", 300)
         self.hidden_dim = kwargs.get("hidden_dim", 100)
         self.word_dict = kwargs.get("word_dict", None)
+        self.evaluate_topic = kwargs.get("evaluate_topic", False)
         self.final = nn.Linear(self.embedding_dim, self.embedding_dim)
         self.act_layer = activation_layer(kwargs.get("act_layer", "tanh"))  # default use tanh
         if self.variant_name == "base":  # default using two linear layers
@@ -104,9 +105,10 @@ class TopicLayer(nn.Module):
         elif self.variant_name == "base_gate":
             topic_weight = self.topic_layer(news_embeddings).transpose(1, 2)  # (N, H, S)
             topic_weight = torch.softmax(topic_weight.masked_fill(mask, -1e4), dim=-1).masked_fill(mask, 0)
-            topic_entropy = torch.sum(-topic_weight * torch.log2(1e-9 + topic_weight), dim=-1)
-            topic_reg = torch.where(self.gate_layer(topic_entropy) > 0, 1.0, 0.0)
-            topic_weight = topic_reg.unsqueeze(-1) * topic_weight
+            if not kwargs.get("evaluate_topic", False):
+                topic_entropy = torch.sum(-topic_weight * torch.log2(1e-9 + topic_weight), dim=-1)
+                topic_reg = torch.where(self.gate_layer(topic_entropy) > 0, 1.0, 0.0)
+                topic_weight = topic_reg.unsqueeze(-1) * topic_weight
         else:
             topic_weight = self.topic_layer(news_embeddings).transpose(1, 2)  # (N, H, S)
             # expand mask to the same size as topic weights

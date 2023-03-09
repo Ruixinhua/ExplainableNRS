@@ -104,7 +104,7 @@ def extract_topics_base(model, word_seq, device):
         model = model.module  # for multi-GPU
         topic_dist = np.zeros((model.head_num, voc_size))
     with torch.no_grad():
-        word_feat = {"news": torch.tensor(word_seq).unsqueeze(0).to(device),
+        word_feat = {"news": torch.tensor(word_seq).unsqueeze(0).to(device), "evaluate_topic": True,
                      "news_mask": torch.ones(len(word_seq)).unsqueeze(0).to(device)}
         topic_dict = model.extract_topic(word_feat)  # (B, H, N)
         topic_weight = topic_dict["topic_weight"]
