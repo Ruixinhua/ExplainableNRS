@@ -82,7 +82,7 @@ class MindRSTrainer(NCTrainer):
                 self.train_metrics.update("entropy_origin", output["entropy"].item())
                 self.train_metrics.update("entropy_loss", entropy_loss.item())
             if self.topic_variant == "variational_topic":
-                # loss += self.beta * output["kl_divergence"]
+                loss += self.beta * output["kl_divergence"]
                 bar_description += f" KL divergence: {output['kl_divergence'].item()}"
             bar_description += f" Loss: {round(loss.item(), 4)}"
             self.accelerator.backward(loss)

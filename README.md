@@ -91,7 +91,7 @@ BATM-ATT model with entropy regularization:
 
 | #Topic | variant                  | test\_group\_auc | test\_mean\_mrr | test\_ndcg\_5 | test\_ndcg\_10 |
 |:-------|:-------------------------|:-----------------|:----------------|:--------------|:---------------|
-| 30     | with-entropy-static-1e-3 | 67.5±0.21        | 32.01±0.24      | 35.65±0.27    | 41.81±0.26     |
+| 30     | with-entropy-static-1e-5 | 67.5±0.21        | 32.01±0.24      | 35.65±0.27    | 41.81±0.26     |
 | 50     | with-entropy-static-1e-3 | 67.21±0.18       | 32.09±0.28      | 35.65±0.26    | 41.8±0.28      |
 | 70     | with-entropy-static-1e-3 | 67.18±0.25       | 32.32±0.13      | 35.8±0.22     | 41.92±0.2      |
 
