@@ -13,7 +13,8 @@ class MindNRSBase(BaseModel):
         self.__dict__.update(kwargs)
         self.attention_hidden_dim = kwargs.get("attention_hidden_dim", 200)
         self.return_weight = kwargs.get("return_weight", False)
-        self.with_entropy = kwargs.get("show_entropy", True if kwargs.get("alpha", 0) > 0 else False)
+        self.with_entropy = kwargs.get("with_entropy", True if kwargs.get("alpha", 0) > 0 else False)
+        self.show_entropy = kwargs.get("show_entropy", False)
         self.topic_variant = kwargs.get("topic_variant", "base")
         self.use_uid = kwargs.get("use_uid", False)
         self.reshape_tensors = []
@@ -107,7 +108,7 @@ class MindNRSBase(BaseModel):
             input_feat[f"{run_name}_weight"] = reshape_tensor(news_dict["news_weight"], output_shape=weight_shape)
             if "topic_weight" in news_dict:
                 input_feat[f"{run_name}_topic_weight"] = news_dict["topic_weight"]
-        if self.with_entropy:
+        if self.with_entropy or self.show_entropy:
             topic_weight = news_dict["topic_weight"]
             entropy_sum = torch.sum(-topic_weight * torch.log2(1e-9 + topic_weight)).squeeze() / self.head_num
             input_feat["entropy"] = entropy_sum if "entropy" not in input_feat else input_feat["entropy"] + entropy_sum
@@ -146,7 +147,7 @@ class MindNRSBase(BaseModel):
             for name, values in input_feat.items():
                 if name.endswith("_weight"):
                     out_dict[name] = values
-        if self.with_entropy:
+        if self.with_entropy or self.show_entropy:
             out_dict["entropy"] = input_feat["entropy"]
         if self.topic_variant == "variational_topic":
             out_dict["kl_divergence"] = input_feat["kl_divergence"]
