@@ -13,7 +13,7 @@ class MindNRSBase(BaseModel):
         self.__dict__.update(kwargs)
         self.attention_hidden_dim = kwargs.get("attention_hidden_dim", 200)
         self.return_weight = kwargs.get("return_weight", False)
-        self.entropy_constraint = kwargs.get("with_entropy", False)
+        self.with_entropy = kwargs.get("show_entropy", True if kwargs.get("alpha", 0) > 0 else False)
         self.topic_variant = kwargs.get("topic_variant", "base")
         self.use_uid = kwargs.get("use_uid", False)
         self.reshape_tensors = []
@@ -107,7 +107,7 @@ class MindNRSBase(BaseModel):
             input_feat[f"{run_name}_weight"] = reshape_tensor(news_dict["news_weight"], output_shape=weight_shape)
             if "topic_weight" in news_dict:
                 input_feat[f"{run_name}_topic_weight"] = news_dict["topic_weight"]
-        if self.entropy_constraint:
+        if self.with_entropy:
             topic_weight = news_dict["topic_weight"]
             entropy_sum = torch.sum(-topic_weight * torch.log2(1e-9 + topic_weight)).squeeze() / self.head_num
             input_feat["entropy"] = entropy_sum if "entropy" not in input_feat else input_feat["entropy"] + entropy_sum
@@ -122,11 +122,11 @@ class MindNRSBase(BaseModel):
         for tensor_name in self.reshape_tensors:
             if tensor_name in input_feat:
                 input_feat[tensor_name] = reshape_tensor(input_feat[tensor_name])
-        if "candidate_news" not in input_feat or self.return_weight or self.entropy_constraint:
+        if "candidate_news" not in input_feat or self.return_weight or self.with_entropy:
             # pass news embeddings cache or return weight
             input_feat = self.run_news_encoder(input_feat, "candidate")
             # output candidate news embedding shape: [N, C, E], C is the number of candidate news
-        if "history_news" not in input_feat or self.return_weight or self.entropy_constraint:  # no cache found
+        if "history_news" not in input_feat or self.return_weight or self.with_entropy:  # no cache found
             input_feat = self.run_news_encoder(input_feat, "history")
             # output history news embedding shape: [N, H, E], H is the number of history news
         return input_feat
@@ -146,7 +146,7 @@ class MindNRSBase(BaseModel):
             for name, values in input_feat.items():
                 if name.endswith("_weight"):
                     out_dict[name] = values
-        if self.entropy_constraint:
+        if self.with_entropy:
             out_dict["entropy"] = input_feat["entropy"]
         if self.topic_variant == "variational_topic":
             out_dict["kl_divergence"] = input_feat["kl_divergence"]
