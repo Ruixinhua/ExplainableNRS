@@ -192,7 +192,7 @@ class NCTrainer(BaseTrainer):
                 write_to_file(os.path.join(topics_dir, "topic_list.txt"), [" ".join(topics) for topics in topic_list])
                 entropy_scores = np.array(entropy(dist, axis=1))
                 topic_result[f"{key}_entropy"] = np.round(np.mean(entropy_scores), 4)
-                topic_result[f"{key}_div"] = np.round(calc_topic_diversity(topic_list))  # calculate topic diversity
+                topic_result[f"{key}_div"] = np.round(calc_topic_diversity(topic_list), 4)  # calculate topic diversity
                 for method, scores in topic_scores.items():
                     topic_file = os.path.join(topics_dir, f"{method}_{topic_result[method]}.txt")
                     coherence_file = os.path.join(coherence_dir, f"{method}_{topic_result[method]}.txt")
