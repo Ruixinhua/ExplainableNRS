@@ -112,32 +112,6 @@ def extract_topics_base(model, word_seq, device):
     return topic_dist
 
 
-def extract_topics_mha(model: torch.nn.Module, data_loader, device):
-    model = model.to(device)
-    try:
-        # the number of heads is the number of topics
-        topic_dist = np.zeros((model.head_num, len(data_loader.word_dict)))
-    except AttributeError:
-        model = model.module
-        topic_dist = np.zeros((model.head_num, len(data_loader.word_dict)))
-    word_count = np.zeros(len(data_loader.word_dict))
-    with torch.no_grad():
-        for batch_dict in data_loader.all_loader:
-            news_index = batch_dict["news"].cpu().numpy()
-            news_nonzero = np.nonzero(news_index)  # calculate nonzero values
-            news = news_index[news_nonzero]
-            batch_dict = {k: v.to(device) for k, v in batch_dict.items()}
-            topic_dict = model.extract_topic(batch_dict)  # (B, H, N)
-            weights = topic_dict["topic_weight"]
-            weights = torch.transpose(weights, 1, 2).cpu().numpy()[news_nonzero]
-            for index, weight in zip(news, weights):
-                topic_dist[:, index] += weight
-                word_count[index] += 1
-    word_count[word_count == 0] = 1  # avoid zero division
-    topic_dist /= word_count
-    return topic_dist
-
-
 def extract_topics(model: torch.nn.Module, word_dict, device):
     word_seq = list(word_dict.values())
     topic_dist = extract_topics_base(model, word_seq, device)  # global topics (base)

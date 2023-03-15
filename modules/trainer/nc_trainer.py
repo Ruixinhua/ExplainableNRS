@@ -9,7 +9,7 @@ from scipy.stats import entropy
 from modules.base.base_trainer import BaseTrainer
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
-from modules.utils import get_topic_list, get_project_root, get_topic_dist, load_sparse, \
+from modules.utils import get_topic_list, get_project_root, get_topic_dist, load_sparse, calc_topic_diversity, \
     read_json, NPMI, compute_coherence, write_to_file, MetricTracker, load_batch_data, word_tokenize
 
 
@@ -184,6 +184,8 @@ class NCTrainer(BaseTrainer):
                 topic_index = [[word_dict[word] for word in topic] for topic in topic_list]
                 w2v_sim_list = [np.sum(np.triu(cosine_similarity(embeddings[i]), 1)) / count for i in topic_index]
                 topic_scores[f"{key}_w2v_sim"] = w2v_sim_list
+            topic_scores[f"{key}_div"] = calc_topic_diversity(topic_list)  # calculate topic diversity
+            # calculate average score for each topic quality method
             topic_result.update({m: np.round(np.mean(c), 4) for m, c in topic_scores.items()})
             if self.accelerator.is_main_process:  # save topic info
                 os.makedirs(topics_dir, exist_ok=True)

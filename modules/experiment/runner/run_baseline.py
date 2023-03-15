@@ -39,7 +39,7 @@ def evaluate_run():
         if config.get("topic_evaluation_method", None) is not None:
             log.update(trainer.topic_evaluation(trainer.model, word_dict=data_loader.word_dict))
         if trainer.writer is not None:
-            trainer.writer.writer.flush()
+            trainer.writer.flush()
         log["Total Time"] = time.time() - start_time
         if trainer.accelerator.is_main_process:  # to avoid duplicated writing
             log_metrics(log)
