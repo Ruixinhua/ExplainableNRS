@@ -110,8 +110,8 @@ class MindNRSBase(BaseModel):
                 input_feat[f"{run_name}_topic_weight"] = news_dict["topic_weight"]
         if self.with_entropy or self.show_entropy:
             topic_weight = news_dict["topic_weight"]
-            entropy_sum = torch.sum(-topic_weight * torch.log2(1e-9 + topic_weight)).squeeze() / self.head_num
-            input_feat["entropy"] = entropy_sum if "entropy" not in input_feat else input_feat["entropy"] + entropy_sum
+            entropy = torch.mean(torch.sum(-topic_weight * torch.log2(1e-9 + topic_weight), dim=-1))
+            input_feat["entropy"] = entropy if "entropy" not in input_feat else (input_feat["entropy"] + entropy) / 2
         if self.topic_variant == "variational_topic":
             if "kl_divergence" not in input_feat:
                 input_feat["kl_divergence"] = news_dict["kl_divergence"]
