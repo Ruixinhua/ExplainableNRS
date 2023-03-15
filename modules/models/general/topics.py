@@ -26,12 +26,8 @@ class TopicLayer(nn.Module):
                                              nn.Linear(topic_dim, self.head_num))
             self.gate_layer = nn.Linear(self.head_num, self.head_num)
             # self.gate_layer = nn.Linear(self.max_length, self.head_num)
-        elif self.variant_name == "raw":  # a simpler model using only one linear layer to encode topic weights
-            # can not extract any meaningful topics from documents
-            self.topic_layer = nn.Sequential(nn.Linear(self.embedding_dim, self.head_num), self.act_layer)
-        elif self.variant_name == "add_dense":  # add a dense layer to the topic layer
-            self.topic_layer = nn.Sequential(nn.Linear(self.embedding_dim, self.hidden_dim), self.act_layer,
-                                             nn.Linear(self.hidden_dim, self.head_num))
+        elif self.variant_name == "base_topic_vector":
+            self.topic_layer = nn.Linear(self.embedding_dim, self.head_num, bias=False)
         elif self.variant_name == "topic_embed":
             self.rho = nn.Linear(self.embedding_dim, len(self.word_dict), bias=False)
             self.topic_layer = nn.Linear(self.embedding_dim, self.head_num)
@@ -43,8 +39,6 @@ class TopicLayer(nn.Module):
         elif self.variant_name == "topic_matrix":
             self.transform = nn.Sequential(nn.Linear(self.embedding_dim, self.head_dim), self.act_layer)
             self.topic_matrix = nn.Embedding(self.head_num, self.head_dim)
-        elif self.variant_name == "topic_dense":
-            self.topic_layer = nn.Sequential(nn.Linear(self.embedding_dim, self.head_num), self.act_layer)
         elif self.variant_name == "MHA":
             self.sentence_encoder = MultiHeadedAttention(self.head_num, self.head_dim, self.embedding_dim)
             self.token_layer = kwargs.get("token_layer", "distribute_topic")
@@ -109,6 +103,9 @@ class TopicLayer(nn.Module):
                 topic_entropy = torch.sum(-topic_weight * torch.log2(1e-9 + topic_weight), dim=-1)
                 topic_reg = torch.where(self.gate_layer(topic_entropy) > 0, 1.0, 0.0)
                 topic_weight = topic_reg.unsqueeze(-1) * topic_weight
+        elif self.variant_name == "base_topic_vector":
+            topic_weight = (news_embeddings @ self.topic_layer.weight.transpose(0, 1)).transpose(1, 2)  # (N, H, S)
+            topic_weight = torch.softmax(topic_weight.masked_fill(mask, -1e4), dim=-1).masked_fill(mask, 0)
         else:
             topic_weight = self.topic_layer(news_embeddings).transpose(1, 2)  # (N, H, S)
             # expand mask to the same size as topic weights
