@@ -148,7 +148,7 @@ class MindNRSBase(BaseModel):
                 if name.endswith("_weight"):
                     out_dict[name] = values
         if self.with_entropy or self.show_entropy:
-            out_dict["entropy"] = input_feat["entropy"]
+            out_dict["entropy"] = input_feat["entropy"] if "entropy" in input_feat else None
         if self.topic_variant == "variational_topic":
             out_dict["kl_divergence"] = input_feat["kl_divergence"]
         return out_dict
