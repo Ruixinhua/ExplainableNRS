@@ -66,7 +66,7 @@ class MindRSTrainer(NCTrainer):
             loss = self.criterion(output["pred"], batch_dict["label"])
             # gpu_used = torch.cuda.memory_allocated() / 1024 ** 3
             bar_description = f"Epoch: {epoch} {gpu_stat()}"
-            if self.with_entropy:
+            if self.with_entropy or self.show_entropy:
                 if self.entropy_mode == "static":
                     entropy_loss = self.alpha * output["entropy"]
                 else:  # dynamic change based on the magnitude of entropy and loss
