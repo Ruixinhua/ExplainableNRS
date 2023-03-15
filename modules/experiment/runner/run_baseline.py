@@ -67,7 +67,7 @@ if __name__ == "__main__":
     saved_filename = config.get("saved_filename", config.get('arch_type'))
     days, times = timestamp.split("_")
     saved_filename = f"{days}/{saved_filename}_{times}.csv"
-    with_entropy = config.get("with_entropy", 0)
+    with_entropy = config.get("with_entropy", True if config.get("alpha", 0) > 0 else False)
     default_saved_name = f'{cmd_args["task"]}/{arch_attr}/' if arch_attr is not None else f'{cmd_args["task"]}/'
     if topic_evaluation_method:
         default_saved_name += f"{topic_evaluation_method}/"

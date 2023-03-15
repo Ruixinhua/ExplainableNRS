@@ -17,11 +17,11 @@ def get_news_embeds(model, news_loader, **kwargs):
         news_loader = accelerator.prepare_data_loader(news_loader)
     bar = tqdm(news_loader, total=len(news_loader))
     for batch_dict in bar:
+        bar.set_description(f"Get news embeddings: {gpu_stat()}")
         # load data to device
         batch_dict = load_batch_data(batch_dict, device)
         # run news encoder
         news_vec = model.news_encoder(batch_dict)["news_embed"]
-        bar.set_description(f"Get news embeddings: {gpu_stat()}")
         # update news vectors
         news_embeds.update(dict(zip(batch_dict["index"].cpu().tolist(), news_vec.cpu().numpy())))
     return convert_dict_to_numpy(gather_dict(news_embeds))
