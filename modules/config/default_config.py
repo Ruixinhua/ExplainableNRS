@@ -34,11 +34,11 @@ ARCH_CONFIGS = {
         "variant_name": "gru_att"
     },
     "BiAttentionClassifyModel": {
-        "head_num": 20, "head_dim": 20, "entropy_constraint": False, "alpha": 0.01, "n_layers": 1,
+        "head_num": 20, "head_dim": 20, "with_entropy": False, "alpha": 0.01, "n_layers": 1,
         "variant_name": "base", "topic_embed": None, "calculate_entropy": False,
     },
     "TopicExtractorClassifyModel": {
-        "head_num": 20, "head_dim": 20, "entropy_constraint": False, "alpha": 0.01, "n_layers": 1
+        "head_num": 20, "head_dim": 20, "with_entropy": False, "alpha": 0.01, "n_layers": 1
     },
     "FastformerClassifyModel": {
         "embedding_dim": 300, "n_layers": 2, "hidden_act": "gelu", "head_num": 15, "type_vocab_size": 2,

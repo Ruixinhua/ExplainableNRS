@@ -12,7 +12,7 @@ class BiAttentionClassifyModel(BaseClassifyModel):
         # the structure of basic model
         self.final = nn.Linear(self.embed_dim, self.embed_dim)
         self.projection = AttLayer(self.embed_dim, 128)
-        self.entropy_constraint = kwargs.get("entropy_constraint", False)
+        self.entropy_constraint = kwargs.get("with_entropy", False)
         self.calculate_entropy = kwargs.get("calculate_entropy", False)
 
     def extract_topic(self, input_feat):

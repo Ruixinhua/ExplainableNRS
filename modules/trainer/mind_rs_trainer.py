@@ -66,7 +66,7 @@ class MindRSTrainer(NCTrainer):
             loss = self.criterion(output["pred"], batch_dict["label"])
             # gpu_used = torch.cuda.memory_allocated() / 1024 ** 3
             bar_description = f"Epoch: {epoch} {gpu_stat()}"
-            if self.entropy_constraint:
+            if self.with_entropy:
                 if self.entropy_mode == "static":
                     entropy_loss = self.alpha * output["entropy"]
                 else:  # dynamic change based on the magnitude of entropy and loss
@@ -112,7 +112,7 @@ class MindRSTrainer(NCTrainer):
         weight_dict = defaultdict(lambda: [])
         topic_variant = self.config.get("topic_variant", "base")
         return_weight = self.config.get("return_weight", False)
-        entropy_constraint = self.config.get("entropy_constraint", False)
+        entropy_constraint = self.config.get("with_entropy", False)
         saved_weight_num = self.config.get("saved_weight_num", 250)
         with torch.no_grad():
             try:  # try to do fast evaluation: cache news embeddings

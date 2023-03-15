@@ -67,12 +67,14 @@ if __name__ == "__main__":
     saved_filename = config.get("saved_filename", config.get('arch_type'))
     days, times = timestamp.split("_")
     saved_filename = f"{days}/{saved_filename}_{times}.csv"
-    entropy_constraint = config.get("entropy_constraint", 0)
+    with_entropy = config.get("with_entropy", 0)
     default_saved_name = f'{cmd_args["task"]}/{arch_attr}/' if arch_attr is not None else f'{cmd_args["task"]}/'
     if topic_evaluation_method:
         default_saved_name += f"{topic_evaluation_method}/"
-    if entropy_constraint:
-        default_saved_name += "entropy_constraint/"
+    if with_entropy:
+        default_saved_name += "with_entropy/"
+    else:
+        default_saved_name += "without_entropy/"
     saved_name = config.get("saved_name", default_saved_name)
     logger = config.get_logger(saved_name)
     # acquires test values for a given arch attribute

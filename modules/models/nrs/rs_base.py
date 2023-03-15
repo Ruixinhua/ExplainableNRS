@@ -13,7 +13,7 @@ class MindNRSBase(BaseModel):
         self.__dict__.update(kwargs)
         self.attention_hidden_dim = kwargs.get("attention_hidden_dim", 200)
         self.return_weight = kwargs.get("return_weight", False)
-        self.entropy_constraint = kwargs.get("entropy_constraint", False)
+        self.entropy_constraint = kwargs.get("with_entropy", False)
         self.topic_variant = kwargs.get("topic_variant", "base")
         self.use_uid = kwargs.get("use_uid", False)
         self.reshape_tensors = []

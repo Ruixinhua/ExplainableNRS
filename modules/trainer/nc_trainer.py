@@ -22,10 +22,10 @@ class NCTrainer(BaseTrainer):
         self.config = config
         self.data_loader = data_loader
         self.train_loader = data_loader.train_loader
-        self.entropy_constraint = config.get("entropy_constraint", False)
-        self.calculate_entropy = config.get("calculate_entropy", self.entropy_constraint)
         self.entropy_mode = config.get("entropy_mode", "static")
         self.alpha = config.get("alpha", 0.001)
+        self.with_entropy = True if self.alpha > 0 else False
+        self.calculate_entropy = config.get("calculate_entropy", self.with_entropy)
         self.beta = config.get("beta", 0.1)
         self.len_epoch = len(self.train_loader)
         self.valid_loader = data_loader.valid_loader
@@ -47,7 +47,7 @@ class NCTrainer(BaseTrainer):
         batch_dict = load_batch_data(batch_dict, self.device, multi_gpu)
         output = model(batch_dict) if model is not None else self.model(batch_dict)
         loss = self.criterion(output["pred"], batch_dict["label"])
-        if self.entropy_constraint:
+        if self.with_entropy:
             loss += self.alpha * output["entropy"]
         out_dict = {"label": batch_dict["label"], "loss": loss, "predict": output["pred"]}
         if self.calculate_entropy:
