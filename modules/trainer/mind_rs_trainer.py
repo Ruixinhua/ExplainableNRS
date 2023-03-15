@@ -10,10 +10,10 @@ import numpy as np
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from config.configuration import Configuration
-from dataset import ImpressionDataset
-from trainer import NCTrainer
-from utils import gather_dict, load_batch_data, get_news_embeds
+from modules.config.configuration import Configuration
+from modules.dataset import ImpressionDataset
+from modules.trainer import NCTrainer
+from modules.utils import gather_dict, load_batch_data, get_news_embeds, gpu_stat
 
 
 class MindRSTrainer(NCTrainer):
@@ -65,11 +65,7 @@ class MindRSTrainer(NCTrainer):
             output = self.model(batch_dict)
             loss = self.criterion(output["pred"], batch_dict["label"])
             # gpu_used = torch.cuda.memory_allocated() / 1024 ** 3
-            free_mem, gpu_mem = torch.cuda.mem_get_info()
-            gpu_mem = round(gpu_mem / 1024 ** 3, 2)
-            free_mem = round(free_mem / 1024 ** 3, 2)
-            gpu_used = round(gpu_mem - free_mem, 2)
-            bar_description = f"Epoch: {epoch} GPU: {gpu_used}GB/{free_mem}GB/{gpu_mem}GB"
+            bar_description = f"Epoch: {epoch} {gpu_stat()}"
             if self.entropy_constraint:
                 if self.entropy_mode == "static":
                     entropy_loss = self.alpha * output["entropy"]
@@ -131,7 +127,8 @@ class MindRSTrainer(NCTrainer):
             imp_set = ImpressionDataset(valid_set, news_embeds, selected_imp=self.config.get("selected_imp", None))
             valid_loader = DataLoader(imp_set, impression_bs, collate_fn=self.mind_loader.fn)
             valid_loader = self.accelerator.prepare_data_loader(valid_loader)
-            for vi, batch_dict in tqdm(enumerate(valid_loader), total=len(valid_loader), desc="Impressions-Validation"):
+            bar = tqdm(enumerate(valid_loader), total=len(valid_loader))
+            for vi, batch_dict in bar:
                 batch_dict = load_batch_data(batch_dict, self.device)
                 label = batch_dict["label"].cpu().numpy()
                 out_dict = model(batch_dict)    # run model
@@ -160,6 +157,7 @@ class MindRSTrainer(NCTrainer):
                                 weight_dict[name].append(weight[i][:length].cpu().numpy())
                 if vi >= saved_weight_num and return_weight:
                     break
+                bar.set_description(f"Validating: {gpu_stat()}")
             result_dict = gather_dict(result_dict)  # gather results
             eval_result = dict(np.round(pd.DataFrame.from_dict(result_dict, orient="index").mean(), 4))  # average
             if self.config.get("evaluate_topic_by_epoch", False) and self.config.get("topic_evaluation_method", None):

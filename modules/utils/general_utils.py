@@ -150,3 +150,15 @@ def load_batch_data(batch_dict, device, multi_gpu=True):
     if torch.distributed.is_initialized() and multi_gpu:  # use multi-gpu
         return batch_dict
     return {k: v.to(device) for k, v in batch_dict.items()}
+
+
+def gpu_stat():
+    """
+    get gpu memory usage
+    :return: gpu memory usage
+    """
+    free_mem, gpu_mem = torch.cuda.mem_get_info()
+    gpu_mem = round(gpu_mem / 1024 ** 3, 2)
+    free_mem = round(free_mem / 1024 ** 3, 2)
+    gpu_used = round(gpu_mem - free_mem, 2)
+    return f"GPU: {gpu_used}GB/{free_mem}GB/{gpu_mem}GB"
