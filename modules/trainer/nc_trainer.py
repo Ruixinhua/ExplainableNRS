@@ -184,7 +184,6 @@ class NCTrainer(BaseTrainer):
                 topic_index = [[word_dict[word] for word in topic] for topic in topic_list]
                 w2v_sim_list = [np.sum(np.triu(cosine_similarity(embeddings[i]), 1)) / count for i in topic_index]
                 topic_scores[f"{key}_w2v_sim"] = w2v_sim_list
-            topic_scores[f"{key}_div"] = calc_topic_diversity(topic_list)  # calculate topic diversity
             # calculate average score for each topic quality method
             topic_result.update({m: np.round(np.mean(c), 4) for m, c in topic_scores.items()})
             if self.accelerator.is_main_process:  # save topic info
@@ -192,6 +191,7 @@ class NCTrainer(BaseTrainer):
                 write_to_file(os.path.join(topics_dir, "topic_list.txt"), [" ".join(topics) for topics in topic_list])
                 entropy_scores = np.array(entropy(dist, axis=1))
                 topic_result[f"{key}_entropy"] = np.round(np.mean(entropy_scores), 4)
+                topic_result[f"{key}_div"] = np.round(calc_topic_diversity(topic_list))  # calculate topic diversity
                 for method, scores in topic_scores.items():
                     topic_file = os.path.join(topics_dir, f"{method}_{topic_result[method]}.txt")
                     coherence_file = os.path.join(coherence_dir, f"{method}_{topic_result[method]}.txt")
