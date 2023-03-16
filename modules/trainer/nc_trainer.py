@@ -23,7 +23,7 @@ class NCTrainer(BaseTrainer):
         self.data_loader = data_loader
         self.train_loader = data_loader.train_loader
         self.entropy_mode = config.get("entropy_mode", "static")
-        self.alpha = config.get("alpha", 0.001)
+        self.alpha = config.get("alpha", 0)
         self.with_entropy = config.get("with_entropy", True if self.alpha > 0 else False)
         self.show_entropy = config.get("show_entropy", False)
         self.calculate_entropy = config.get("calculate_entropy", self.with_entropy)
