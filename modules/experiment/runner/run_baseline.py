@@ -66,15 +66,13 @@ if __name__ == "__main__":
     topic_evaluation_method = config.get("topic_evaluation_method", None)
     saved_filename = config.get("saved_filename", config.get('arch_type'))
     days, times = timestamp.split("_")
-    saved_filename = f"{days}/{saved_filename}_{times}.csv"
+    saved_filename = f"{saved_filename}_{times}.csv"
     with_entropy = config.get("with_entropy", True if config.get("alpha", 0) > 0 else False)
-    default_saved_name = f'{cmd_args["task"]}/{arch_attr}/' if arch_attr is not None else f'{cmd_args["task"]}/'
-    if topic_evaluation_method:
-        default_saved_name += f"{topic_evaluation_method}/"
+    default_saved_name = f'{cmd_args["task"]}/'
     if with_entropy:
-        default_saved_name += "with_entropy/"
+        default_saved_name += f"with_entropy_{days}/"
     else:
-        default_saved_name += "without_entropy/"
+        default_saved_name += f"without_entropy_{days}/"
     saved_name = config.get("saved_name", default_saved_name)
     logger = config.get_logger(saved_name)
     # acquires test values for a given arch attribute
