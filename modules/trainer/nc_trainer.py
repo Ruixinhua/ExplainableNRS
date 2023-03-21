@@ -160,8 +160,8 @@ class NCTrainer(BaseTrainer):
         for key, dist in topic_dists.items():  # calculate topic quality for different Post processing methods
             topic_scores = {}
             topic_list = get_topic_list(dist, top_n, reverse_dict)  # convert to tokens list
-            ref_data_path = self.config.get("ref_data_path", Path(get_project_root()) / "dataset/data/MIND15.csv")
             if "fast_eval" in topic_evaluation_method:
+                ref_data_path = self.config.get("ref_data_path", Path(get_project_root()) / "dataset/utils/ref.dtm.npz")
                 ref_texts = load_sparse(ref_data_path)
                 scorer = NPMI((ref_texts > 0).astype(int))
                 topic_index = [[word_dict[word] - 1 for word in topic] for topic in topic_list]
