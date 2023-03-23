@@ -1,9 +1,12 @@
+import os
 import re
+from pathlib import Path
 from typing import Union
 
 import torch
 import numpy as np
-import config.default_config as default_config
+import modules.config.default_config as default_config
+from modules.utils import read_json, get_project_root, write_json
 
 
 def word_tokenize(sent, method="keep_all"):
@@ -25,15 +28,10 @@ def word_tokenize(sent, method="keep_all"):
         return []
 
 
-def text2index(text, word_dict, method="keep_all", ignore=True):
-    # TODO: tokenize for compare
-    return word2index(word_dict, word_tokenize(text, method), ignore)
-
-
-def word2index(word_dict, sent, ignore=True):
+def text2index(text, word_dict, method="keep_all", skip=True):
     word_index = []
-    for word in sent:
-        if ignore:
+    for word in word_tokenize(text, method):
+        if skip:
             index = word_dict[word] if word in word_dict else 0
         else:
             if word not in word_dict:
@@ -51,15 +49,10 @@ class Tokenizer:
     def __init__(self, **kwargs):
         self.embedding_type = kwargs.get("embedding_type", "glove")
         self.tokenized_method = kwargs.get("tokenized_method", "keep_all")
-        if self.embedding_type == "elmo":
-            # TODO: Not implemented for elmo
-            from allennlp.modules.elmo import batch_to_ids
-            self.tokenize = batch_to_ids
-            self.pad_id = 0
-        elif self.embedding_type == "glove":
+        if self.embedding_type == "glove":
             from modules.utils.dataset_utils import load_word_dict
             self.word_dict = kwargs.get("word_dict", load_word_dict(**kwargs))  # load dictionary for glove embedding
-            self.ignore = kwargs.get("ignore", True)  # default skip unknown words
+            self.skip = kwargs.get("skip", True)  # default skip unknown words
             self.tokenize = self.text2token
             self.pad_id = 0
         elif self.embedding_type in default_config.TEST_CONFIGS["bert_embedding"]:
@@ -73,9 +66,19 @@ class Tokenizer:
             if self.embedding_type == "transfo-xl-wt103":
                 self.tokenizer.pad_token = self.tokenizer.eos_token
             self.pad_id = self.tokenizer.pad_token_id
+        else:  # default use embedding initialized by random
+            data_root = Path(kwargs.get("data_dir", os.path.join(get_project_root(), "dataset")))  # root directory
+            default_path = os.path.join(data_root, "utils", "word_dict", f"{kwargs.get('dataset_name', 'MIND')}.json")
+            self.word_dict_path = Path(kwargs.get("word_dict_path", default_path))
+            if self.word_dict_path.exists():
+                self.word_dict = read_json(self.word_dict_path)
+            else:
+                self.word_dict = kwargs.get("word_dict", {"[UNK]": 0})
+            self.skip = False
+            self.tokenize = self.text2token
+            self.pad_id = 0
 
     def encode(self, x: Union[str, list], max_length: int, return_tensors=True):
-        # TODO: tokenize list input for transformer-based embedding and mask
         x_encoded = self.tokenizer(x, add_special_tokens=True, max_length=max_length, truncation=True, padding=True)
         # mask = pad_sentence(np.ones_like(x_encoded).tolist(), max_length)
         x_padded = x_encoded["input_ids"]
@@ -87,10 +90,12 @@ class Tokenizer:
 
     def text2token(self, x: Union[str, list], max_length: int, return_tensors=True):
         if isinstance(x, list):
-            x_token = [text2index(_, self.word_dict, self.tokenized_method, self.ignore) for _ in x]
+            x_token = [text2index(_, self.word_dict, self.tokenized_method, self.skip) for _ in x]
             x_padded = np.array([pad_sentence(_, max_length) for _ in x_token])
         else:
-            x_padded = pad_sentence(text2index(x, self.word_dict, self.tokenized_method, self.ignore), max_length)
+            x_padded = pad_sentence(text2index(x, self.word_dict, self.tokenized_method, self.skip), max_length)
         if return_tensors:
             x_padded = torch.tensor(x_padded, dtype=torch.long)
+        if not self.word_dict_path.exists():
+            write_json(self.word_dict, self.word_dict_path)
         return x_padded

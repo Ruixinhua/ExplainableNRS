@@ -54,7 +54,7 @@ def count_tokens(df):
 
 if __name__ == "__main__":
     cmd_args = load_cmd_line()
-    mind_type = cmd_args.get("mind_type", "large")
+    mind_type = cmd_args.get("subset_type", "large")
     dataset_path = cmd_args.get("dataset_path", Path(get_project_root()) / "dataset")
     data_path = Path(dataset_path) / "data"
     ori_dict = read_json(Path(dataset_path) / "utils/word_dict/MIND_41059.json")

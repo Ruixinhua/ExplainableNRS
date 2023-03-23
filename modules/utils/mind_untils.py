@@ -19,48 +19,51 @@ def load_entity(entity: str):
     return " ".join([" ".join(e["SurfaceForms"]) for e in json.loads(entity)])
 
 
-def load_category_dict(**kwargs):
+def load_category(**kwargs):
+    """
+    load category from mind dataset
+    :param kwargs: contains cat_type(should be 'category' or 'subvert'),
+    :return: a dictionary of category and its mapping id
+    """
     data_root = Path(kwargs.get("data_dir", os.path.join(get_project_root(), "dataset")))
-    default_cid_path = Path(data_root) / f"utils/MIND_cat2id_{kwargs.get('mind_type')}.json"
-    default_sid_path = Path(data_root) / f"utils/MIND_subvert2id_{kwargs.get('mind_type')}.json"
-    category2id_path = kwargs.get("category2id_path", default_cid_path)
-    subvert2id_path = kwargs.get("subvert2id_path", default_sid_path)
-    if os.path.exists(category2id_path) and os.path.exists(subvert2id_path):
-        category2id = read_json(category2id_path)
-        subvert2id = read_json(subvert2id_path)
+    dataset_name = kwargs.get("dataset_name", "MIND")
+    cat_type = kwargs.get("cat_type", "category")
+    default_cid_path = Path(data_root) / f"utils/{dataset_name}_{cat_type}2id_{kwargs.get('subset_type')}.json"
+    cat2id_path = kwargs.get(f"{cat_type}2id_path", default_cid_path)
+    if os.path.exists(cat2id_path):
+        category2id = read_json(cat2id_path)
     else:
-        unique_cat, unique_subvert = kwargs.get("category_set"), kwargs.get("subvert_set")
+        unique_cat = kwargs.get("category_set")
         category2id = dict(zip(unique_cat, range(1, len(unique_cat)+1)))
-        subvert2id = dict(zip(unique_subvert, range(1, len(unique_subvert)+1)))
-        write_json(category2id, category2id_path)
-        write_json(subvert2id, subvert2id_path)
-    return category2id, subvert2id
+        write_json(category2id, cat2id_path)
+    return category2id
 
 
-def get_mind_dir(**kwargs):
-    mind_dir = kwargs.get("mind_dir", None)
-    if mind_dir is None:
+def get_subset_dir(**kwargs):
+    subset_dir = kwargs.get("subset_dir", None)
+    if subset_dir is None:
         data_dir = kwargs.get("data_dir", None)
+        dataset_name = kwargs.get("dataset_name", "MIND")  # dataset name
         if data_dir is None:
-            data_dir = Path(get_project_root()) / "dataset/MIND"
+            data_dir = Path(get_project_root()) / "dataset" / dataset_name
         else:
-            data_dir = Path(data_dir) / "MIND"
-        mind_dir = data_dir / kwargs.get("mind_type", "demo")
+            data_dir = Path(data_dir) / dataset_name
+        subset_dir = data_dir / kwargs.get("subset_type", "demo")
         if kwargs.get("phase", None) is not None:   # options for phase are train, valid, test
-            mind_dir = mind_dir / kwargs.get("phase")
-        return mind_dir
+            subset_dir = subset_dir / kwargs.get("phase")
+        return subset_dir
     else:
-        raise ValueError("Please specify the mind_dir or data_dir and mind_type")
+        raise ValueError("Please specify the subset_dir or data_dir and subset_type")
 
 
 def check_mind_set(**kwargs):
-    mind_type, mind_dir = kwargs.get("mind_type", "small"), kwargs.get("mind_dir", None)
+    mind_type, mind_dir = kwargs.get("subset_type", "small"), kwargs.get("mind_dir", None)
     data_dir = kwargs.get("data_dir", None)
     mind_url = get_mind_download_url()
-    train_dir = get_mind_dir(phase="train", mind_dir=mind_dir, mind_type=mind_type, data_dir=data_dir)
-    valid_dir = get_mind_dir(phase="valid", mind_dir=mind_dir, mind_type=mind_type, data_dir=data_dir)
-    test_dir = get_mind_dir(phase="test", mind_dir=mind_dir, mind_type=mind_type, data_dir=data_dir)
-    util_path = get_mind_dir(phase="utils", mind_dir=mind_dir, mind_type=mind_type, data_dir=data_dir)
+    train_dir = get_subset_dir(phase="train", mind_dir=mind_dir, mind_type=mind_type, data_dir=data_dir)
+    valid_dir = get_subset_dir(phase="valid", mind_dir=mind_dir, mind_type=mind_type, data_dir=data_dir)
+    test_dir = get_subset_dir(phase="test", mind_dir=mind_dir, mind_type=mind_type, data_dir=data_dir)
+    util_path = get_subset_dir(phase="utils", mind_dir=mind_dir, mind_type=mind_type, data_dir=data_dir)
     if not (Path(train_dir, "behaviors.tsv").exists() and Path(train_dir, "news.tsv").exists()):
         download_resources(mind_url, train_dir, f"MIND{mind_type}_train.zip")  # download mind training files
     if not (Path(valid_dir, "behaviors.tsv").exists() and Path(valid_dir, "news.tsv").exists()):

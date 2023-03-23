@@ -24,7 +24,7 @@ class NPARSModel(MindNRSBase):
             nn.Conv1d(self.embedding_dim, self.num_filters, self.window_size, padding=padding),
             nn.ReLU(inplace=True)
         )
-        default_path = os.path.join(kwargs.get("data_dir"), "utils", f"MIND_uid_{kwargs.get('mind_type')}.json")
+        default_path = os.path.join(kwargs.get("data_dir"), "utils", f"MIND_uid_{kwargs.get('subset_type')}.json")
         uid_path = kwargs.get("uid_path", default_path)
         if not os.path.exists(uid_path):
             raise ValueError("User ID dictionary is not found, please check your config file")

@@ -15,6 +15,8 @@ class NewsEmbedding(nn.Module):
             self.embedding = nn.Embedding.from_pretrained(torch.FloatTensor(self.embeds), freeze=False)
             self.embed_dim = self.embeds.shape[1]
         elif self.embedding_type == "init":
+            self.word_dict = kwargs.get("word_dict", None)
+            assert self.word_dict is not None, "Please provide word dictionary for embedding initialization"
             self.embedding = nn.Embedding(len(self.word_dict), self.embed_dim, padding_idx=0)
         elif self.embedding_type in LAYER_MAPPING:
             # load weight and model from pretrained model

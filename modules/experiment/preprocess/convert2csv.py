@@ -33,7 +33,7 @@ def save_tokenized_text(word_dict_path, tokens_path):
 
 if __name__ == "__main__":
     cmd_args = load_cmd_line()
-    mind_type = cmd_args.get("mind_type", "large")
+    mind_type = cmd_args.get("subset_type", "large")
     dataset_path = cmd_args.get("dataset_path", Path(get_project_root()) / "dataset")
     processed_path = cmd_args.get("processed_path")
     vocab_dict_path = cmd_args.get("vocab_dict_path", Path(processed_path) / "vocab.json")

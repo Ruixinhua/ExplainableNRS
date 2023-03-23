@@ -17,7 +17,7 @@ class NewsDataLoader:
             else:
                 self.word_dict = dataset.tokenizer.vocab
         elif self.embedding_type in ["glove", "init"]:
-            # if we use glove embedding, then we ignore the unknown words
+            # if we use glove embedding, then we skip the unknown words
             dataset = NCDataset(df["data"].values.tolist(), df["category"].values.tolist(), self.label_dict,
                                 self.max_length, self.word_dict, self.method)
         else:

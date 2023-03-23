@@ -102,9 +102,9 @@ def load_word_dict(**kwargs):
         dataset_name = kwargs.get("dataset_name", "MIND")
         if dataset_name is None:
             raise ValueError("dataset name should be provided: MIND15 or News26")
-        data_path = kwargs.get("data_path", Path(data_root) / "data" / f"{dataset_name}.csv")
+        data_path = kwargs.get("data_path", Path(data_root) / dataset_name / "news.csv")
         if not os.path.exists(data_path):
-            raise ValueError("data path is not correct or MIND15.csv is not exist")
+            raise ValueError(f"Data path({data_path}) is not correct or news.csv is not exist")
         df = kwargs.get("df", load_dataset_df(dataset_name, data_path)[0])
         tokenized_method = kwargs.get("tokenized_method", "use_all")
         df.data.apply(lambda s: text2index(s, word_dict, tokenized_method, False))

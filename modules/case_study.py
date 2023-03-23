@@ -119,7 +119,7 @@ if __name__ == "__main__":
     news_df = pd.read_csv(news_file)
     nid2index = read_json(r"C:\Users\Rui\Documents\Explainable_AI\explainable_nrs\dataset\utils\MIND_nid_small.json")
     index2nid = dict(zip(nid2index.values(), nid2index.keys()))
-    # article_path = mind_dir / "msn.json"
+    # article_path = subset_dir / "msn.json"
     # if os.path.exists(article_path):
     #     articles = read_json(article_path)
     #     news_df["body"] = news_df.news_id.apply(lambda nid: " ".join(articles[nid]) if nid in articles else "")

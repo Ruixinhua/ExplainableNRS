@@ -29,16 +29,15 @@ def collate_fn(data):
     return pad_feat(input_feat)
 
 
-class MindDataLoader:
+class NRDataLoader:
     def __init__(self, **kwargs):
         # load word and user dictionary
         # set tokenizer
         self.tokenizer = Tokenizer(**kwargs)
-        self.word_dict = self.tokenizer.word_dict
         bs = kwargs.get("batch_size", 64)
         impression_bs = kwargs.get("impression_batch_size", 1)
         self.fn = collate_fn
-        module_dataset_name = kwargs.get("dataset_class", "MindRSDataset")
+        module_dataset_name = kwargs.get("dataset_class", "NewsRecDataset")
         self.train_set = getattr(module_dataset, module_dataset_name)(self.tokenizer, phase="train", **kwargs)
         self.train_loader = DataLoader(self.train_set, bs, pin_memory=True, collate_fn=self.fn)
         # setup news and user dataset
@@ -47,3 +46,4 @@ class MindDataLoader:
         news_set = NewsDataset(self.train_set)
         self.news_loader = DataLoader(news_set, kwargs.get("news_batch_size", 128))
         self.valid_loader = DataLoader(ImpressionDataset(self.valid_set), impression_bs, collate_fn=self.fn)
+        self.word_dict = self.tokenizer.word_dict

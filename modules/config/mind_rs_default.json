@@ -14,7 +14,7 @@
 
     "trainer_type": "MindRSTrainer",
     "epochs": 100,
-    "dataloader_type": "MindDataLoader",
+    "dataloader_type": "NRDataLoader",
     "valid_interval": 0.5,
     "save_period": 1,
     "verbosity": 2,

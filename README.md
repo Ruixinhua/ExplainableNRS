@@ -35,7 +35,7 @@ To run the code for training the basic BATMRS model and evaluating its performan
 ```bash
 cd ../../ # back to the root directory
 export PYTHONPATH=PYTHONPATH:./:./modules  # set current directory and the module directory as PYTHONPATH
-accelerate launch modules/experiment/runner/run_baseline.py --task=RS_BATM --arch_type=BATMRSModel --mind_type=small --news_info=use_all --news_lengths=100 --word_dict_file=MIND_40910.json --ref_data_path=dataset/utils/ref.dtm.npz --topic_evaluation_method=fast_eval,w2v_sim 
+accelerate launch modules/experiment/runner/run_baseline.py --task=RS_BATM --arch_type=BATMRSModel --subset_type=small --news_info=use_all --news_lengths=100 --word_dict_file=MIND_40910.json --ref_data_path=dataset/utils/ref.dtm.npz --topic_evaluation_method=fast_eval,w2v_sim 
 # use default configuration of accelerate to launch the training script; add "--config_file config.yaml" after launch to use the configuration file
 # check [accelerate documentation](https://huggingface.co/docs/accelerate/) for more details
 ```

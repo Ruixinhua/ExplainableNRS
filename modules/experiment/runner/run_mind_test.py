@@ -33,7 +33,7 @@ if __name__ == "__main__":
     config.save_config(Path(saved_dir, saved_name), f"{saved_filename}_config.json")
     logger = config.get_logger(saved_name, verbosity=2)
     data_loader = init_data_loader(config)  # load
-    module_dataset_name = config.get("dataset_class", "MindRSDataset")
+    module_dataset_name = config.get("dataset_class", "NewsRecDataset")
     impression_bs = config.get("impression_batch_size", 1)
     tokenizer = Tokenizer(**config.final_configs)
     test_set = getattr(module_dataset, module_dataset_name)(tokenizer, phase="test", **config.final_configs)

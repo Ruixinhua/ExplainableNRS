@@ -3,7 +3,7 @@ import torch.nn as nn
 
 from modules.base.base_model import BaseModel
 from modules.models.general import AttLayer, DotProduct, DNNClickPredictor, NewsEmbedding
-from modules.utils import reshape_tensor, load_category_dict
+from modules.utils import reshape_tensor, load_category
 
 
 class MindNRSBase(BaseModel):
@@ -18,7 +18,7 @@ class MindNRSBase(BaseModel):
         self.topic_variant = kwargs.get("topic_variant", "base")
         self.use_uid = kwargs.get("use_uid", False)
         self.reshape_tensors = []
-        self.use_category = kwargs.get("use_category", False)
+        self.use_category, self.use_subvert = kwargs.get("use_category", False), kwargs.get("use_subvert", False)
         self.news_info = kwargs.get("news_info", ["use_all"])
         if isinstance(self.news_info, str):
             self.news_info = [self.news_info]
@@ -29,11 +29,14 @@ class MindNRSBase(BaseModel):
             self.news_info.append("title_mask")
         if "body" in self.news_info:
             self.news_info.append("body_mask")
+        self.category_dim = kwargs.get("category_dim", 100)
         if self.use_category:
-            self.news_info.extend(["category", "subvert"])
-            category2id, subvert2id = load_category_dict(**kwargs)
-            self.category_dim = kwargs.get("category_dim", 100)
+            self.news_info.append("category")
+            category2id = load_category(cat_type="category", **kwargs),
             self.category_embedding = nn.Embedding(num_embeddings=len(category2id) + 1, embedding_dim=self.category_dim)
+        if self.use_subvert:
+            self.news_info.append("subvert")
+            subvert2id = load_category(cat_type="subvert", **kwargs)
             self.subvert_embedding = nn.Embedding(num_embeddings=len(subvert2id) + 1, embedding_dim=self.category_dim)
         for feature in self.news_info:
             if feature == "use_all":
@@ -86,6 +89,8 @@ class MindNRSBase(BaseModel):
                 feat.update({"news": input_feat[run_name], "news_mask": input_feat[f"{run_name}_mask"]})
             else:
                 feat[feature] = input_feat[f"{run_name}_{feature}"]
+        if "news" not in feat:
+            feat.update({"news": feat[self.news_info[0]], "news_mask": feat[f"{self.news_info[1]}"]})
         if self.use_uid:
             news_num = int(feat["news"].shape[0] / input_feat["uid"].shape[0])
             feat["uid"] = input_feat["uid"].unsqueeze(1).expand((-1, news_num)).reshape(-1)
