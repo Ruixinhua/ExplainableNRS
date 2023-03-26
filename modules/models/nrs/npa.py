@@ -4,7 +4,7 @@ import torch.nn as nn
 
 from modules.models import PersonalizedAttentivePooling
 from modules.models.nrs.rs_base import MindNRSBase
-from modules.utils import read_json
+from modules.utils import read_json, get_default_upath
 
 
 class NPARSModel(MindNRSBase):
@@ -24,11 +24,7 @@ class NPARSModel(MindNRSBase):
             nn.Conv1d(self.embedding_dim, self.num_filters, self.window_size, padding=padding),
             nn.ReLU(inplace=True)
         )
-        default_path = os.path.join(kwargs.get("data_dir"), "utils", f"MIND_uid_{kwargs.get('subset_type')}.json")
-        uid_path = kwargs.get("uid_path", default_path)
-        if not os.path.exists(uid_path):
-            raise ValueError("User ID dictionary is not found, please check your config file")
-        uid2index = read_json(uid_path)
+        uid2index = read_json(get_default_upath(**kwargs))
         self.user_embedding = nn.Embedding(len(uid2index) + 1, self.user_emb_dim)
         self.transform_news = nn.Linear(self.user_emb_dim, self.attention_hidden_dim)
         self.transform_user = nn.Linear(self.user_emb_dim, self.attention_hidden_dim)

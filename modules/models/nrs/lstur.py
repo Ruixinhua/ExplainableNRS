@@ -6,7 +6,7 @@ from torch.nn.utils.rnn import pack_padded_sequence
 
 from modules.models.general import AttLayer, Conv1D
 from modules.models.nrs.rs_base import MindNRSBase
-from modules.utils import read_json
+from modules.utils import read_json, get_default_upath
 
 
 class LSTURRSModel(MindNRSBase):
@@ -29,11 +29,7 @@ class LSTURRSModel(MindNRSBase):
         if self.use_category:
             news_dim = self.num_filters + self.category_dim * 2
         if self.user_embed_method == "init" or self.user_embed_method == "concat":
-            default_path = os.path.join(kwargs.get("data_dir"), "utils", f"MIND_uid_{kwargs.get('subset_type')}.json")
-            uid_path = kwargs.get("uid_path", default_path)
-            if not os.path.exists(uid_path):
-                raise ValueError("User ID dictionary is not found, please check your config file")
-            uid2index = read_json(uid_path)
+            uid2index = read_json(get_default_upath(**kwargs))
             self.user_embedding = nn.Embedding(len(uid2index) + 1, user_dim)  # count from 1
             self.user_affine = nn.Linear(user_dim, news_dim)
         self.user_encode_layer = nn.GRU(news_dim, news_dim, batch_first=True, bidirectional=False)

@@ -1,5 +1,8 @@
+import os
+
 from tqdm import tqdm
-from modules.utils import convert_dict_to_numpy, gather_dict, load_batch_data, gpu_stat
+from pathlib import Path
+from modules.utils import convert_dict_to_numpy, gather_dict, load_batch_data, gpu_stat, get_project_root
 
 
 def get_news_embeds(model, news_loader, **kwargs):
@@ -25,3 +28,16 @@ def get_news_embeds(model, news_loader, **kwargs):
         # update news vectors
         news_embeds.update(dict(zip(batch_dict["index"].cpu().tolist(), news_vec.cpu().numpy())))
     return convert_dict_to_numpy(gather_dict(news_embeds))
+
+
+def get_default_upath(**kwargs):
+    """
+    get default user id path
+    :return: user path
+    """
+    data_root = Path(kwargs.get("data_dir", os.path.join(get_project_root(), "dataset")))  # root directory
+    default_path = os.path.join(data_root, "utils", kwargs.get("dataset_name"), f"M{kwargs.get('subset_type')}.json")
+    uid_path = kwargs.get("uid_path", default_path)
+    if not os.path.exists(uid_path):
+        raise ValueError("User ID dictionary is not found, please check your config file")
+    return uid_path

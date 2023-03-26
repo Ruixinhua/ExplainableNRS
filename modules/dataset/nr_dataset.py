@@ -33,8 +33,8 @@ class NewsBehaviorSet:
         behaviors_file = self.subset_dir / "behaviors.tsv"  # define behavior file path
         attributes = ["uid", "index", "impression_index", "history_news", "history_length", "candidate_news", "labels"]
         self.behaviors = {attr: [] for attr in attributes}
-        default_uid_path = Path(self.data_root) / f"utils/{self.dataset_name}/uid_{self.subset_type}.json"
-        uid_path = kwargs.get("uid_path", default_uid_path)
+        default_uid_path = os.path.join(self.data_root, "utils", self.dataset_name, f"uid_{self.subset_type}.json")
+        uid_path = Path(kwargs.get("uid_path", default_uid_path))
         if not uid_path.exists():
             self.uid2index = {}
         else:
