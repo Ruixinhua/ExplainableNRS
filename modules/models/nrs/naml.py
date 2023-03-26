@@ -38,6 +38,8 @@ class NAMLRSModel(MindNRSBase):
             body_feature = self.dropouts(self.body_cnn(body.transpose(1, 2)).transpose(1, 2))
             body_vector = self.body_att(body_feature)[0]
             feature.append(body_vector)
+        else:
+            feature.append(torch.zeros_like(title_vector))
         # 4. category and subcategory encoding: [batch_size * news_num, kernel_num]
         if self.use_category:  # append category and subvert feature
             feature.append(F.relu(self.category_affine(self.category_embedding(input_feat["category"])), inplace=True))
