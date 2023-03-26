@@ -36,8 +36,8 @@ def get_default_upath(**kwargs):
     :return: user path
     """
     data_root = Path(kwargs.get("data_dir", os.path.join(get_project_root(), "dataset")))  # root directory
-    default_path = os.path.join(data_root, "utils", kwargs.get("dataset_name"), f"M{kwargs.get('subset_type')}.json")
-    uid_path = kwargs.get("uid_path", default_path)
+    default_path = os.path.join(data_root, "utils", kwargs.get("dataset_name"), f"uid_{kwargs.get('subset_type')}.json")
+    uid_path = Path(kwargs.get("uid_path", default_path))
     if not os.path.exists(uid_path):
-        raise ValueError("User ID dictionary is not found, please check your config file")
+        raise ValueError(f"User ID dictionary({uid_path}) is not found, please check your config file")
     return uid_path
