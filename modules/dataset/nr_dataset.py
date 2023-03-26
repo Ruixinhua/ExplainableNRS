@@ -5,7 +5,8 @@ import numpy as np
 from pathlib import Path
 from collections import OrderedDict
 
-from modules.utils import get_subset_dir, read_json, write_json, load_category, get_project_root, Tokenizer
+from modules.utils import get_subset_dir, read_json, write_json, load_category
+from modules.utils import get_news_info, get_project_root, Tokenizer
 
 
 class NewsBehaviorSet:
@@ -97,7 +98,7 @@ class NewsBehaviorSet:
             self.news_features[attr][i] = value
 
     def _init_news_features(self, **kwargs):
-        self.news_info = kwargs.get("news_info", ["use_all"])  # limited in ["title", "abstract", "body", "use_all"]
+        self.news_info = get_news_info()  # limited in ["title", "abstract", "body", "use_all"]
         self.news_lengths = kwargs.get("news_lengths", [30])
         if isinstance(self.news_info, str):
             self.news_info = [self.news_info]

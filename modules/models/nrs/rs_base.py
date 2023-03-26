@@ -3,7 +3,7 @@ import torch.nn as nn
 
 from modules.base.base_model import BaseModel
 from modules.models.general import AttLayer, DotProduct, DNNClickPredictor, NewsEmbedding
-from modules.utils import reshape_tensor, load_category
+from modules.utils import reshape_tensor, load_category, get_news_info
 
 
 class MindNRSBase(BaseModel):
@@ -19,9 +19,7 @@ class MindNRSBase(BaseModel):
         self.use_uid = kwargs.get("use_uid", False)
         self.reshape_tensors = []
         self.use_category, self.use_subvert = kwargs.get("use_category", False), kwargs.get("use_subvert", False)
-        self.news_info = kwargs.get("news_info", ["use_all"])
-        if isinstance(self.news_info, str):
-            self.news_info = [self.news_info]
+        self.news_info = get_news_info(**kwargs)
         for attr in self.news_info:
             if attr not in ["title", "abstract", "body", "use_all"]:
                 self.news_info.remove(attr)

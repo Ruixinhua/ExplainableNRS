@@ -41,3 +41,15 @@ def get_default_upath(**kwargs):
     if not os.path.exists(uid_path):
         raise ValueError(f"User ID dictionary({uid_path}) is not found, please check your config file")
     return uid_path
+
+
+def get_news_info(**kwargs):
+    """
+    get news information items
+    :param kwargs: 
+    :return: list of news information items
+    """
+    news_info = kwargs.get("news_info", ["use_all"])
+    if isinstance(news_info, str):
+        news_info = [news_info]
+    return news_info

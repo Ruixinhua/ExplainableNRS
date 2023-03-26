@@ -4,6 +4,7 @@ import torch.nn.functional as F
 
 from modules.models.general import AttLayer, Conv1D
 from modules.models.nrs.rs_base import MindNRSBase
+from modules.utils import get_news_info
 
 
 class NAMLRSModel(MindNRSBase):
@@ -11,7 +12,7 @@ class NAMLRSModel(MindNRSBase):
         self.use_category = True  # use category and subvert for NAML model
         super(NAMLRSModel, self).__init__(**kwargs)
         self.num_filters, self.window_size = kwargs.get("num_filters", 300), kwargs.get("window_size", 3)
-        self.news_infos = kwargs.get("news_info", ["title", "body"])
+        self.news_infos = get_news_info(**kwargs)
         if self.use_category:
             self.category_affine = nn.Linear(self.category_dim, self.num_filters, bias=True)
             self.subvert_affine = nn.Linear(self.category_dim, self.num_filters, bias=True)
@@ -38,8 +39,6 @@ class NAMLRSModel(MindNRSBase):
             body_feature = self.dropouts(self.body_cnn(body.transpose(1, 2)).transpose(1, 2))
             body_vector = self.body_att(body_feature)[0]
             feature.append(body_vector)
-        else:
-            feature.append(torch.zeros_like(title_vector))
         # 4. category and subcategory encoding: [batch_size * news_num, kernel_num]
         if self.use_category:  # append category and subvert feature
             feature.append(F.relu(self.category_affine(self.category_embedding(input_feat["category"])), inplace=True))
