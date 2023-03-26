@@ -33,7 +33,7 @@ class NAMLRSModel(MindNRSBase):
         # 3. attention layer: [batch_size * news_num, kernel_num]
         title_vector = self.title_att(title_feature)[0]
         feature = [title_vector]
-        if "body" in self.news_infos:
+        if "body" in self.news_infos and "body" in input_feat:
             body = self.dropouts(self.embedding_layer(news=input_feat["body"], news_mask=input_feat["body_mask"]))
             body_feature = self.dropouts(self.body_cnn(body.transpose(1, 2)).transpose(1, 2))
             body_vector = self.body_att(body_feature)[0]
