@@ -98,7 +98,7 @@ class NewsBehaviorSet:
             self.news_features[attr][i] = value
 
     def _init_news_features(self, **kwargs):
-        self.news_info = get_news_info()  # limited in ["title", "abstract", "body", "use_all"]
+        self.news_info = get_news_info(**kwargs)  # limited in ["title", "abstract", "body", "use_all"]
         self.news_lengths = kwargs.get("news_lengths", [30])
         if isinstance(self.news_info, str):
             self.news_info = [self.news_info]
