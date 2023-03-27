@@ -69,10 +69,11 @@ if __name__ == "__main__":
     saved_filename = f"{saved_filename}_{times}.csv"
     with_entropy = config.get("with_entropy", True if config.get("alpha", 0) > 0 else False)
     default_saved_name = f'{cmd_args["task"]}/'
-    if with_entropy and config.get("add_entropy_dir", False):
-        default_saved_name += f"with_entropy_{days}/"
-    else:
-        default_saved_name += f"without_entropy_{days}/"
+    if config.get("add_entropy_dir", False):
+        if with_entropy:
+            default_saved_name += f"with_entropy_{days}/"
+        else:
+            default_saved_name += f"without_entropy_{days}/"
     saved_name = config.get("saved_name", default_saved_name)
     logger = config.get_logger(saved_name)
     # acquires test values for a given arch attribute
