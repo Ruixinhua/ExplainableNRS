@@ -3,7 +3,7 @@ import numpy as np
 import torch.nn.functional as F
 from torch import nn
 
-from modules.models.general.layers import MultiHeadedAttention, activation_layer
+from modules.models.general.layers import activation_layer
 
 
 class TopicLayer(nn.Module):

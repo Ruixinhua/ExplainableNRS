@@ -96,6 +96,6 @@ class Tokenizer:
             x_padded = pad_sentence(text2index(x, self.word_dict, self.tokenized_method, self.skip), max_length)
         if return_tensors:
             x_padded = torch.tensor(x_padded, dtype=torch.long)
-        if not self.word_dict_path.exists():
+        if hasattr(self, "word_dict_path") and not self.word_dict_path.exists():
             write_json(self.word_dict, self.word_dict_path)
         return x_padded
