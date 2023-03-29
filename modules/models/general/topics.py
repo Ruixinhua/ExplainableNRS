@@ -24,7 +24,7 @@ class TopicLayer(nn.Module):
         elif self.variant_name == "base_adv":  # advanced base topic model
             self.topic_layer = nn.Sequential(
                 nn.Linear(self.embedding_dim, self.head_num * self.hidden_dim), self.act_layer,  # map to hidden dim
-                nn.Linear(self.embedding_dim, self.head_num * self.head_dim), self.act_layer,  # map to topic dim
+                nn.Linear(self.head_num * self.hidden_dim, topic_dim), self.act_layer,  # map to topic dim
                 nn.Linear(topic_dim, self.head_num), activation_layer("sigmoid"))  # map to topic num
         elif self.variant_name == "base_gate":  # add a gate to the topic layer
             self.topic_layer = nn.Sequential(nn.Linear(self.embedding_dim, topic_dim), self.act_layer,
