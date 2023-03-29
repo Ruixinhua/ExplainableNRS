@@ -13,7 +13,7 @@ class TopicLayer(nn.Module):
         self.head_num, self.head_dim = kwargs.get("head_num", 50), kwargs.get("head_dim", 20)
         topic_dim = self.head_num * self.head_dim
         self.embedding_dim = kwargs.get("embedding_dim", 300)
-        self.hidden_dim = kwargs.get("hidden_dim", 100)
+        self.hidden_dim = kwargs.get("hidden_dim", 256)
         self.word_dict = kwargs.get("word_dict", None)
         self.evaluate_topic = kwargs.get("evaluate_topic", False)
         self.final = nn.Linear(self.embedding_dim, self.embedding_dim)
@@ -21,6 +21,11 @@ class TopicLayer(nn.Module):
         if self.variant_name == "base":  # default using two linear layers
             self.topic_layer = nn.Sequential(nn.Linear(self.embedding_dim, topic_dim), self.act_layer,
                                              nn.Linear(topic_dim, self.head_num))
+        elif self.variant_name == "base_adv":  # advanced base topic model
+            self.topic_layer = nn.Sequential(
+                nn.Linear(self.embedding_dim, self.head_num * self.hidden_dim), self.act_layer,  # map to hidden dim
+                nn.Linear(self.embedding_dim, self.head_num * self.head_dim), self.act_layer,  # map to topic dim
+                nn.Linear(topic_dim, self.head_num), activation_layer("sigmoid"))  # map to topic num
         elif self.variant_name == "base_gate":  # add a gate to the topic layer
             self.topic_layer = nn.Sequential(nn.Linear(self.embedding_dim, topic_dim), self.act_layer,
                                              nn.Linear(topic_dim, self.head_num))
