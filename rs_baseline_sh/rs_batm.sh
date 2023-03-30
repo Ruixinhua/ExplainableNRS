@@ -1,9 +1,9 @@
 #!/bin/bash -l
 # run from current directory
-cd $SLURM_SUBMIT_DIR
+#cd $SLURM_SUBMIT_DIR
 nvidia-smi
 export PYTHONPATH=PYTHONPATH:./:./modules
-source $SLURM_SUBMIT_DIR/rs_baseline_sh/batm_setup.sh
+source rs_baseline_sh/batm_setup.sh
 
 # General settings
 task=RS_BATM
@@ -11,6 +11,7 @@ ds_id=MIND_40910
 tensorboard=true
 tensorboard_dir=${work_dir}/saved/tensorboard/base
 add_entropy_dir=true
+gpu_num=1
 
 # Model settings
 news_encoder_name=base  # base,multi_view
@@ -50,7 +51,7 @@ ref_data_path=${work_dir}/dataset/utils/wiki.dtm.npz
 slow_ref_data_path=${work_dir}/dataset/data/MIND_tokenized.csv
 glove_path=${work_dir}/dataset/glove/glove.840B.300d.txt
 
-if [ $gpu_num -eq 1 ]
+if [ ${gpu_num} -eq 1 ]
 then
   config_file=single.yaml
   export CUDA_VISIBLE_DEVICES=0
@@ -62,7 +63,7 @@ fi
 accelerate launch --config_file "$config_file" modules/experiment/runner/run_baseline.py --task="$task" \
 --arch_type="$arch_type" --news_encoder_name="$news_encoder_name" --subset_type="$subset_type" \
 --topic_variant="$topic_variant" --learning_rate="$learning_rate" --dropout_rate="$dropout_rate" --batch_size="$batch_size" \
---epochs="$epochs" --seeds="$seeds"--dataset_name="$dataset_name" --early_stop="$early_stop" --step_size="$step_size" \
+--epochs="$epochs" --seeds="$seeds" --dataset_name="$dataset_name" --early_stop="$early_stop" --step_size="$step_size" \
 --tokenized_method="$tokenized_method" --evaluate_topic_by_epoch="$evaluate_topic_by_epoch" --head_dim="$head_dim" \
 --glove_path="$glove_path" --saved_filename="$saved_filename" --news_info="$news_info" --news_lengths="$news_lengths" \
 --saved_dir="${work_dir}/saved" --data_dir="${work_dir}/dataset" --embed_file="${ds_id}.npy" --word_dict_file="${ds_id}.json" \
