@@ -3,7 +3,6 @@
 #cd $SLURM_SUBMIT_DIR
 nvidia-smi
 export PYTHONPATH=PYTHONPATH:./:./modules
-source rs_baseline_sh/batm_setup.sh
 
 # General settings
 task=RS_BATM
