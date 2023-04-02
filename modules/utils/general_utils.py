@@ -157,8 +157,13 @@ def gpu_stat():
     get gpu memory usage
     :return: gpu memory usage
     """
-    free_mem, gpu_mem = torch.cuda.mem_get_info()
-    gpu_mem = round(gpu_mem / 1024 ** 3, 2)
-    free_mem = round(free_mem / 1024 ** 3, 2)
-    gpu_used = round(gpu_mem - free_mem, 2)
-    return f"GPU: {gpu_used}GB/{free_mem}GB/{gpu_mem}GB"
+
+    if torch.cuda.is_available():
+        device = torch.device('cuda')
+        stats = torch.cuda.memory_stats(device)
+        total_memory = round(stats['device_memory_size'] / 1024 ** 3, 2)
+        free_mem = round((stats['device_memory_size'] - stats['allocated_bytes.all.peak']) / 1024 ** 3, 2)
+        gpu_used = round(total_memory - free_mem, 2)
+        return f"GPU: {gpu_used}GB/{free_mem}GB/{total_memory}GB"
+    else:
+        return 'CUDA is not available.'
