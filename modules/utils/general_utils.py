@@ -3,6 +3,7 @@ import importlib
 import json
 import os
 import random
+import pynvml
 import torch
 import torch.distributed
 import numpy as np
@@ -159,10 +160,15 @@ def gpu_stat():
     """
 
     if torch.cuda.is_available():
-        device = torch.device('cuda')
-        stats = torch.cuda.memory_stats(device)
-        total_memory = round(stats['device_memory_size'] / 1024 ** 3, 2)
-        free_mem = round((stats['device_memory_size'] - stats['allocated_bytes.all.peak']) / 1024 ** 3, 2)
+        pynvml.nvmlInit()
+        device = torch.device('cuda:0')
+        device_index = 0 if device.index is None else device.index
+        handle = pynvml.nvmlDeviceGetHandleByIndex(device_index)
+        total_memory = pynvml.nvmlDeviceGetMemoryInfo(handle).total
+        free_memory = pynvml.nvmlDeviceGetMemoryInfo(handle).free
+        pynvml.nvmlShutdown()
+        total_memory = round(total_memory / 1024 ** 3, 2)
+        free_mem = round(free_memory / 1024 ** 3, 2)
         gpu_used = round(total_memory - free_mem, 2)
         return f"GPU: {gpu_used}GB/{free_mem}GB/{total_memory}GB"
     else:
