@@ -10,7 +10,6 @@ ds_id=MIND_40910
 tensorboard=true
 tensorboard_dir=${work_dir}/saved/tensorboard/base
 add_entropy_dir=true
-gpu_num=1
 
 # Model settings
 news_encoder_name=base  # base,multi_view
@@ -49,15 +48,6 @@ user_history_connect=stack  # concat,stack
 ref_data_path=${work_dir}/dataset/utils/wiki.dtm.npz
 slow_ref_data_path=${work_dir}/dataset/data/MIND_tokenized.csv
 glove_path=${work_dir}/dataset/glove/glove.840B.300d.txt
-
-if [ ${gpu_num} -eq 1 ]
-then
-  config_file=single.yaml
-  export CUDA_VISIBLE_DEVICES=0
-else
-  config_file=config.yaml
-  export CUDA_VISIBLE_DEVICES=0,1
-fi
 
 accelerate launch --config_file "$config_file" modules/experiment/runner/run_baseline.py --task="$task" \
 --arch_type="$arch_type" --news_encoder_name="$news_encoder_name" --subset_type="$subset_type" \
