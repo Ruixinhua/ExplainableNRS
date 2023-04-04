@@ -155,8 +155,10 @@ class NCTrainer(BaseTrainer):
                 topic_dist_copy[:, removed_index] = 0  # set removed terms to 0
                 topic_dists[path.name.replace(".json", "")] = topic_dist_copy
         topic_result = {}
-        if torch.distributed.is_initialized():
+        try:
             model = model.module
+        except AttributeError:
+            model = model
         for key, dist in topic_dists.items():  # calculate topic quality for different Post processing methods
             topic_scores = {}
             topic_list = get_topic_list(dist, top_n, reverse_dict)  # convert to tokens list
