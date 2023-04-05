@@ -53,7 +53,7 @@ if __name__ == "__main__":
         try:  # try to do fast evaluation: cache news embeddings
             news_loader = DataLoader(news_set, config.batch_size)
             news_embeds = get_news_embeds(trainer.model, news_loader=news_loader, device=trainer.device,
-                                          accelerator=trainer.accelerator)
+                                          accelerator=trainer.accelerator, num_processes=config.get("num_processes", 2))
         except KeyError or RuntimeError:  # slow evaluation: re-calculate news embeddings every time
             news_embeds = None
         impression_set = module_dataset.ImpressionDataset(test_set, news_embeds)

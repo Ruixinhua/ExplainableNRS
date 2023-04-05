@@ -20,9 +20,11 @@ def evaluate_run():
     experiment_id = get_experiment_id(experiment_name=config.get("experiment_name", "default"))
     with mlflow.start_run(run_name=f"{config['arch_type']}-{jobid}", experiment_id=experiment_id) as runner:
         start_time = time.time()
+        accelerator = Accelerator()
         set_seed(config["seed"])
         config.set("run_id", runner.info.run_id)
-        if Accelerator().is_main_process:
+        config.set("num_processes", accelerator.num_processes)
+        if accelerator.is_main_process:
             log_params(config.final_configs)
         data_loader = init_data_loader(config)
         trainer = run(config, data_loader=data_loader)
