@@ -48,24 +48,3 @@ user_history_connect=stack  # concat,stack
 ref_data_path=${work_dir}/dataset/utils/wiki.dtm.npz
 slow_ref_data_path=${work_dir}/dataset/data/MIND_tokenized.csv
 glove_path=${work_dir}/dataset/glove/glove.840B.300d.txt
-
-accelerate launch --config_file "$config_file" modules/experiment/runner/run_baseline.py --task="$task" \
---arch_type="$arch_type" --news_encoder_name="$news_encoder_name" --subset_type="$subset_type" \
---topic_variant="$topic_variant" --learning_rate="$learning_rate" --dropout_rate="$dropout_rate" --batch_size="$batch_size" \
---epochs="$epochs" --seeds="$seeds" --dataset_name="$dataset_name" --early_stop="$early_stop" --step_size="$step_size" \
---tokenized_method="$tokenized_method" --evaluate_topic_by_epoch="$evaluate_topic_by_epoch" --head_dim="$head_dim" \
---glove_path="$glove_path" --saved_filename="$saved_filename" --news_info="$news_info" --news_lengths="$news_lengths" \
---saved_dir="${work_dir}/saved" --data_dir="${work_dir}/dataset" --embed_file="${ds_id}.npy" --word_dict_file="${ds_id}.json" \
---arch_attr=head_num --values="$topic_nums" --act_layer="$act_layer" --news_batch_size="$news_batch_size" \
---impression_batch_size="$impression_batch_size" --user_encoder_name="$user_encoder_name" --add_entropy_dir="$add_entropy_dir" \
---ref_data_path="$ref_data_path" --topic_evaluation_method="$topic_evaluation_method" --show_entropy="$show_entropy" \
---alpha="$alpha" --beta="$beta" --valid_method="$valid_method" --user_history_connect="$user_history_connect" \
---find_unused_parameters="$find_unused_parameters" --experiment_name="$experiment_name" --jobid="$SLURM_JOB_ID" \
---coherence_method="$coherence_method" --slow_ref_data_path="$slow_ref_data_path" --gate_type="$gate_type" \
---tensorboard="$tensorboard" --tensorboard_dir="$tensorboard_dir" --entropy_mode="$entropy_mode" \
-
-
-for JOB in $(jobs -p); do
-    wait "${JOB}"
-done
-
