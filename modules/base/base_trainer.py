@@ -2,6 +2,7 @@ import os
 
 import torch
 import pandas as pd
+import wandb
 
 import modules.utils.metric_utils as module_metric
 from datetime import datetime
@@ -90,6 +91,7 @@ class BaseTrainer:
 
     def _log_info(self, log):
         # print logged information to the screen
+        wandb.log(log)
         for key, value in log.items():
             self.logger.info("    {:15s}: {}".format(str(key), value))
 

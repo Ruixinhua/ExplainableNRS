@@ -5,6 +5,7 @@ import os
 import random
 import pynvml
 import torch
+import wandb
 import torch.distributed
 import numpy as np
 from collections import OrderedDict
@@ -173,3 +174,9 @@ def gpu_stat():
         return f"GPU: {gpu_used}GB/{free_mem}GB/{total_memory}GB"
     else:
         return 'CUDA is not available.'
+
+
+def init(**kwargs):
+    wandb.init(config=kwargs, project=kwargs.get("project_name", "ExplainableNRS"), name=kwargs.get("run_name"))
+    wandb.config["more"] = "custom"
+    wandb.init(sync_tensorboard=kwargs.get("tensorboard", False))
