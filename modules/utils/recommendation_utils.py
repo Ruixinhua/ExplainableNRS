@@ -27,7 +27,7 @@ def get_news_embeds(model, news_loader, **kwargs):
         news_vec = model.news_encoder(batch_dict)["news_embed"]
         # update news vectors
         news_embeds.update(dict(zip(batch_dict["index"].cpu().tolist(), news_vec.cpu().numpy())))
-    return convert_dict_to_numpy(gather_dict(news_embeds, kwargs.get("num_processes", 2)))
+    return convert_dict_to_numpy(gather_dict(news_embeds, kwargs.get("num_processes", None)))
 
 
 def get_default_upath(**kwargs):

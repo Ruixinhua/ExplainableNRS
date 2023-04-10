@@ -93,7 +93,9 @@ class MindRSTrainer(NCTrainer):
                 self._validation(epoch, batch_idx)
         if self.lr_scheduler is not None:
             self.lr_scheduler.step()
-        return self._validation(epoch, length, False)
+        log = self.train_metrics.result()
+        log.update(self._validation(epoch, length, False))
+        return log
 
     def _valid_epoch(self, model=None, valid_set=None, extra_str=None):
         """
@@ -120,7 +122,7 @@ class MindRSTrainer(NCTrainer):
                         not topic_variant == "variational_topic":
                     news_loader = self.mind_loader.news_loader
                     news_embeds = get_news_embeds(model, news_loader, device=self.device, accelerator=self.accelerator,
-                                                  num_processes=self.config.get("num_processes", 2))
+                                                  num_processes=self.config.get("num_processes", None))
                 else:
                     news_embeds = None
             except KeyError or RuntimeError:  # slow evaluation: re-calculate news embeddings every time
@@ -159,7 +161,7 @@ class MindRSTrainer(NCTrainer):
                                 weight_dict[name].append(weight[i][:length].cpu().numpy())
                 if vi >= saved_weight_num and return_weight:
                     break
-            result_dict = gather_dict(result_dict, num_processes=self.config.get("num_processes", 2))  # gather results
+            result_dict = gather_dict(result_dict, num_processes=self.config.get("num_processes", None))
             eval_result = dict(np.round(pd.DataFrame.from_dict(result_dict, orient="index").mean(), 4))  # average
             if self.config.get("evaluate_topic_by_epoch", False) and self.config.get("topic_evaluation_method", None):
                 eval_result.update(self.topic_evaluation(model, self.mind_loader.word_dict, extra_str))

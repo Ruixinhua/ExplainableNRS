@@ -120,7 +120,7 @@ def init_model_class(config, *args, **kwargs):
     return model_class
 
 
-def gather_dict(dict_object, num_processes=2):
+def gather_dict(dict_object, num_processes=None):
     """
     gather vectors from all processes
     :param num_processes: number of process
@@ -128,6 +128,7 @@ def gather_dict(dict_object, num_processes=2):
     :return: gathered numpy array vectors
     """
     if torch.distributed.is_initialized():
+        num_processes = torch.distributed.get_world_size() if num_processes is None else num_processes
         dicts_object = [{} for _ in range(num_processes)]  # used for distributed inference
         torch.distributed.barrier()
         torch.distributed.all_gather_object(dicts_object, dict_object)
