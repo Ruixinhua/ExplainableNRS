@@ -178,6 +178,6 @@ def gpu_stat():
 
 
 def init(**kwargs):
-    wandb.init(config=kwargs, project=kwargs.get("project_name", "ExplainableNRS"), name=kwargs.get("run_name"))
+    wandb.init(config=kwargs, project=kwargs.get("wandb_project", "ExplainableNRS"), name=kwargs.get("run_name"))
     wandb.config["more"] = "custom"
     wandb.init(sync_tensorboard=kwargs.get("tensorboard", False))
