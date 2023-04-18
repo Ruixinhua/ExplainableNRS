@@ -77,7 +77,7 @@ with torch.no_grad():
         news_embeds = None
 
 news_texts = data_loader.valid_set.news_behavior.news_features["title"]
-encoder = SentenceTransformer('stsb-roberta-large')
+encoder = SentenceTransformer('stsb-bert-large')
 news_embeddings = encoder.encode(news_texts)
 
 result_dict = defaultdict(list)
