@@ -4,6 +4,7 @@
 # @Time          : 18/04/2023 00:44
 # @Function      :
 import importlib
+import json
 import os
 import time
 import numpy as np
@@ -45,12 +46,6 @@ evaluate_dir = Path(cmd_args.get("evaluate_dir", default))
 saved_dir_name ="prediction"
 config = Configuration(config_file=Path(evaluate_dir, "config.json"))  # load configurations
 
-# work_dir = r"C:\Users\Rui\Documents\Explainable_AI\ExplainableNRS"
-# old_root = "/home/dairui/ExplainableNRS"
-# for k, v in config.final_configs.items():
-#     if isinstance(v, str) and old_root in v:
-#         config.set(k, Path(v.replace(old_root, work_dir)))
-
 set_seed(config["seed"])
 saved_dir = Path(config.get("saved_dir", DEFAULT_CONFIGS["saved_dir"])) / saved_dir_name  # init saved directory
 saved_name = config.get("saved_name", "MIND_Test")  # specify a saved name
@@ -82,7 +77,6 @@ with torch.no_grad():
         news_embeds = None
 
 news_texts = data_loader.valid_set.news_behavior.news_features["title"]
-
 encoder = SentenceTransformer('paraphrase-mpnet-base-v2')
 news_embeddings = encoder.encode(news_texts)
 
@@ -118,8 +112,11 @@ with torch.no_grad():
                 ilad10, ilmd10 = compute_semantic_similarity(news, 5)
                 result_dict["ILAD@10_bert"].append(ilad10)
                 result_dict["ILMD@10_bert"].append(ilmd10)
-            break
 
 # average result_dict and round to 4 decimal places
 for k, v in result_dict.items():
     result_dict[k] = round(sum(v) / len(v), 4)
+print(result_dict)
+# save result_dict to json file
+with open(Path(saved_dir, saved_name, f"{saved_filename}_result.json"), "w") as f:
+    json.dump(result_dict, f)
