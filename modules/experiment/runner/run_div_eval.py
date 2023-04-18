@@ -22,6 +22,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from modules.config.configuration import Configuration, DEFAULT_CONFIGS
 from modules.config.config_utils import load_cmd_line, set_seed
 from modules.utils import Tokenizer, init_model_class, load_batch_data, get_news_embeds, init_data_loader, init_obj
+from modules.utils import load_embeddings
 from modules.dataset import ImpressionDataset
 
 
@@ -31,9 +32,19 @@ def top_n_indices(arr, n):
 
 def compute_semantic_similarity(embeddings, n):
     count = n * (n - 1) / 2
+    from sklearn.metrics.pairwise import cosine_similarity
     similarity = cosine_similarity(embeddings)
-    min_sim = np.min(1 - np.triu(similarity, 1))
-    return 1 - np.sum(np.triu(similarity, 1)) / count, min_sim
+    score = np.triu(1 - similarity, 1)
+    # print(score)
+    min_sim = np.min(score[np.nonzero(score)])
+    return np.sum(score) / count, min_sim
+
+
+def append_result(rd, indices, n, name):
+    ilad, ilmd = compute_semantic_similarity(indices[:n], n)
+    rd[f"ILAD@{n}_{name}"].append(ilad)
+    rd[f"ILMD@{n}_{name}"].append(ilmd)
+    return rd
 
 
 # setup arguments used to run baseline models
@@ -45,7 +56,7 @@ default = r"/home/dairui/ExplainableNRS/saved/models/MIND/20230417/RS_Baselines_
 evaluate_dir = Path(cmd_args.get("evaluate_dir", default))
 saved_dir_name ="prediction"
 config = Configuration(config_file=Path(evaluate_dir, "config.json"))  # load configurations
-
+embeddings = load_embeddings(**config.final_configs)
 set_seed(config["seed"])
 saved_dir = Path(config.get("saved_dir", DEFAULT_CONFIGS["saved_dir"])) / saved_dir_name  # init saved directory
 saved_name = config.get("saved_name", "MIND_Test")  # specify a saved name
@@ -77,6 +88,9 @@ with torch.no_grad():
         news_embeds = None
 
 news_texts = data_loader.valid_set.news_behavior.news_features["title"]
+title_indices = data_loader.valid_set.news_behavior.feature_matrix["title"]
+title_glove = [np.mean(embeddings[title[np.nonzero(title)]], axis=0) for title in title_indices]
+title_glove[0] = np.zeros(300)
 encoder = SentenceTransformer('stsb-bert-large')
 news_embeddings = encoder.encode(news_texts)
 
@@ -99,19 +113,14 @@ with torch.no_grad():
                 can_index = batch_dict["candidate_index"][i].cpu().numpy()
                 scores = pred[i][:can_len[i]]
                 top10_cans_indices = top_n_indices(scores, 10)
+                glove_embeds = [title_glove[can_index[j]] for j in top10_cans_indices]
                 news = [news_embeddings[can_index[j]] for j in top10_cans_indices]
-                ilad5, ilmd5 = compute_semantic_similarity(can_news[top10_cans_indices[:5]], 5)
-                result_dict["ILAD@5"].append(ilad5)
-                result_dict["ILMD@5"].append(ilmd5)
-                ilad5, ilmd = compute_semantic_similarity(news[:5], 5)
-                result_dict["ILAD@5_bert"].append(ilad5)
-                result_dict["ILMD@5_bert"].append(ilmd)
-                ilad10, ilmd10 = compute_semantic_similarity(can_news[top10_cans_indices], 10)
-                result_dict["ILAD@10"].append(ilad10)
-                result_dict["ILMD@10"].append(ilmd10)
-                ilad10, ilmd10 = compute_semantic_similarity(news, 5)
-                result_dict["ILAD@10_bert"].append(ilad10)
-                result_dict["ILMD@10_bert"].append(ilmd10)
+                append_result(result_dict, can_news[top10_cans_indices], 5, "nrms")
+                append_result(result_dict, can_news[top10_cans_indices], 10, "nrms")
+                append_result(result_dict, glove_embeds, 5, "glove")
+                append_result(result_dict, glove_embeds, 10, "glove")
+                append_result(result_dict, news, 5, "bert")
+                append_result(result_dict, news, 10, "bert")
 
 # average result_dict and round to 4 decimal places
 for k, v in result_dict.items():
