@@ -100,6 +100,8 @@ class MindRSTrainer(NCTrainer):
     def _valid_epoch(self, model=None, valid_set=None, extra_str=None):
         """
         Validate after training an epoch
+        :param model: evaluated model object
+        :param valid_set: valid_set
         :return: A log that contains information about validation
         """
         result_dict = {}

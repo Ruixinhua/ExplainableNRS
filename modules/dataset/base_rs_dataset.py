@@ -121,9 +121,8 @@ class ImpressionDataset(Dataset):
         if self.news_embeds is not None:
             input_feat["candidate_news"] = torch.tensor(self.news_embeds[candidate])  # load news embed from cache
             input_feat["history_news"] = torch.tensor(self.news_embeds[history])  # load news embed from cache
-        else:
-            input_feat.update(self.dataset.load_news_index(candidate, "candidate"))  # load candidate news input
-            input_feat.update(self.dataset.load_news_index(history, "history"))  # load candidate news input
+        input_feat.update(self.dataset.load_news_index(candidate, "candidate"))  # load candidate news input
+        input_feat.update(self.dataset.load_news_index(history, "history"))  # load candidate news input
         return input_feat
 
     def __len__(self):
