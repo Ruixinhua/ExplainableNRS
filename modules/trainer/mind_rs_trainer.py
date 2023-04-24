@@ -65,7 +65,7 @@ class MindRSTrainer(NCTrainer):
             self.optimizer.zero_grad()
             output = self.model(batch_dict)
             loss = self.criterion(output["pred"], batch_dict["label"])
-            self.train_metrics.updata("train_auc", group_auc(label, output["pred"].cpu().detach().numpy()))
+            self.train_metrics.update("train_auc", group_auc(label, output["pred"].cpu().detach().numpy()))
             # gpu_used = torch.cuda.memory_allocated() / 1024 ** 3
             bar_description = f"Epoch: {epoch} {gpu_stat()}"
             if self.with_entropy or self.show_entropy:
