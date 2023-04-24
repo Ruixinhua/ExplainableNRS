@@ -37,7 +37,7 @@ class MindRSTrainer(NCTrainer):
         log = {"epoch/step": f"{epoch}/{batch_idx}"}
         val_log = self._valid_epoch(extra_str=f"{epoch}_{batch_idx}")
         log.update({"val_" + k: v for k, v in val_log.items()})
-        wandb.log({"val_" + k: v for k, v in val_log.items()})
+        wandb.log({"val_" + k: v for k, v in val_log.items() if v and v != 0})
         for k, v in val_log.items():
             self.writer.add_scalar(k, v)
         if do_monitor:
@@ -65,7 +65,7 @@ class MindRSTrainer(NCTrainer):
             self.optimizer.zero_grad()
             output = self.model(batch_dict)
             loss = self.criterion(output["pred"], batch_dict["label"])
-            self.train_metrics.update("train_auc", group_auc(label, output["pred"].cpu().detach().numpy()))
+            self.train_metrics.update("auc", group_auc(label, output["pred"].cpu().detach().numpy()))
             # gpu_used = torch.cuda.memory_allocated() / 1024 ** 3
             bar_description = f"Epoch: {epoch} {gpu_stat()}"
             if self.with_entropy or self.show_entropy:
@@ -90,7 +90,7 @@ class MindRSTrainer(NCTrainer):
             if batch_idx % self.log_step == 0:
                 bar.set_description(bar_description)
                 train_auc = self.train_metrics.result()
-                wandb.log({f"train_{k}": v for k, v in train_auc.items()})
+                wandb.log({f"train_{k}": v for k, v in train_auc.items() if v and v != 0})
                 self.train_metrics.reset()
             if (batch_idx + 1) % math.ceil(self.len_epoch * self.valid_interval) == 0:
                 self._validation(epoch, batch_idx)
