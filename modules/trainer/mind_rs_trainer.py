@@ -1,8 +1,9 @@
+import copy
 import math
 import os
 from collections import defaultdict
 from pathlib import Path
-
+import wandb
 import torch
 import torch.distributed
 import pandas as pd
@@ -13,7 +14,7 @@ from tqdm import tqdm
 from modules.config.configuration import Configuration
 from modules.dataset import ImpressionDataset
 from modules.trainer import NCTrainer
-from modules.utils import gather_dict, load_batch_data, get_news_embeds, gpu_stat
+from modules.utils import gather_dict, load_batch_data, get_news_embeds, gpu_stat, group_auc
 
 
 class MindRSTrainer(NCTrainer):
@@ -23,7 +24,7 @@ class MindRSTrainer(NCTrainer):
 
     def __init__(self, model, config: Configuration, data_loader, **kwargs):
         super().__init__(model, config, data_loader, **kwargs)
-        self.valid_interval = config.get("valid_interval", 0.1)
+        self.valid_interval = config.get("valid_interval", 0.6)
         self.fast_evaluation = config.get("fast_evaluation", True)
         self.topic_variant = config.get("topic_variant", "base")
         self.train_strategy = config.get("train_strategy", "pair_wise")
@@ -36,12 +37,12 @@ class MindRSTrainer(NCTrainer):
         log = {"epoch/step": f"{epoch}/{batch_idx}"}
         val_log = self._valid_epoch(extra_str=f"{epoch}_{batch_idx}")
         log.update({"val_" + k: v for k, v in val_log.items()})
+        wandb.log({"val_" + k: v for k, v in val_log.items()})
         for k, v in val_log.items():
             self.writer.add_scalar(k, v)
         if do_monitor:
             self._monitor(log, epoch)
         self.model.train()  # reset to training mode
-        self.train_metrics.reset()
         return log
 
     def _train_epoch(self, epoch):
@@ -52,18 +53,19 @@ class MindRSTrainer(NCTrainer):
         """
         self.model.train()
         self.train_metrics.reset()
-        length = len(self.train_loader)
-        bar = tqdm(enumerate(self.train_loader), total=length)
+        bar = tqdm(enumerate(self.train_loader), total=self.len_epoch)
         # self._validation(epoch, 0)
         for batch_idx, batch_dict in bar:
             # set step for tensorboard
             self.writer.set_step((epoch - 1) * self.len_epoch + batch_idx)
+            label = copy.deepcopy(batch_dict["label"])
             # load data to device
             batch_dict = load_batch_data(batch_dict, self.device)
             # setup model and train model
             self.optimizer.zero_grad()
             output = self.model(batch_dict)
             loss = self.criterion(output["pred"], batch_dict["label"])
+            self.train_metrics.updata("train_auc", group_auc(label, output["pred"].cpu().detach().numpy()))
             # gpu_used = torch.cuda.memory_allocated() / 1024 ** 3
             bar_description = f"Epoch: {epoch} {gpu_stat()}"
             if self.with_entropy or self.show_entropy:
@@ -87,14 +89,15 @@ class MindRSTrainer(NCTrainer):
             self.train_metrics.update("loss", loss.item())
             if batch_idx % self.log_step == 0:
                 bar.set_description(bar_description)
-            if batch_idx == self.len_epoch:
-                break
-            if (batch_idx + 1) % math.ceil(length * self.valid_interval) == 0 and (batch_idx + 1) < length:
+                train_auc = self.train_metrics.result()
+                wandb.log({f"train_{k}": v for k, v in train_auc.items()})
+                self.train_metrics.reset()
+            if (batch_idx + 1) % math.ceil(self.len_epoch * self.valid_interval) == 0:
                 self._validation(epoch, batch_idx)
         if self.lr_scheduler is not None:
             self.lr_scheduler.step()
         log = self.train_metrics.result()
-        log.update(self._validation(epoch, length, False))
+        log.update(self._validation(epoch, self.len_epoch, False))
         return log
 
     def _valid_epoch(self, model=None, valid_set=None, extra_str=None):

@@ -15,7 +15,7 @@
     "trainer_type": "MindRSTrainer",
     "epochs": 100,
     "dataloader_type": "NRDataLoader",
-    "valid_interval": 0.5,
+    "valid_interval": 0.6,
     "save_period": 1,
     "verbosity": 2,
     "monitor": "max val_group_auc",

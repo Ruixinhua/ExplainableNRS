@@ -31,7 +31,7 @@ class NCTrainer(BaseTrainer):
         self.len_epoch = len(self.train_loader)
         self.valid_loader = data_loader.valid_loader
         self.do_validation = self.valid_loader is not None
-        self.log_step = int(np.sqrt(self.train_loader.batch_size))
+        self.log_step = config.get("log_step", 100)
         self.train_metrics = MetricTracker(*self.metric_funcs, writer=self.writer)
         self.valid_metrics = MetricTracker(*self.metric_funcs, writer=self.writer)
         self.model, self.optimizer, self.train_loader, self.lr_scheduler = self.accelerator.prepare(
@@ -73,7 +73,7 @@ class NCTrainer(BaseTrainer):
         """
         self.model.train()
         self.train_metrics.reset()
-        bar = tqdm(enumerate(self.train_loader), total=len(self.train_loader))
+        bar = tqdm(enumerate(self.train_loader), total=self.len_epoch)
         labels, predicts = [], []
         for batch_idx, batch_dict in bar:
             self.optimizer.zero_grad()  # setup gradient to zero
@@ -86,8 +86,6 @@ class NCTrainer(BaseTrainer):
             predicts.extend(torch.argmax(out_dict["predict"], dim=1).cpu().tolist())
             if batch_idx % self.log_step == 0:  # set bar
                 bar.set_description(f"Train Epoch: {epoch} Loss: {out_dict['loss'].item()}")
-            if batch_idx == self.len_epoch:
-                break
         self.update_metrics(self.train_metrics, predicts=predicts, labels=labels)
         log = self.train_metrics.result()
         if self.do_validation:

@@ -9,6 +9,7 @@ import os
 import time
 import numpy as np
 import torch
+import torch.nn.functional as F
 from sentence_transformers import SentenceTransformer
 from collections import defaultdict
 import modules.dataset as module_dataset
@@ -17,7 +18,6 @@ from torch.utils.data import DataLoader
 from pathlib import Path
 from tqdm import tqdm
 from accelerate import Accelerator
-from sklearn.metrics.pairwise import cosine_similarity
 
 from modules.config.configuration import Configuration, DEFAULT_CONFIGS
 from modules.config.config_utils import load_cmd_line, set_seed
@@ -44,6 +44,48 @@ def append_result(rd, indices, n, name):
     ilad, ilmd = compute_semantic_similarity(indices[:n], n)
     rd[f"ILAD@{n}_{name}"].append(ilad)
     rd[f"ILMD@{n}_{name}"].append(ilmd)
+    return rd
+
+
+def ILAD(vecs):
+    # similarity = torch.mm(vecs, vecs.T)
+    # similarity = cosine_similarity(X=vecs)
+    similarity = F.cosine_similarity(vecs.unsqueeze(dim=0), vecs.unsqueeze(dim=1))
+    distance = (1 - similarity)/2
+    score = distance.mean()-1/distance.shape[0]
+    return score.item()
+
+
+def ILMD(vecs):
+    # similarity = torch.mm(vecs, vecs.T)
+    # similarity = cosine_similarity(X=vecs)
+    similarity = F.cosine_similarity(vecs.unsqueeze(dim=0), vecs.unsqueeze(dim=1))
+    distance = (1 - similarity) / 2
+    score = distance.min()
+    return score.item()
+
+
+def density_ILxD(scores, news_emb, top_k=5):
+    """
+    Args:
+        scores: [batch_size, y_pred_score]
+        news_emb: [batch_size, news_num, news_emb_size]
+        top_k: integer, n=5, n=10
+    """
+    top_ids = torch.argsort(scores)[-top_k:]
+    news_emb = news_emb / torch.sqrt(torch.square(news_emb).sum(dim=-1)).reshape((len(news_emb), 1))
+    # nv: (top_k, news_emb_size)
+    nv = news_emb[top_ids]
+    ilad = ILAD(nv)
+    ilmd = ILMD(nv)
+
+    return ilad, ilmd
+
+
+def append_density(rd, y_pred, candidate_emb, n, name):
+    ilad, ilmd = density_ILxD(torch.FloatTensor(y_pred), candidate_emb, n)
+    rd[f"div_ILAD@{n}_{name}"].append(ilad)
+    rd[f"div_ILMD@{n}_{name}"].append(ilmd)
     return rd
 
 
@@ -112,15 +154,24 @@ with torch.no_grad():
                 can_news = batch_dict["candidate_news"][i].cpu().numpy()
                 can_index = batch_dict["candidate_index"][i].cpu().numpy()
                 scores = pred[i][:can_len[i]]
+                can_news_all = torch.FloatTensor(can_news[:can_len[i]])
                 top10_cans_indices = top_n_indices(scores, 10)
                 glove_embeds = [title_glove[can_index[j]] for j in top10_cans_indices]
+                glove_all = torch.FloatTensor(np.stack([title_glove[k] for k in can_index[:can_len[i]]]))
                 news = [news_embeddings[can_index[j]] for j in top10_cans_indices]
                 append_result(result_dict, can_news[top10_cans_indices], 5, "nrms")
                 append_result(result_dict, can_news[top10_cans_indices], 10, "nrms")
+                append_density(result_dict, scores, can_news_all, 5, "nrms")
+                append_density(result_dict, scores, can_news_all, 10, "nrms")
                 append_result(result_dict, glove_embeds, 5, "glove")
                 append_result(result_dict, glove_embeds, 10, "glove")
+                append_density(result_dict, scores, glove_all, 5, "glove")
+                append_density(result_dict, scores, glove_all, 10, "glove")
                 append_result(result_dict, news, 5, "bert")
                 append_result(result_dict, news, 10, "bert")
+                bert_news_all = torch.FloatTensor(np.stack([news_embeddings[k] for k in can_index[:can_len[i]]]))
+                append_density(result_dict, scores, bert_news_all, 5, "bert")
+                append_density(result_dict, scores, bert_news_all, 10, "bert")
 
 # average result_dict and round to 4 decimal places
 for k, v in result_dict.items():

@@ -18,7 +18,7 @@ class NewsRecDataset(Dataset):
         self.subset_type = kwargs.get("subset_type", "small")
         self.phase = kwargs.get("phase", "train")  # RS phase: train, valid, test
         self.neg_pos_ratio = kwargs.get("neg_pos_ratio", 4)  # negative sampling ratio, default is 20% positive ratio
-        self.load_object = kwargs.get("load_object", False)
+        self.load_object = kwargs.get("load_object", True)
         default_object_path = Path(self.data_root) / f"utils/{self.dataset_name}/{self.subset_type}_{self.phase}.pt"
         set_object_path = kwargs.get("set_object_path", default_object_path)
         if set_object_path.exists() and self.load_object:
