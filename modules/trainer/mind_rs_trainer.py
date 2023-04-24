@@ -58,7 +58,7 @@ class MindRSTrainer(NCTrainer):
         for batch_idx, batch_dict in bar:
             # set step for tensorboard
             self.writer.set_step((epoch - 1) * self.len_epoch + batch_idx)
-            label = copy.deepcopy(batch_dict["label"])
+            label = copy.deepcopy(batch_dict["label"].cpu().numpy())
             # load data to device
             batch_dict = load_batch_data(batch_dict, self.device)
             # setup model and train model
