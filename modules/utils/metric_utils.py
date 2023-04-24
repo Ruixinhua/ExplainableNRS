@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.metrics import f1_score
+from scipy.special import kl_div
 from .auc_utils import roc_auc_score
 
 
@@ -137,3 +138,15 @@ def ndcg_5(label, pred):
 
 def ndcg_10(label, pred):
     return ndcg(label, pred, 10)
+
+
+def kl_divergence_rowwise(matrix):
+    n_rows = matrix.shape[0]
+    kl_divergences = []
+
+    for i in range(n_rows - 1):
+        p = matrix[i]
+        qs = matrix[i+1:]
+        kl_divergences.extend(kl_div(qs, p).sum(axis=1))
+
+    return np.mean(kl_divergences)

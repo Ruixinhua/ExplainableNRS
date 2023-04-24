@@ -119,6 +119,12 @@ def extract_topics(model: torch.nn.Module, word_dict, device):
 
 
 def get_topic_dist(model, word_dict):
+    """
+    Get topic distribution matrix
+    :param model: model with extract_topic method
+    :param word_dict: target word dictionary
+    :return: An numpy array with shape (topic_num, word_num) of the topic distribution matrix
+    """
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")  # only run on one GPU
     try:
         topic_dist = extract_topics(model, word_dict, device)

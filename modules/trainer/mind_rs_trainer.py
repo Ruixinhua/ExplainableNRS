@@ -10,11 +10,12 @@ import pandas as pd
 import numpy as np
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+from scipy.stats import entropy
 
 from modules.config.configuration import Configuration
 from modules.dataset import ImpressionDataset
 from modules.trainer import NCTrainer
-from modules.utils import gather_dict, load_batch_data, get_news_embeds, gpu_stat, group_auc
+from modules.utils import gather_dict, load_batch_data, get_news_embeds, gpu_stat, group_auc, get_topic_dist, kl_divergence_rowwise
 
 
 class MindRSTrainer(NCTrainer):
@@ -26,6 +27,7 @@ class MindRSTrainer(NCTrainer):
         super().__init__(model, config, data_loader, **kwargs)
         self.valid_interval = config.get("valid_interval", 0.6)
         self.fast_evaluation = config.get("fast_evaluation", True)
+        self.log_kl_div = config.get("log_kl_div", False)
         self.topic_variant = config.get("topic_variant", "base")
         self.train_strategy = config.get("train_strategy", "pair_wise")
         self.mind_loader = data_loader
@@ -88,9 +90,18 @@ class MindRSTrainer(NCTrainer):
             # record loss
             self.train_metrics.update("loss", loss.item())
             if batch_idx % self.log_step == 0:
+                if self.log_kl_div:
+                    self.model.eval()
+                    topic_dist = get_topic_dist(self.model, self.mind_loader.word_dict)
+                    kl_div = np.round(kl_divergence_rowwise(topic_dist), 4)
+                    entropy_scores = np.round(np.mean(np.array(entropy(topic_dist, axis=1))), 4)
+                    self.train_metrics.update("kl_div", kl_div)
+                    self.train_metrics.update("entropy", entropy_scores)
+                    bar_description += f" topic KL divergence: {kl_div} topic entropy: {entropy_scores}"
+                    self.model.train()
                 bar.set_description(bar_description)
-                train_auc = self.train_metrics.result()
-                wandb.log({f"train_{k}": v for k, v in train_auc.items() if v and v != 0})
+                train_log = self.train_metrics.result()
+                wandb.log({f"train_{k}": v for k, v in train_log.items() if v and v != 0})
                 self.train_metrics.reset()
             if (batch_idx + 1) % math.ceil(self.len_epoch * self.valid_interval) == 0:
                 self._validation(epoch, batch_idx)
