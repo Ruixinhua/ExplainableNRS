@@ -103,7 +103,7 @@ class MindRSTrainer(NCTrainer):
                     reverse_dict = {v: k for k, v in self.mind_loader.word_dict.items()}
                     topic_list = get_topic_list(topic_dist, self.config.get("top_n", 10), reverse_dict)
                     if "fast_eval" in topic_evaluation_method:
-                        self.config.set("ref_data_path", Path(get_project_root()) / "dataset/utils/wiki.dtm.npz")
+                        self.config.set("ref_data_path", os.path.join(get_project_root()), "dataset/utils/wiki.dtm.npz")
                         npmi_score = fast_npmi_eval(self.config, topic_list, self.mind_loader.word_dict)
                         npmi_score = np.round(np.mean(npmi_score), 4)
                         self.train_metrics.update("npmi", npmi_score)

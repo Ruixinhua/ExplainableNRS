@@ -156,7 +156,7 @@ class NCTrainer(BaseTrainer):
             topic_scores = {}
             topic_list = get_topic_list(dist, top_n, reverse_dict)  # convert to tokens list
             if "fast_eval" in topic_evaluation_method:
-                self.config.set("ref_data_path", Path(get_project_root()) / "dataset/utils/wiki.dtm.npz")
+                self.config.set("ref_data_path", os.path.join(get_project_root()), "dataset/utils/wiki.dtm.npz")
                 # convert to index list: minus 1 because the index starts from 0 (0 is for padding)
                 topic_scores[f"{key}_c_npmi"] = fast_npmi_eval(self.config, topic_list, word_dict)
             if "slow_eval" in topic_evaluation_method:
