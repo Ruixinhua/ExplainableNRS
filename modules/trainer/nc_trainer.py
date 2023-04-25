@@ -155,7 +155,7 @@ class NCTrainer(BaseTrainer):
         for key, dist in topic_dists.items():  # calculate topic quality for different Post processing methods
             topic_scores = {}
             topic_list = get_topic_list(dist, top_n, reverse_dict)  # convert to tokens list
-            if "fast_eval" in topic_evaluation_method:
+            if "fast_npmi" in topic_evaluation_method:
                 self.config.set("ref_data_path", os.path.join(get_project_root(), "dataset/utils/wiki.dtm.npz"))
                 # convert to index list: minus 1 because the index starts from 0 (0 is for padding)
                 topic_scores[f"{key}_c_npmi"] = fast_npmi_eval(self.config, topic_list, word_dict)

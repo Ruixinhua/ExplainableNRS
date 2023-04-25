@@ -25,13 +25,13 @@ batch_size=32
 epochs=100
 early_stop=3
 step_size=2
-seeds=42,2020,2021,2023,3407  # by default seeds=42,2020,2021,25,4
+seeds=42,  # by default seeds=42,2020,2021,2023,3407
 show_entropy=true   # calculate entropy during training: true/false
 
 # Evaluation settings
 valid_method=fast_evaluation  # fast_evaluation/slow_evaluation
 find_unused_parameters=false  # true/false
-topic_evaluation_method=fast_eval,w2v_sim  # slow_eval,NPMI,W2V,fast_eval
+topic_evaluation_method=fast_npmi,w2v_sim  # slow_eval,NPMI,W2V,fast_npmi
 coherence_method=u_mass,c_v,c_uci,c_npmi   # u_mass,c_v,c_uci,c_npmi
 evaluate_topic_by_epoch=true
 experiment_name=RS_BATM_${subset_type}_${news_encoder_name}_${user_encoder_name}_${topic_variant}

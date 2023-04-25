@@ -40,7 +40,7 @@ class MindRSTrainer(NCTrainer):
         log = {"epoch/step": f"{epoch}/{batch_idx}"}
         val_log = self._valid_epoch(extra_str=f"{epoch}_{batch_idx}")
         log.update({"val_" + k: v for k, v in val_log.items()})
-        wandb.log({"val_" + k: v for k, v in val_log.items() if v and v != 0})
+        wandb.log({"val/" + k: v for k, v in val_log.items() if v and v != 0})
         for k, v in val_log.items():
             self.writer.add_scalar(k, v)
         if do_monitor:
@@ -102,7 +102,7 @@ class MindRSTrainer(NCTrainer):
                     bar_description += f" topic KL divergence: {kl_div} topic entropy: {entropy_scores}"
                     reverse_dict = {v: k for k, v in self.mind_loader.word_dict.items()}
                     topic_list = get_topic_list(topic_dist, self.config.get("top_n", 10), reverse_dict)
-                    if "fast_eval" in topic_evaluation_method:
+                    if "fast_npmi" in topic_evaluation_method:
                         self.config.set("ref_data_path", os.path.join(get_project_root(), "dataset/utils/wiki.dtm.npz"))
                         npmi_score = fast_npmi_eval(self.config, topic_list, self.mind_loader.word_dict)
                         npmi_score = np.round(np.mean(npmi_score), 4)
@@ -115,7 +115,7 @@ class MindRSTrainer(NCTrainer):
                     self.model.train()
                 bar.set_description(bar_description)
                 train_log = self.train_metrics.result()
-                wandb.log({f"train_{k}": v for k, v in train_log.items() if v and v != 0})
+                wandb.log({f"train/{k}": v for k, v in train_log.items() if v and v != 0})
                 self.train_metrics.reset()
             if (batch_idx + 1) % math.ceil(self.len_epoch * self.valid_interval) == 0:
                 self._validation(epoch, batch_idx)
