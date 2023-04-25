@@ -111,6 +111,8 @@ class BaseTrainer:
         log["finished_time"] = datetime.now().strftime(r'%m%d_%H%M%S')
         log_df = log_df.loc[:, ~log_df.columns.str.contains("^Unnamed")]
         log_df.drop_duplicates(inplace=True)
+        table = wandb.Table(dataframe=log_df)
+        wandb.log({"result": table})
         log_df.to_csv(saved_path)
 
     def _monitor(self, log, epoch):

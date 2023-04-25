@@ -1,4 +1,6 @@
 import heapq
+import os
+
 import torch
 import numpy as np
 from gensim.corpora import Dictionary
@@ -6,6 +8,7 @@ from gensim.models import CoherenceModel
 from scipy.stats import entropy
 from typing import Dict, Union, List
 from scipy import sparse
+from sklearn.metrics.pairwise import cosine_similarity
 
 
 class NPMI:
@@ -153,9 +156,34 @@ def evaluate_entropy(topic_dist):
     return token_entropy, topic_entropy
 
 
-def calc_topic_diversity(topic_words):
+def cal_topic_diversity(topic_words):
     """topic_words is in the form of [[w11,w12,...],[w21,w22,...]]"""
     vocab = set(sum(topic_words, []))
     n_total = len(topic_words) * len(topic_words[0])
     topic_div = len(vocab) / n_total
     return topic_div
+
+
+def fast_npmi_eval(config, topic_list, word_dict):
+    """
+    Fast NPMI evaluation using pre-computed sparse matrix
+    :param config: Configuration object
+    :param topic_list: list of topics, each topic is a list of words
+    :param word_dict: word dictionary of topic words
+    :return: npmi score
+    """
+    ref_data_path = config.get("ref_data_path")
+    if ref_data_path is None or not os.path.exists(ref_data_path):
+        raise ValueError("ref_data_path is not specified")
+    ref_texts = load_sparse(ref_data_path)
+    scorer = NPMI((ref_texts > 0).astype(int))
+    topic_index = [[word_dict[word] - 1 for word in topic] for topic in topic_list]
+    # convert to index list: minus 1 because the index starts from 0 (0 is for padding)
+    return scorer.compute_npmi(topics=topic_index, n=config.get("top_n", 10))
+
+
+def w2v_sim_eval(config, embeddings, topic_list, word_dict):
+    top_n = config.get("top_n", 10)
+    count = top_n * (top_n - 1) / 2
+    topic_index = [[word_dict[word] for word in topic] for topic in topic_list]
+    return [np.sum(np.triu(cosine_similarity(embeddings[i]), 1)) / count for i in topic_index]

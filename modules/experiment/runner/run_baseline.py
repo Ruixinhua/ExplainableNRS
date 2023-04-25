@@ -1,7 +1,6 @@
 import os
 import ast
 import time
-import mlflow
 from datetime import datetime
 
 from pathlib import Path
@@ -13,43 +12,36 @@ from modules.config.configuration import Configuration
 from modules.config.default_config import TEST_CONFIGS
 from modules.config.config_utils import set_seed, load_cmd_line
 from modules.experiment.quick_run import run
-from modules.utils import get_project_root, init_data_loader, log_params, log_metrics, get_experiment_id, init
+from modules.utils import get_project_root, init_data_loader, init
 
 
 def evaluate_run():
-    experiment_id = get_experiment_id(experiment_name=config.get("experiment_name", "default"))
-    with mlflow.start_run(run_name=f"{config['arch_type']}-{jobid}", experiment_id=experiment_id) as runner:
-        start_time = time.time()
-        accelerator = Accelerator()
-        set_seed(config["seed"])
-        config.set("run_id", runner.info.run_id)
-        config.set("num_processes", accelerator.num_processes)
-        if accelerator.is_main_process:
-            log_params(config.final_configs)
-        data_loader = init_data_loader(config)
-        init(**config.final_configs)
-        trainer = run(config, data_loader=data_loader)
-        trainer.resume_checkpoint()  # load the best model
-        log["#Voc"] = len(data_loader.word_dict)
-        if "nc" in cmd_args["task"].lower():
-            # run validation
-            log.update(trainer.evaluate(data_loader.valid_loader, trainer.model, prefix="val"))
-            # run test
-            log.update(trainer.evaluate(data_loader.test_loader, trainer.model, prefix="test"))
-        else:
-            log.update(trainer.evaluate(data_loader.valid_set, trainer.model, prefix="val"))
-            log.update(trainer.evaluate(data_loader.test_set, trainer.model, prefix="test"))
-        if config.get("topic_evaluation_method", None) is not None:
-            log.update(trainer.topic_evaluation(trainer.model, word_dict=data_loader.word_dict))
-        # if trainer.writer is not None:
-        #     trainer.writer.flush()
-        log["Total Time"] = time.time() - start_time
-        if trainer.accelerator.is_main_process:  # to avoid duplicated writing
-            log_metrics(log)
-            saved_path = saved_dir / saved_name / saved_filename
-            os.makedirs(saved_path.parent, exist_ok=True)
-            trainer.save_log(log, saved_path=saved_path)
-            logger.info(f"saved log: {saved_path} finished.")
+    config.set("wandb_name", f"{config['run_name']}-{config.seed}")
+    start_time = time.time()
+    accelerator = Accelerator()
+    set_seed(config["seed"])
+    config.set("num_processes", accelerator.num_processes)
+    data_loader = init_data_loader(config)
+    init(**config.final_configs)
+    trainer = run(config, data_loader=data_loader)
+    trainer.resume_checkpoint()  # load the best model
+    log["#Voc"] = len(data_loader.word_dict)
+    if "nc" in cmd_args["task"].lower():
+        # run validation
+        log.update(trainer.evaluate(data_loader.valid_loader, trainer.model, prefix="val"))
+        # run test
+        log.update(trainer.evaluate(data_loader.test_loader, trainer.model, prefix="test"))
+    else:
+        log.update(trainer.evaluate(data_loader.valid_set, trainer.model, prefix="val"))
+        log.update(trainer.evaluate(data_loader.test_set, trainer.model, prefix="test"))
+    if config.get("topic_evaluation_method", None) is not None:
+        log.update(trainer.topic_evaluation(trainer.model, word_dict=data_loader.word_dict))
+    log["Total Time"] = time.time() - start_time
+    if trainer.accelerator.is_main_process:  # to avoid duplicated writing
+        saved_path = saved_dir / saved_name / saved_filename
+        os.makedirs(saved_path.parent, exist_ok=True)
+        trainer.save_log(log, saved_path=saved_path)
+        logger.info(f"saved log: {saved_path} finished.")
 
 
 if __name__ == "__main__":

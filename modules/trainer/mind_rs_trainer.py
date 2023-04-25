@@ -15,7 +15,8 @@ from scipy.stats import entropy
 from modules.config.configuration import Configuration
 from modules.dataset import ImpressionDataset
 from modules.trainer import NCTrainer
-from modules.utils import gather_dict, load_batch_data, get_news_embeds, gpu_stat, group_auc, get_topic_dist, kl_divergence_rowwise
+from modules.utils import gather_dict, load_batch_data, get_news_embeds, gpu_stat, group_auc, get_topic_dist, \
+    kl_divergence_rowwise, get_topic_list, fast_npmi_eval, get_project_root, load_embeddings, w2v_sim_eval
 
 
 class MindRSTrainer(NCTrainer):
@@ -95,9 +96,22 @@ class MindRSTrainer(NCTrainer):
                     topic_dist = get_topic_dist(self.model, self.mind_loader.word_dict)
                     kl_div = np.round(kl_divergence_rowwise(topic_dist), 4)
                     entropy_scores = np.round(np.mean(np.array(entropy(topic_dist, axis=1))), 4)
+                    topic_evaluation_method = self.config.get("topic_evaluation_method", None)
                     self.train_metrics.update("kl_div", kl_div)
                     self.train_metrics.update("entropy", entropy_scores)
                     bar_description += f" topic KL divergence: {kl_div} topic entropy: {entropy_scores}"
+                    reverse_dict = {v: k for k, v in self.mind_loader.word_dict.items()}
+                    topic_list = get_topic_list(topic_dist, self.config.get("top_n", 10), reverse_dict)
+                    if "fast_eval" in topic_evaluation_method:
+                        self.config.set("ref_data_path", Path(get_project_root()) / "dataset/utils/wiki.dtm.npz")
+                        npmi_score = fast_npmi_eval(self.config, topic_list, self.mind_loader.word_dict)
+                        npmi_score = np.round(np.mean(npmi_score), 4)
+                        self.train_metrics.update("npmi", npmi_score)
+                    if "w2v_sim" in topic_evaluation_method:
+                        embeddings = load_embeddings(**self.config.final_configs)
+                        w2v_sim_score = w2v_sim_eval(self.config, embeddings, topic_list, self.mind_loader.word_dict)
+                        w2v_sim_score = np.round(np.mean(w2v_sim_score), 4)
+                        self.train_metrics.update("w2v_sim", w2v_sim_score)
                     self.model.train()
                 bar.set_description(bar_description)
                 train_log = self.train_metrics.result()

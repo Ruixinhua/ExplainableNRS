@@ -7,10 +7,9 @@ import torch.distributed
 from pathlib import Path
 from scipy.stats import entropy
 from modules.base.base_trainer import BaseTrainer
-from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
-from modules.utils import get_topic_list, get_project_root, get_topic_dist, load_sparse, calc_topic_diversity, \
-    read_json, NPMI, compute_coherence, write_to_file, MetricTracker, load_batch_data, word_tokenize
+from modules.utils import get_topic_list, get_project_root, get_topic_dist, w2v_sim_eval, load_embeddings, read_json, \
+    compute_coherence, write_to_file, MetricTracker, load_batch_data, word_tokenize, fast_npmi_eval, cal_topic_diversity
 
 
 class NCTrainer(BaseTrainer):
@@ -153,20 +152,13 @@ class NCTrainer(BaseTrainer):
                 topic_dist_copy[:, removed_index] = 0  # set removed terms to 0
                 topic_dists[path.name.replace(".json", "")] = topic_dist_copy
         topic_result = {}
-        try:
-            model = model.module
-        except AttributeError:
-            model = model
         for key, dist in topic_dists.items():  # calculate topic quality for different Post processing methods
             topic_scores = {}
             topic_list = get_topic_list(dist, top_n, reverse_dict)  # convert to tokens list
             if "fast_eval" in topic_evaluation_method:
-                ref_data_path = self.config.get("ref_data_path", Path(get_project_root()) / "dataset/utils/ref.dtm.npz")
-                ref_texts = load_sparse(ref_data_path)
-                scorer = NPMI((ref_texts > 0).astype(int))
-                topic_index = [[word_dict[word] - 1 for word in topic] for topic in topic_list]
+                self.config.set("ref_data_path", Path(get_project_root()) / "dataset/utils/wiki.dtm.npz")
                 # convert to index list: minus 1 because the index starts from 0 (0 is for padding)
-                topic_scores[f"{key}_c_npmi"] = scorer.compute_npmi(topics=topic_index, n=top_n)
+                topic_scores[f"{key}_c_npmi"] = fast_npmi_eval(self.config, topic_list, word_dict)
             if "slow_eval" in topic_evaluation_method:
                 tokenized_method = self.config.get("tokenized_method", "keep_all")
                 ws = self.config.get("window_size", 200)
@@ -179,12 +171,9 @@ class NCTrainer(BaseTrainer):
                                                     processes=ps) for m in methods
                 })
             if "w2v_sim" in topic_evaluation_method:  # compute word embedding similarity of top-10 words for each topic
-                embeddings = model.embedding_layer.embedding.weight.cpu().detach().numpy()
-                # embeddings = load_embeddings(**self.config.final_configs)
-                count = top_n * (top_n - 1) / 2
-                topic_index = [[word_dict[word] for word in topic] for topic in topic_list]
-                w2v_sim_list = [np.sum(np.triu(cosine_similarity(embeddings[i]), 1)) / count for i in topic_index]
-                topic_scores[f"{key}_w2v_sim"] = w2v_sim_list
+                # embeddings = model.embedding_layer.embedding.weight.cpu().detach().numpy()
+                embeddings = load_embeddings(**self.config.final_configs)
+                topic_scores[f"{key}_w2v_sim"] = w2v_sim_eval(self.config, embeddings, topic_list, word_dict)
             # calculate average score for each topic quality method
             topic_result.update({m: np.round(np.mean(c), 4) for m, c in topic_scores.items()})
             if self.accelerator.is_main_process:  # save topic info
@@ -192,7 +181,7 @@ class NCTrainer(BaseTrainer):
                 write_to_file(os.path.join(topics_dir, "topic_list.txt"), [" ".join(topics) for topics in topic_list])
                 entropy_scores = np.array(entropy(dist, axis=1))
                 topic_result[f"{key}_entropy"] = np.round(np.mean(entropy_scores), 4)
-                topic_result[f"{key}_div"] = np.round(calc_topic_diversity(topic_list), 4)  # calculate topic diversity
+                topic_result[f"{key}_div"] = np.round(cal_topic_diversity(topic_list), 4)  # calculate topic diversity
                 for method, scores in topic_scores.items():
                     topic_file = os.path.join(topics_dir, f"{method}_{topic_result[method]}.txt")
                     coherence_file = os.path.join(coherence_dir, f"{method}_{topic_result[method]}.txt")

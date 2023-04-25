@@ -30,6 +30,7 @@ unzip small.zip -d small
 rm small.zip
 cd ../utils
 gdown https://drive.google.com/uc?id=1bC4WgcVrDOAmjVu2o2jR-aETGqbLbveI
+gdown https://drive.google.com/uc?id=15vV-dBLXnleRvT_011VDGizmSjk6o-yF
 ```
 To run the code for training the basic BATMRS model and evaluating its performance, follow these commands:
 ```bash
