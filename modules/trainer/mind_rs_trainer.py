@@ -92,8 +92,8 @@ class MindRSTrainer(NCTrainer):
                 if self.log_kl_div:
                     self.model.eval()
                     middle_name = f"train_{epoch}_{batch_idx}"
-                    topic_results = self.train_topic_evaluator.result(model=self.model, middle_name=middle_name,
-                                                                      use_post_dict=False)
+                    topic_results = self.topic_evaluator.result(model=self.model, middle_name=middle_name,
+                                                                use_post_dict=False)
                     for key, value in topic_results.items():
                         self.train_metrics.update(key, value)
                     self.model.train()

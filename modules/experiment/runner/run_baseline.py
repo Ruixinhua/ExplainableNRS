@@ -73,6 +73,8 @@ if __name__ == "__main__":
     logger = config.get_logger(saved_name)
     # acquires test values for a given arch attribute
     test_values = config.get("values", TEST_CONFIGS.get(arch_attr, None))
+    if not isinstance(test_values, list):  # convert to list if it is not a list (e.g., only contains one value)
+        test_values = [test_values]
     seeds = [int(s) for s in config.get("seeds", TEST_CONFIGS.get("seeds"))]
     if arch_attr is None or arch_attr is False or test_values is None:
         for seed in seeds:

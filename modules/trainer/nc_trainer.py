@@ -29,9 +29,7 @@ class NCTrainer(BaseTrainer):
         self.log_step = config.get("log_step", 100)
         self.train_metrics = MetricTracker(*self.metric_funcs, writer=self.writer)
         self.valid_metrics = MetricTracker(*self.metric_funcs, writer=self.writer)
-        self.train_topic_evaluator = TopicEval(config, word_dict=data_loader.word_dict, group_name="train/topic_eval")
-        self.valid_topic_evaluator = copy.deepcopy(self.train_topic_evaluator)
-        self.valid_topic_evaluator.group_name = "valid/topic_eval"
+        self.topic_evaluator = TopicEval(config, word_dict=data_loader.word_dict, group_name="topic_eval")
         self.model, self.optimizer, self.train_loader, self.lr_scheduler = self.accelerator.prepare(
             self.model, self.optimizer, self.train_loader, self.lr_scheduler)
 
@@ -121,7 +119,7 @@ class NCTrainer(BaseTrainer):
             model = self.model
         if middle_name is None:
             middle_name = "final"
-        topic_result = self.valid_topic_evaluator.result(model, middle_name=middle_name, use_post_dict=True)
+        topic_result = self.topic_evaluator.result(model, middle_name=middle_name, use_post_dict=True)
         if not len(topic_result):
             raise ValueError("No correct topic evaluation method is specified!")
         return topic_result
