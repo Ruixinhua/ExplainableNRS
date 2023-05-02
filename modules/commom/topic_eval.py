@@ -21,13 +21,13 @@ class TopicEval:
         self.topic_evaluation_method = config.get("topic_evaluation_method", None)
         self.top_n = config.get("top_n", 10)
 
-    def _add_post_topic_dist(self, model):
+    def _add_topic_dist(self, model, use_post_dict=True):
         self.model = copy.deepcopy(model)
         default_post_dict_path = Path(get_project_root(), "dataset", "utils", "word_dict", "post_process")
         self.post_word_dict_dir = self.config.get("post_word_dict_dir", default_post_dict_path)
         self.topic_dist = get_topic_dist(self.model, self.word_dict)
         self.topic_dists = {"original": self.topic_dist}
-        if os.path.exists(self.post_word_dict_dir):
+        if use_post_dict and os.path.exists(self.post_word_dict_dir):
             for path in os.scandir(self.post_word_dict_dir):
                 if not path.name.endswith(".json"):
                     continue
@@ -51,8 +51,7 @@ class TopicEval:
         middle_name = kwargs.get("middle_name", None)
         if middle_name is not None:
             saved_name += f"/{middle_name}"
-        if kwargs.get("use_post_dict", True):
-            self._add_post_topic_dist(model)
+        self._add_topic_dist(model, kwargs.get("use_post_dict", True))
         for key, dist in self.topic_dists.items():  # calculate topic quality for different Post processing methods
             topic_scores = {}
             prefix = f"{self.group_name}/{key}/"
