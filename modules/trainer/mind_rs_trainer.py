@@ -58,7 +58,8 @@ class MindRSTrainer(NCTrainer):
         # self._validation(epoch, 0)
         for batch_idx, batch_dict in bar:
             # set step for tensorboard
-            self.writer.set_step((epoch - 1) * self.len_epoch + batch_idx)
+            step = (epoch - 1) * self.len_epoch + batch_idx
+            self.writer.set_step(step)
             label = copy.deepcopy(batch_dict["label"].cpu().numpy())
             # load data to device
             batch_dict = load_batch_data(batch_dict, self.device)
@@ -99,6 +100,8 @@ class MindRSTrainer(NCTrainer):
                     self.model.train()
                 bar.set_description(bar_description)
                 train_log = self.train_metrics.result()
+                wandb.define_metric("train/step")
+                wandb.log({"train/step": step})
                 wandb.log({f"train/{k}": v for k, v in train_log.items() if v and v != 0})
                 self.train_metrics.reset()
             if (batch_idx + 1) % math.ceil(self.len_epoch * self.valid_interval) == 0:
