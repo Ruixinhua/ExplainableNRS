@@ -54,7 +54,7 @@ class TopicEval:
         self._add_topic_dist(model, kwargs.get("use_post_dict", True))
         for key, dist in self.topic_dists.items():  # calculate topic quality for different Post processing methods
             topic_scores = {}
-            prefix = f"{self.group_name}/{key}/"
+            prefix = f"{self.group_name}/{key}"
             topic_list = get_topic_list(dist, self.top_n, self.reverse_dict)  # convert to tokens list
             if "fast_npmi" in self.topic_evaluation_method:
                 self.config.set("ref_data_path", os.path.join(get_project_root(), "dataset/utils/wiki.dtm.npz"))
@@ -77,9 +77,10 @@ class TopicEval:
                 model_dir = self.config.model_dir
                 topics_dir = Path(model_dir, "topics" if sort_scores else "topics_sorted", saved_name)
                 os.makedirs(topics_dir, exist_ok=True)
-                for method, score in topic_scores.items():
-                    topic_file = os.path.join(topics_dir, f"{method}_{topic_result[method]}.txt")
-                    entropy_file = os.path.join(topics_dir, f"{method}_{topic_result[method]}_entropy.txt")
+                for name, score in topic_scores.items():
+                    method = f"{name.split('/')[1]}_{name.split('/')[-1]}"
+                    topic_file = os.path.join(topics_dir, f"{method}_{topic_result[name]}.txt")
+                    entropy_file = os.path.join(topics_dir, f"{method}_{topic_result[name]}_entropy.txt")
                     scores_list = zip(score, topic_list, entropy_scores, range(len(score)))
                     if sort_scores:
                         scores_list = sorted(scores_list, reverse=True, key=lambda x: x[0])
@@ -88,7 +89,7 @@ class TopicEval:
                         entropy_str = f"{np.round(s, 4)}({np.round(es, 4)}): {' '.join(word_weights)}\n"
                         write_to_file(topic_file, f"{np.round(s, 4)}: {' '.join(ts)}\n", "a+")
                         write_to_file(entropy_file, entropy_str, "a+")
-                    write_to_file(topic_file, f"Average score: {topic_result[method]}\n", "a+")
+                    write_to_file(topic_file, f"Average score: {topic_result[name]}\n", "a+")
                 write_to_file(os.path.join(topics_dir, "topic_list.txt"), [" ".join(topics) for topics in topic_list])
 
             save2file(sort_scores=True)
