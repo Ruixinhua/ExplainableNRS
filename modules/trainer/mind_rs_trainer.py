@@ -38,7 +38,7 @@ class MindRSTrainer(NCTrainer):
         log = {"epoch/step": f"{epoch}/{batch_idx}"}
         val_log = self._valid_epoch(middle_name=f"valid_{epoch}_{batch_idx}")
         log.update({"val_" + k: v for k, v in val_log.items()})
-        wandb.define_metric("val/step")
+        wandb.define_metric("val/*", step_metric="val/step")
         wandb.log({"val/step": self.step})
         wandb.log({"val/" + k: v for k, v in val_log.items() if v and v != 0})
         for k, v in val_log.items():
@@ -102,7 +102,7 @@ class MindRSTrainer(NCTrainer):
                     self.model.train()
                 bar.set_description(bar_description)
                 train_log = self.train_metrics.result()
-                wandb.define_metric("train/step")
+                wandb.define_metric("train/*", step_metric="train/step")
                 wandb.log({"train/step": self.step})
                 wandb.log({f"train/{k}": v for k, v in train_log.items() if v and v != 0})
                 self.train_metrics.reset()
