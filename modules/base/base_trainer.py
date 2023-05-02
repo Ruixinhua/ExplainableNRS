@@ -2,7 +2,6 @@ import os
 
 import torch
 import pandas as pd
-import wandb
 
 import modules.utils.metric_utils as module_metric
 from datetime import datetime

@@ -10,13 +10,11 @@ import pandas as pd
 import numpy as np
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from scipy.stats import entropy
 
 from modules.config.configuration import Configuration
 from modules.dataset import ImpressionDataset
 from modules.trainer import NCTrainer
-from modules.utils import gather_dict, load_batch_data, get_news_embeds, gpu_stat, group_auc, get_topic_dist, \
-    kl_divergence_rowwise, get_topic_list, fast_npmi_eval, get_project_root, load_embeddings, w2v_sim_eval
+from modules.utils import gather_dict, load_batch_data, get_news_embeds, gpu_stat, group_auc
 
 
 class MindRSTrainer(NCTrainer):
@@ -38,7 +36,7 @@ class MindRSTrainer(NCTrainer):
         # do validation when reach the interval
         self.writer.set_step((epoch - 1) * len(self.train_loader) + batch_idx, "valid")
         log = {"epoch/step": f"{epoch}/{batch_idx}"}
-        val_log = self._valid_epoch(extra_str=f"{epoch}_{batch_idx}")
+        val_log = self._valid_epoch(middle_name=f"valid_{epoch}_{batch_idx}")
         log.update({"val_" + k: v for k, v in val_log.items()})
         wandb.log({"val/" + k: v for k, v in val_log.items() if v and v != 0})
         for k, v in val_log.items():
@@ -93,25 +91,12 @@ class MindRSTrainer(NCTrainer):
             if batch_idx % self.log_step == 0:
                 if self.log_kl_div:
                     self.model.eval()
-                    topic_dist = get_topic_dist(self.model, self.mind_loader.word_dict)
-                    kl_div = np.round(kl_divergence_rowwise(topic_dist), 4)
-                    entropy_scores = np.round(np.mean(np.array(entropy(topic_dist, axis=1))), 4)
-                    topic_evaluation_method = self.config.get("topic_evaluation_method", None)
-                    self.train_metrics.update("kl_div", kl_div)
-                    self.train_metrics.update("entropy", entropy_scores)
-                    bar_description += f" topic KL divergence: {kl_div} topic entropy: {entropy_scores}"
-                    reverse_dict = {v: k for k, v in self.mind_loader.word_dict.items()}
-                    topic_list = get_topic_list(topic_dist, self.config.get("top_n", 10), reverse_dict)
-                    if "fast_npmi" in topic_evaluation_method:
-                        self.config.set("ref_data_path", os.path.join(get_project_root(), "dataset/utils/wiki.dtm.npz"))
-                        npmi_score = fast_npmi_eval(self.config, topic_list, self.mind_loader.word_dict)
-                        npmi_score = np.round(np.mean(npmi_score), 4)
-                        self.train_metrics.update("npmi", npmi_score)
-                    if "w2v_sim" in topic_evaluation_method:
-                        embeddings = load_embeddings(**self.config.final_configs)
-                        w2v_sim_score = w2v_sim_eval(self.config, embeddings, topic_list, self.mind_loader.word_dict)
-                        w2v_sim_score = np.round(np.mean(w2v_sim_score), 4)
-                        self.train_metrics.update("w2v_sim", w2v_sim_score)
+                    middle_name = f"train_{epoch}_{batch_idx}"
+                    topic_results = self.train_topic_evaluator.result(model=self.model, middle_name=middle_name,
+                                                                      use_post_dict=False)
+                    for key, value in topic_results.items():
+                        self.train_metrics.update(key, value)
+                        bar_description += f" {key}: {value}"
                     self.model.train()
                 bar.set_description(bar_description)
                 train_log = self.train_metrics.result()
@@ -125,7 +110,7 @@ class MindRSTrainer(NCTrainer):
         log.update(self._validation(epoch, self.len_epoch, False))
         return log
 
-    def _valid_epoch(self, model=None, valid_set=None, extra_str=None):
+    def _valid_epoch(self, model=None, valid_set=None, middle_name=None):
         """
         Validate after training an epoch
         :param model: evaluated model object
@@ -194,7 +179,7 @@ class MindRSTrainer(NCTrainer):
             result_dict = gather_dict(result_dict, num_processes=self.config.get("num_processes", None))
             eval_result = dict(np.round(pd.DataFrame.from_dict(result_dict, orient="index").mean(), 4))  # average
             if self.config.get("evaluate_topic_by_epoch", False) and self.config.get("topic_evaluation_method", None):
-                eval_result.update(self.topic_evaluation(model, self.mind_loader.word_dict, extra_str))
+                eval_result.update(self.topic_evaluation(model, middle_name))
                 # self.accelerator.wait_for_everyone()
         if return_weight and self.accelerator.is_main_process:
             weight_dir = Path(self.config["model_dir"], "weight")

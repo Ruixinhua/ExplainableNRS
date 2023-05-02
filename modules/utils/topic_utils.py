@@ -3,12 +3,15 @@ import os
 
 import torch
 import numpy as np
+import pandas as pd
+from pathlib import Path
 from gensim.corpora import Dictionary
 from gensim.models import CoherenceModel
 from scipy.stats import entropy
 from typing import Dict, Union, List
 from scipy import sparse
 from sklearn.metrics.pairwise import cosine_similarity
+from modules.utils import word_tokenize, get_project_root
 
 
 class NPMI:
@@ -164,12 +167,33 @@ def cal_topic_diversity(topic_words):
     return topic_div
 
 
+def slow_topic_eval(config, topic_list):
+    """
+    Slow topic evaluation using gensim
+    :param config: Configuration object
+    :param topic_list: list of topics, each topic is a list of terms
+    :return: coherence score
+    """
+    tokenized_method = config.get("tokenized_method", "keep_all")
+    ws = config.get("window_size", 200)
+    ps = config.get("processes", 35)
+    tokenized_data_path = Path(get_project_root()) / f"dataset/data/MIND_tokenized.csv"
+    ref_df = pd.read_csv(config.get("slow_ref_data_path", tokenized_data_path))
+    ref_texts = [word_tokenize(doc, tokenized_method) for doc in ref_df["tokenized_text"].values]
+    topic_score = {
+        m: compute_coherence(
+            topic_list, ref_texts, coherence=m, topn=config.get("top_n", 10), window_size=ws, processes=ps
+        ) for m in config.get("coherence_method", ["c_npmi"])
+    }
+    return topic_score
+
+
 def fast_npmi_eval(config, topic_list, word_dict):
     """
     Fast NPMI evaluation using pre-computed sparse matrix
     :param config: Configuration object
     :param topic_list: list of topics, each topic is a list of words
-    :param word_dict: word dictionary of topic words
+    :param word_dict: dictionary of topic words
     :return: npmi score
     """
     ref_data_path = config.get("ref_data_path")

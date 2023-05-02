@@ -1,15 +1,11 @@
 import copy
-import os
-import numpy as np
-import pandas as pd
 import torch
 import torch.distributed
-from pathlib import Path
-from scipy.stats import entropy
-from modules.base.base_trainer import BaseTrainer
 from tqdm import tqdm
-from modules.utils import get_topic_list, get_project_root, get_topic_dist, w2v_sim_eval, load_embeddings, read_json, \
-    compute_coherence, write_to_file, MetricTracker, load_batch_data, word_tokenize, fast_npmi_eval, cal_topic_diversity
+
+from modules.base.base_trainer import BaseTrainer
+from modules.utils import MetricTracker, load_batch_data
+from modules.commom import TopicEval
 
 
 class NCTrainer(BaseTrainer):
@@ -33,6 +29,9 @@ class NCTrainer(BaseTrainer):
         self.log_step = config.get("log_step", 100)
         self.train_metrics = MetricTracker(*self.metric_funcs, writer=self.writer)
         self.valid_metrics = MetricTracker(*self.metric_funcs, writer=self.writer)
+        self.train_topic_evaluator = TopicEval(config, word_dict=data_loader.word_dict, group_name="train_topic_eval")
+        self.valid_topic_evaluator = copy.deepcopy(self.train_topic_evaluator)
+        self.valid_topic_evaluator.group_name = "valid_topic_eval"
         self.model, self.optimizer, self.train_loader, self.lr_scheduler = self.accelerator.prepare(
             self.model, self.optimizer, self.train_loader, self.lr_scheduler)
 
@@ -111,91 +110,18 @@ class NCTrainer(BaseTrainer):
         log = {f"{prefix}_{k}": v for k, v in self.valid_metrics.result().items()}  # return log with prefix
         return log
 
-    def topic_evaluation(self, model=None, word_dict=None, extra_str=None):
+    def topic_evaluation(self, model=None, middle_name=None):
         """
         evaluate the topic quality of the BATM model using the topic coherence
         :param model: best model chosen from the training process
-        :param word_dict: the word dictionary of the dataset
-        :param extra_str: extra string to add to the file name
+        :param middle_name: extra string to add to the file name
         :return: topic quality result of the best model
         """
         if model is None:
             model = self.model
-        if word_dict is None:
-            word_dict = self.data_loader.word_dict
-        topic_evaluation_method = self.config.get("topic_evaluation_method", None)
-        sort_score = self.config.get("sort_score", True)
-        saved_name = f"topics_{self.config.seed}_{self.config.head_num}"
-        if extra_str is not None:
-            saved_name += f"_{extra_str}"
-        if sort_score:
-            saved_name += "_sorted"
-        else:
-            saved_name += "_unsorted"
-        topics_dir = Path(self.config.model_dir, "topics", saved_name)
-        coherence_dir = Path(self.config.model_dir, "coherence_score", saved_name)
-        os.makedirs(coherence_dir, exist_ok=True)
-        reverse_dict = {v: k for k, v in word_dict.items()}
-        topic_dist = get_topic_dist(model, word_dict)
-        self.model = self.model.to(self.device)
-        top_n, methods = self.config.get("top_n", 10), self.config.get("coherence_method", ["c_npmi"])
-        default_post_dict_path = Path(get_project_root(), "dataset", "utils", "word_dict", "post_process")
-        post_word_dict_dir = self.config.get("post_word_dict_dir", default_post_dict_path)
-        topic_dists = {"original": topic_dist}
-        if post_word_dict_dir is not None and os.path.exists(post_word_dict_dir):
-            for path in os.scandir(post_word_dict_dir):
-                if not path.name.endswith(".json"):
-                    continue
-                post_word_dict = read_json(path)
-                removed_index = [v for k, v in word_dict.items() if k not in post_word_dict]
-                topic_dist_copy = copy.deepcopy(topic_dist)  # copy original topical distribution
-                topic_dist_copy[:, removed_index] = 0  # set removed terms to 0
-                topic_dists[path.name.replace(".json", "")] = topic_dist_copy
-        topic_result = {}
-        for key, dist in topic_dists.items():  # calculate topic quality for different Post processing methods
-            topic_scores = {}
-            topic_list = get_topic_list(dist, top_n, reverse_dict)  # convert to tokens list
-            if "fast_npmi" in topic_evaluation_method:
-                self.config.set("ref_data_path", os.path.join(get_project_root(), "dataset/utils/wiki.dtm.npz"))
-                # convert to index list: minus 1 because the index starts from 0 (0 is for padding)
-                topic_scores[f"{key}_c_npmi"] = fast_npmi_eval(self.config, topic_list, word_dict)
-            if "slow_eval" in topic_evaluation_method:
-                tokenized_method = self.config.get("tokenized_method", "keep_all")
-                ws = self.config.get("window_size", 200)
-                ps = self.config.get("processes", 35)
-                tokenized_data_path = Path(get_project_root()) / f"dataset/data/MIND_tokenized.csv"
-                ref_df = pd.read_csv(self.config.get("slow_ref_data_path", tokenized_data_path))
-                ref_texts = [word_tokenize(doc, tokenized_method) for doc in ref_df["tokenized_text"].values]
-                topic_scores.update({
-                    f"{key}_{m}": compute_coherence(topic_list, ref_texts, coherence=m, topn=top_n, window_size=ws,
-                                                    processes=ps) for m in methods
-                })
-            if "w2v_sim" in topic_evaluation_method:  # compute word embedding similarity of top-10 words for each topic
-                # embeddings = model.embedding_layer.embedding.weight.cpu().detach().numpy()
-                embeddings = load_embeddings(**self.config.final_configs)
-                topic_scores[f"{key}_w2v_sim"] = w2v_sim_eval(self.config, embeddings, topic_list, word_dict)
-            # calculate average score for each topic quality method
-            topic_result.update({m: np.round(np.mean(c), 4) for m, c in topic_scores.items()})
-            if self.accelerator.is_main_process:  # save topic info
-                os.makedirs(topics_dir, exist_ok=True)
-                write_to_file(os.path.join(topics_dir, "topic_list.txt"), [" ".join(topics) for topics in topic_list])
-                entropy_scores = np.array(entropy(dist, axis=1))
-                topic_result[f"{key}_entropy"] = np.round(np.mean(entropy_scores), 4)
-                topic_result[f"{key}_div"] = np.round(cal_topic_diversity(topic_list), 4)  # calculate topic diversity
-                for method, scores in topic_scores.items():
-                    topic_file = os.path.join(topics_dir, f"{method}_{topic_result[method]}.txt")
-                    coherence_file = os.path.join(coherence_dir, f"{method}_{topic_result[method]}.txt")
-                    entropy_file = os.path.join(topics_dir, f"{method}_{topic_result[method]}_entropy.txt")
-                    scores_list = zip(scores, topic_list, entropy_scores, range(len(scores)))
-                    if sort_score:  # sort topics by scores
-                        scores_list = sorted(scores_list, reverse=True, key=lambda x: x[0])
-                    for score, topics, es, i in scores_list:
-                        word_weights = [f"{word}({round(dist[i, word_dict[word]], 5)})" for word in topics]
-                        entropy_str = f"{np.round(score, 4)}({np.round(es, 4)}): {' '.join(word_weights)}\n"
-                        write_to_file(topic_file, f"{np.round(score, 4)}: {' '.join(topics)}\n", "a+")
-                        write_to_file(entropy_file, entropy_str, "a+")
-                        write_to_file(coherence_file, f"{np.round(score, 4)}\n", "a+")
-                    write_to_file(topic_file, f"Average score: {topic_result[method]}\n", "a+")
+        if middle_name is None:
+            middle_name = "final"
+        topic_result = self.valid_topic_evaluator.result(model, middle_name=middle_name, use_post_dict=True)
         if not len(topic_result):
             raise ValueError("No correct topic evaluation method is specified!")
         return topic_result

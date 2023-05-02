@@ -35,7 +35,7 @@ def evaluate_run():
         log.update(trainer.evaluate(data_loader.valid_set, trainer.model, prefix="val"))
         log.update(trainer.evaluate(data_loader.test_set, trainer.model, prefix="test"))
     if config.get("topic_evaluation_method", None) is not None:
-        log.update(trainer.topic_evaluation(trainer.model, word_dict=data_loader.word_dict))
+        log.update(trainer.topic_evaluation(trainer.model))
     log["Total Time"] = time.time() - start_time
     if trainer.accelerator.is_main_process:  # to avoid duplicated writing
         saved_path = saved_dir / saved_name / saved_filename
