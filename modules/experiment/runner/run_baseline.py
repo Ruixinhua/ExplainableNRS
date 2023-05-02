@@ -16,7 +16,7 @@ from modules.utils import get_project_root, init_data_loader, init
 
 
 def evaluate_run():
-    config.set("wandb_name", f"{config['run_name']}-{config.seed}")
+    config.set("wandb_name", f"{config['experiment_name']}-{config.seed}")
     start_time = time.time()
     accelerator = Accelerator()
     set_seed(config["seed"])
