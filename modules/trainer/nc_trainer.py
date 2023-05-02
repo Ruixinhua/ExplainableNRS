@@ -29,9 +29,9 @@ class NCTrainer(BaseTrainer):
         self.log_step = config.get("log_step", 100)
         self.train_metrics = MetricTracker(*self.metric_funcs, writer=self.writer)
         self.valid_metrics = MetricTracker(*self.metric_funcs, writer=self.writer)
-        self.train_topic_evaluator = TopicEval(config, word_dict=data_loader.word_dict, group_name="train_topic_eval")
+        self.train_topic_evaluator = TopicEval(config, word_dict=data_loader.word_dict, group_name="train/topic_eval")
         self.valid_topic_evaluator = copy.deepcopy(self.train_topic_evaluator)
-        self.valid_topic_evaluator.group_name = "valid_topic_eval"
+        self.valid_topic_evaluator.group_name = "valid/topic_eval"
         self.model, self.optimizer, self.train_loader, self.lr_scheduler = self.accelerator.prepare(
             self.model, self.optimizer, self.train_loader, self.lr_scheduler)
 

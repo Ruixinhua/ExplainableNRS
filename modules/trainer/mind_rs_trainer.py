@@ -96,7 +96,6 @@ class MindRSTrainer(NCTrainer):
                                                                       use_post_dict=False)
                     for key, value in topic_results.items():
                         self.train_metrics.update(key, value)
-                        bar_description += f" {key}: {value}"
                     self.model.train()
                 bar.set_description(bar_description)
                 train_log = self.train_metrics.result()
