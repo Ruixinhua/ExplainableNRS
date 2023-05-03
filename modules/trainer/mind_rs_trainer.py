@@ -25,6 +25,8 @@ class MindRSTrainer(NCTrainer):
     def __init__(self, model, config: Configuration, data_loader, **kwargs):
         super().__init__(model, config, data_loader, **kwargs)
         self.valid_interval = config.get("valid_interval", 0.6)
+        self.add_l2norm = config.get("add_l2norm", False)
+        self.l2_lambda = config.get("l2_lambda", 0.001)
         self.fast_evaluation = config.get("fast_evaluation", True)
         self.log_kl_div = config.get("log_kl_div", False)
         self.topic_variant = config.get("topic_variant", "base")
@@ -72,6 +74,10 @@ class MindRSTrainer(NCTrainer):
             self.train_metrics.update("auc", group_auc(label, output["pred"].cpu().detach().numpy()))
             # gpu_used = torch.cuda.memory_allocated() / 1024 ** 3
             bar_description = f"Epoch: {epoch} {gpu_stat()}"
+            if self.add_l2norm:
+                l2_norm = sum(p.pow(2.0).sum() for p in self.model.parameters())
+                loss += self.l2_lambda * l2_norm
+                self.train_metrics.update("l2_norm", l2_norm.item())
             if self.with_entropy or self.show_entropy:
                 if self.entropy_mode == "static":
                     entropy_loss = self.alpha * output["entropy"]
@@ -178,6 +184,7 @@ class MindRSTrainer(NCTrainer):
                                 else:
                                     length = his_len[i]
                                 weight_dict[name].append(weight[i][:length].cpu().numpy())
+                del batch_dict
                 if vi >= saved_weight_num and return_weight:
                     break
             result_dict = gather_dict(result_dict, num_processes=self.config.get("num_processes", None))
@@ -195,6 +202,7 @@ class MindRSTrainer(NCTrainer):
                     weight_dict[key].extend(old_weights[key])
             torch.save(dict(weight_dict), weight_path)
             self.logger.info(f"Saved weight to {weight_path}")
+        torch.cuda.empty_cache()
         return eval_result
 
     def evaluate(self, dataset, model, epoch=0, prefix="val"):

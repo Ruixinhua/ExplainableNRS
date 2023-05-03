@@ -75,7 +75,7 @@ class TopicEval:
             def save2file(sort_scores=True):
                 # save topic quality scores to file
                 model_dir = self.config.model_dir
-                topics_dir = Path(model_dir, "topics" if sort_scores else "topics_sorted", saved_name)
+                topics_dir = Path(model_dir, "topics_sorted" if sort_scores else "topics", saved_name)
                 os.makedirs(topics_dir, exist_ok=True)
                 for name, score in topic_scores.items():
                     method = f"{name.split('/')[1]}_{name.split('/')[-1]}"
