@@ -16,13 +16,11 @@ from modules.utils import get_project_root, init_data_loader, init
 
 
 def evaluate_run():
-    config.set("wandb_name", f"{config['experiment_name']}-{config.seed}")
     start_time = time.time()
     accelerator = Accelerator()
     set_seed(config["seed"])
     config.set("num_processes", accelerator.num_processes)
     data_loader = init_data_loader(config)
-    init(**config.final_configs)
     trainer = run(config, data_loader=data_loader)
     trainer.resume_checkpoint()  # load the best model
     log["#Voc"] = len(data_loader.word_dict)
@@ -71,6 +69,8 @@ if __name__ == "__main__":
             default_saved_name += f"without_entropy/"
     saved_name = config.get("saved_name", default_saved_name)
     logger = config.get_logger(saved_name)
+    config.set("wandb_name", f"{config['experiment_name']}")
+    init(**config.final_configs)
     # acquires test values for a given arch attribute
     test_values = config.get("values", TEST_CONFIGS.get(arch_attr, None))
     if not isinstance(test_values, list):  # convert to list if it is not a list (e.g., only contains one value)

@@ -184,7 +184,6 @@ class MindRSTrainer(NCTrainer):
                                 else:
                                     length = his_len[i]
                                 weight_dict[name].append(weight[i][:length].cpu().numpy())
-                del batch_dict
                 if vi >= saved_weight_num and return_weight:
                     break
             result_dict = gather_dict(result_dict, num_processes=self.config.get("num_processes", None))
@@ -202,6 +201,7 @@ class MindRSTrainer(NCTrainer):
                     weight_dict[key].extend(old_weights[key])
             torch.save(dict(weight_dict), weight_path)
             self.logger.info(f"Saved weight to {weight_path}")
+        del batch_dict
         torch.cuda.empty_cache()
         return eval_result
 
