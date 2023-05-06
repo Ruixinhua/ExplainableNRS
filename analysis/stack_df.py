@@ -16,7 +16,7 @@ if __name__ == "__main__":
         raise ValueError("Please specify input_dir")
     input_dir = Path(input_dir)
     output_path = Path(output_path)
-    output_path.mkdir(parents=True, exist_ok=True)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     stack_df = pd.DataFrame()
     for file in input_dir.iterdir():
         if file.is_file() and file.suffix == ".csv":
