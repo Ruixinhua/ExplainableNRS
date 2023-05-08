@@ -8,7 +8,6 @@ from pathlib import Path
 from modules.config import load_cmd_line
 from modules.utils import write_to_file
 
-
 if __name__ == "__main__":
     cmd_args = load_cmd_line()
     input_dir = cmd_args.get("input_dir", None)
@@ -24,7 +23,7 @@ if __name__ == "__main__":
     for file in input_dir.iterdir():
         if file.is_file() and file.suffix == ".csv":
             per_df = pd.read_csv(file)
-            per_df = per_df.drop_duplicates()
+            per_df = per_df.loc[:, ~per_df.columns.str.replace(r"(\.\d+)$", "", regex=True).duplicated()]
             stack_df = stack_df.append(per_df, ignore_index=True)
     stack_df.to_csv(output_path, index=False)
     print(f"Stacked performance results are saved to {output_path}")
