@@ -4,6 +4,9 @@ import numpy as np
 
 from pathlib import Path
 from itertools import product
+
+from pandas.errors import InvalidIndexError
+
 from modules.config import load_cmd_line
 from modules.utils import get_project_root, del_index_column, write_to_file
 
@@ -59,8 +62,12 @@ if __name__ == "__main__":
     output_path = output_path / output_file
     if os.path.exists(output_path):
         old_stat_df = pd.read_csv(output_path)
-        old_stat_df = old_stat_df.append(stat_df, ignore_index=True)
-        stat_df = old_stat_df
+        try:  # if the old file has extra columns, delete them
+            old_stat_df = old_stat_df.drop(columns=old_stat_df.columns.difference(stat_df.columns))
+            old_stat_df = old_stat_df.append(stat_df, ignore_index=True)
+            stat_df = old_stat_df
+        except InvalidIndexError:
+            pass
     stat_df = del_index_column(stat_df).drop_duplicates()
     stat_df.to_csv(output_path)  # save to csv
     print("write statistic data to file:", output_path)

@@ -6,6 +6,7 @@
 import pandas as pd
 from pathlib import Path
 from modules.config import load_cmd_line
+from modules.utils import write_to_file
 
 
 if __name__ == "__main__":
@@ -17,6 +18,7 @@ if __name__ == "__main__":
     input_dir = Path(input_dir)
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    latex_dir = output_path.parent / "latex"
     stack_df = pd.DataFrame()
     for file in input_dir.iterdir():
         if file.is_file() and file.suffix == ".csv":
@@ -24,3 +26,6 @@ if __name__ == "__main__":
             per_df = per_df.drop_duplicates()
             stack_df = stack_df.append(per_df, ignore_index=True)
     stack_df.to_csv(output_path, index=False)
+    print(f"Stacked performance results are saved to {output_path}")
+    # write to latex file
+    write_to_file(latex_dir / f"{output_path.stem}.tex", stack_df.to_latex(index=False))
