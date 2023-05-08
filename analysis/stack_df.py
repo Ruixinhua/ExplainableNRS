@@ -19,6 +19,7 @@ if __name__ == "__main__":
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     latex_dir = output_path.parent / "latex"
+    latex_dir.mkdir(parents=True, exist_ok=True)
     stack_df = pd.DataFrame()
     for file in input_dir.iterdir():
         if file.is_file() and file.suffix == ".csv":

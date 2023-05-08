@@ -50,7 +50,7 @@ if __name__ == "__main__":
     for group_names, group in per_df.groupby(group_by):
         mean_values = [get_mean_std(group[m].values * 100) if group[m].values[0] < 1 else get_mean_std(group[m].values)
                        for m in metrics_per]
-        extra_values = [get_mean_std(group[m].values, r=4) for m in extra_stat]
+        extra_values = [get_mean_std(group[m].values, r=4) if m in group.columns else "default" for m in extra_stat]
         mean_series = pd.Series(list(group_names) + mean_values + extra_values, index=columns)
         stat_df = stat_df.append(mean_series, ignore_index=True)
     if "output_path" not in cmd_args:  # if not specified, save to default stat file
