@@ -44,13 +44,19 @@ if __name__ == "__main__":
     metrics = cmd_args.get("metrics", defaults)  # For NC: accuracy,macro_f
     group_set = cmd_args.get("group_set", ["val"] if "RS" in input_file_name else ["val", "test"])  # For NC: val,test
     extra_stat = cmd_args.get("extra_stat", ["Total Time"])
+    param_stat = cmd_args.get("param_stat", None)
     metrics_per = [f"{d}_{m}" for d, m in product(group_set, metrics)]
     columns = group_by + metrics_per + extra_stat
+    if param_stat is not None:
+        columns = columns + param_stat
     stat_df = pd.DataFrame(columns=columns)
     for group_names, group in per_df.groupby(group_by):
         mean_values = [get_mean_std(group[m].values * 100) if group[m].values[0] < 1 else get_mean_std(group[m].values)
                        for m in metrics_per]
         extra_values = [get_mean_std(group[m].values, r=4) if m in group.columns else "default" for m in extra_stat]
+        if param_stat is not None:
+            param_values = [group[m].values[0] if m in group.columns else "default" for m in param_stat]
+            extra_values = extra_values + param_values
         mean_series = pd.Series(list(group_names) + mean_values + extra_values, index=columns)
         stat_df = stat_df.append(mean_series, ignore_index=True)
     if "output_path" not in cmd_args:  # if not specified, save to default stat file
