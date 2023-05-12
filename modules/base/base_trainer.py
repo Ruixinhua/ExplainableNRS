@@ -96,12 +96,13 @@ class BaseTrainer:
     def save_log(self, log, **kwargs):
         log["seed"] = self.config["seed"]
         for key, item in self.config.cmd_args.items():  # record all command line arguments
+            value = self.config.get(key, item)
             if isinstance(item, dict):
-                log.update(item)
+                log.update(value)
             elif isinstance(item, tuple) or isinstance(item, list):
-                pass
+                log[key] = ",".join([str(i) for i in value])
             else:
-                log[key] = item
+                log[key] = value
         log["run_name"] = self.config["run_name"]
         saved_path = kwargs.get("saved_path", Path(self.model_dir) / "model_best.csv")
         log_df = pd.DataFrame(log, index=[0])
