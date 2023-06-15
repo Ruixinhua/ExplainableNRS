@@ -26,7 +26,7 @@ class MindRSTrainer(NCTrainer):
         super().__init__(model, config, data_loader, **kwargs)
         self.valid_interval = config.get("valid_interval", 0.6)
         self.add_l2norm = config.get("add_l2norm", False)
-        self.l2_lambda = config.get("l2_lambda", 0.001)
+        self.l2_lambda = config.get("l2_lambda", 1e-7)
         self.fast_evaluation = config.get("fast_evaluation", True)
         self.log_kl_div = config.get("log_kl_div", False)
         self.topic_variant = config.get("topic_variant", "base")
