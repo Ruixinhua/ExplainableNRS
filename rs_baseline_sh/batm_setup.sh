@@ -19,7 +19,7 @@ act_layer=tanh          # relu, tanh, prelu
 
 
 # Training settings
-learning_rate=1e-4
+learning_rate=0.0005
 dropout_rate=0.2
 batch_size=32
 epochs=100
