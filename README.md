@@ -1,20 +1,26 @@
 # Explainable News Recommender System
 
 ## Introduction
-This repository contains the code for the papers [A Novel Perspective to Look At Attention: Bi-level Attention-based 
-Explainable Topic Modeling for News Classification](https://arxiv.org/pdf/2203.07216.pdf) and [Topic-Centric Explanations for News Recommendation](). 
-The implementation is based on Pytorch and includes _news classification_ and _news recommendation_ tasks. We also provide a procedure to 
+
+This repository contains the code for the papers [A Novel Perspective to Look At Attention: Bi-level Attention-based
+Explainable Topic Modeling for News Classification](https://arxiv.org/pdf/2203.07216.pdf)
+and [Topic-Centric Explanations for News Recommendation](https://arxiv.org/pdf/2306.07506.pdf).
+The implementation is based on Pytorch and includes _news classification_ and _news recommendation_ tasks. We also
+provide a procedure to
 generate _explainable topic_ for both news classification task and news recommender system.
+
 ## Usage
 
 Clone the repository and install the dependencies.
+
 ```bash
 git clone https://github.com/Ruixinhua/ExplainableNRS
 cd ExplainableNRS
 pip install -r requirements.txt
 ```
-Download the MIND dataset from [here](https://msnews.github.io/). The dataset is licensed under the 
-[Microsoft Research License Terms](https://go.microsoft.com/fwlink/?LinkID=206977). We suggest to use the following 
+
+Download the MIND dataset from [here](https://msnews.github.io/). The dataset is licensed under the
+[Microsoft Research License Terms](https://go.microsoft.com/fwlink/?LinkID=206977). We suggest to use the following
 commands to download the processed dataset and pre-trained GloVe word embedding.
 
 ```bash
@@ -32,7 +38,9 @@ cd ../utils
 gdown https://drive.google.com/uc?id=1bC4WgcVrDOAmjVu2o2jR-aETGqbLbveI
 gdown https://drive.google.com/uc?id=15vV-dBLXnleRvT_011VDGizmSjk6o-yF
 ```
+
 To run the code for training the basic BATMRS model and evaluating its performance, follow these commands:
+
 ```bash
 cd ../../ # back to the root directory
 export PYTHONPATH=PYTHONPATH:./:./modules  # set current directory and the module directory as PYTHONPATH
@@ -42,10 +50,12 @@ accelerate launch modules/experiment/runner/run_baseline.py --task=RS_BATM --arc
 ```
 
 ## Evaluation
-The performance of baselines are summarized in the following table. The results can be obtained by running the code with the default configuration:
+
+The performance of baselines are summarized in the following table. The results can be obtained by running the code with
+the default configuration:
 ![Baselines performance](./plots/baselines_performance.png)
 
-Recommendation performance and Topic quality evaluation results are shown in the following table with 
+Recommendation performance and Topic quality evaluation results are shown in the following table with
 different configurations of the BATM-ATT model in a NR task:
 
 | #Topic | variant | test\_group\_auc | test\_mean\_mrr | test\_ndcg\_5 | test\_ndcg\_10 |
