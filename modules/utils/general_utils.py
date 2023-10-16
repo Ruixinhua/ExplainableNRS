@@ -56,7 +56,9 @@ def write_json(content: Dict, file: Union[str, os.PathLike]):
         json.dump(content, handle, indent=4, sort_keys=False)
 
 
-def write_to_file(file: Union[str, os.PathLike], text: Union[str, list], mode: str = "w"):
+def write_to_file(
+    file: Union[str, os.PathLike], text: Union[str, list], mode: str = "w"
+):
     with open(file, mode, encoding="utf-8") as w:
         if isinstance(text, str):
             w.write(text)
@@ -71,12 +73,12 @@ def del_index_column(df):
 def get_project_root(**kwargs):
     project_name = kwargs.pop("project_name", "ExplainableNRS")
     file_parts = Path(os.getcwd()).parts
-    abs_path = Path(f"{os.sep}".join(file_parts[:file_parts.index(project_name) + 1]))
+    abs_path = Path(f"{os.sep}".join(file_parts[: file_parts.index(project_name) + 1]))
     return os.path.relpath(abs_path, os.getcwd())
 
 
 def news_sampling(news, ratio):
-    """ Sample ratio samples from news list.
+    """Sample ratio samples from news list.
     If length of news is less than ratio, pad zeros.
 
     Args:
@@ -109,14 +111,18 @@ def init_obj(module_name: str, module_config: dict, module: object, *args, **kwa
 def init_data_loader(config, *args, **kwargs):
     # setup data_loader instances
     module_data = importlib.import_module("modules.data_loader")
-    data_loader = init_obj(config.dataloader_type, config.final_configs, module_data, *args, **kwargs)
+    data_loader = init_obj(
+        config.dataloader_type, config.final_configs, module_data, *args, **kwargs
+    )
     return data_loader
 
 
 def init_model_class(config, *args, **kwargs):
     # setup model class
     module_model = importlib.import_module("modules.models")
-    model_class = init_obj(config.arch_type, config.final_configs, module_model, *args, **kwargs)
+    model_class = init_obj(
+        config.arch_type, config.final_configs, module_model, *args, **kwargs
+    )
     return model_class
 
 
@@ -128,8 +134,14 @@ def gather_dict(dict_object, num_processes=None):
     :return: gathered numpy array vectors
     """
     if torch.distributed.is_initialized():
-        num_processes = torch.distributed.get_world_size() if num_processes is None else num_processes
-        dicts_object = [{} for _ in range(num_processes)]  # used for distributed inference
+        num_processes = (
+            torch.distributed.get_world_size()
+            if num_processes is None
+            else num_processes
+        )
+        dicts_object = [
+            {} for _ in range(num_processes)
+        ]  # used for distributed inference
         torch.distributed.barrier()
         torch.distributed.all_gather_object(dicts_object, dict_object)
         for i in range(num_processes):
@@ -163,21 +175,33 @@ def gpu_stat():
 
     if torch.cuda.is_available():
         pynvml.nvmlInit()
-        device = torch.device('cuda:0')
+        device = torch.device("cuda:0")
         device_index = 0 if device.index is None else device.index
         handle = pynvml.nvmlDeviceGetHandleByIndex(device_index)
         total_memory = pynvml.nvmlDeviceGetMemoryInfo(handle).total
         free_memory = pynvml.nvmlDeviceGetMemoryInfo(handle).free
         pynvml.nvmlShutdown()
-        total_memory = round(total_memory / 1024 ** 3, 2)
-        free_mem = round(free_memory / 1024 ** 3, 2)
+        total_memory = round(total_memory / 1024**3, 2)
+        free_mem = round(free_memory / 1024**3, 2)
         gpu_used = round(total_memory - free_mem, 2)
         return f"GPU: {gpu_used}GB/{free_mem}GB/{total_memory}GB"
     else:
-        return 'CUDA is not available.'
+        return "CUDA is not available."
 
 
 def init(**kwargs):
-    wandb.init(config=kwargs, project=kwargs.get("wandb_project", "ExplainableNRS"), name=kwargs.get("wandb_name"))
+    wandb.init(
+        config=kwargs,
+        project=kwargs.get("wandb_project", "ExplainableNRS"),
+        name=kwargs.get("wandb_name"),
+    )
     wandb.config["more"] = "custom"
     wandb.init(sync_tensorboard=kwargs.get("tensorboard", False))
+
+
+def check_existing(path, exist_ok=True, mkdir=True):
+    if os.path.exists(path):
+        if mkdir:
+            os.makedirs(path, exist_ok=exist_ok)
+        return True
+    return False
