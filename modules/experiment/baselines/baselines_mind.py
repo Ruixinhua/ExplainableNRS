@@ -26,6 +26,7 @@ from modules.utils import get_project_root, check_existing
 
 tf.get_logger().setLevel("ERROR")  # only show error messages
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+print(tf.config.list_physical_devices("GPU"))
 
 
 if __name__ == "__main__":
@@ -50,6 +51,14 @@ if __name__ == "__main__":
     iterator = get_iterator_class(model_name)
     set_seed(config.get("seed", 42))
     yaml_file = get_yaml_path(model_name, data_path, MIND_SIZE)
+    train_path = data_path / MIND_SIZE / "train"
+    valid_path = data_path / MIND_SIZE / "valid"
+    train_news_file = train_path / "news.tsv"
+    train_behaviors_file = train_path / "behaviors.tsv"
+    valid_news_file = valid_path / "news.tsv"
+    valid_behaviors_file = valid_path / "behaviors.tsv"
+    if not train_path.exists() and not valid_path.exists():
+        get_train_valid_path(data_path, MIND_SIZE)
     if model_name == "DKN":
         dkn_utils = data_path / "dkn_utils"
         check_existing(dkn_utils)
@@ -66,7 +75,6 @@ if __name__ == "__main__":
                 dkn_utils / f"entity_embeddings_5w_{word_embedding_dim}.npy"
             ),
         }
-        train_path, valid_path = get_train_valid_path(data_path, MIND_SIZE)
         train_session, train_history = read_clickhistory(train_path, "behaviors.tsv")
         valid_session, valid_history = read_clickhistory(valid_path, "behaviors.tsv")
         if not train_file.exists():
@@ -75,9 +83,9 @@ if __name__ == "__main__":
             get_valid_input(valid_session, str(valid_file))
         if not check_existing(params["user_history_file"], mkdir=False):
             get_user_history(train_history, valid_history, params["user_history_file"])
-        train_news = os.path.join(train_path, "news.tsv")
-        valid_news = os.path.join(valid_path, "news.tsv")
-        news_words, news_entities = get_words_and_entities(train_news, valid_news)
+        news_words, news_entities = get_words_and_entities(
+            train_news_file, valid_news_file
+        )
         train_entities = os.path.join(train_path, "entity_embedding.vec")
         valid_entities = os.path.join(valid_path, "entity_embedding.vec")
         is_exist = (
@@ -94,34 +102,25 @@ if __name__ == "__main__":
                 max_sentence=10,
                 word_embedding_dim=word_embedding_dim,
             )
-        hparams = prepare_hparams(
-            yaml_file,
-            epochs=config.get("epochs", 10),
-            history_size=config.get("history_size", 50),
-            batch_size=config.get("batch_size", 32),
-            **params,
-        )
-        model = get_model_class(model_name)(hparams, iterator)
         fit_files = [train_file, valid_file]
-        model.fit(train_file, valid_file)
-        res = model.run_eval(valid_file)
+        val_files = [valid_file]
     else:
-        train_news_file = data_path / "train" / "news.tsv"
-        train_behaviors_file = data_path / "train" / "behaviors.tsv"
-        valid_news_file = data_path / "valid" / "news.tsv"
-        valid_behaviors_file = data_path / "valid" / "behaviors.tsv"
-        hparams = prepare_hparams(
-            yaml_file,
-            wordEmb_file=data_path / "utils" / f"embedding.npy",
-            wordDict_file=data_path / "utils" / "word_dict.pkl",
-            userDict_file=data_path / "utils" / "uid2index.pkl",
-            epochs=config.get("epochs", 10),
-            history_size=config.get("history_size", 50),
-            batch_size=config.get("batch_size", 32),
-        )
-        model = get_model_class(model_name)(hparams, iterator)
-        model.fit(
-            train_news_file, train_behaviors_file, valid_news_file, valid_behaviors_file
-        )
-        res = model.run_eval(valid_news_file, valid_behaviors_file)
+        params = {
+            "wordEmb_file": str(data_path / "utils" / "embedding.npy"),
+            "wordDict_file": str(data_path / "utils" / "word_dict.pkl"),
+            "userDict_file": str(data_path / "utils" / "uid2index.pkl"),
+        }
+        fit_files = [train_news_file, train_behaviors_file, valid_news_file, valid_behaviors_file]
+        val_files = [valid_news_file, valid_behaviors_file]
+    hparams = prepare_hparams(
+        yaml_file,
+        show_step=config.get("show_step", 100),
+        epochs=config.get("epochs", 10),
+        history_size=config.get("history_size", 50),
+        batch_size=config.get("batch_size", 32),
+        **params,
+    )
+    model = get_model_class(model_name)(hparams, iterator)
+    model.fit(*fit_files)
+    res = model.run_eval(*val_files)
     print(res)
