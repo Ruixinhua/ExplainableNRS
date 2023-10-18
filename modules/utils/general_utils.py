@@ -200,8 +200,8 @@ def init(**kwargs):
 
 
 def check_existing(path, exist_ok=True, mkdir=True):
-    if os.path.exists(path):
+    if not os.path.exists(path):
         if mkdir:
             os.makedirs(path, exist_ok=exist_ok)
-        return True
-    return False
+        return False
+    return True

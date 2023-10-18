@@ -11,7 +11,6 @@ from recommenders.models.deeprec.models import dkn
 from recommenders.models.newsrec.models import lstur, naml, nrms, npa
 from recommenders.models.deeprec.io import dkn_iterator
 from recommenders.models.newsrec.io import mind_iterator, mind_all_iterator
-from recommenders.models.newsrec.newsrec_utils import get_mind_data_set
 
 
 def get_model_class(model_name):
