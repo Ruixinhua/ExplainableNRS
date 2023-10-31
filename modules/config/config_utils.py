@@ -26,7 +26,7 @@ def setup_project_path(config):
     config["saved_dir"] = config.get("saved_dir", os.path.join(config["project_root"], "saved"))
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     days, times = timestamp.split("-")
-    default_name = f"{config['dataset_name']}/{days}/{saved_path}_{times}"
+    default_name = f"{config['dataset_name']}/{saved_path}/{days}_{times}"
     config["run_name"] = config.get("run_name", default_name)
     # make directory for saving checkpoints and log
     config["model_dir"] = os.path.join(config["saved_dir"], "models", config["run_name"])

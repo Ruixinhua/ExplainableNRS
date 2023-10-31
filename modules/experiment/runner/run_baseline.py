@@ -12,7 +12,7 @@ from modules.config.configuration import Configuration
 from modules.config.default_config import TEST_CONFIGS
 from modules.config.config_utils import set_seed, load_cmd_line
 from modules.experiment.quick_run import run
-from modules.utils import get_project_root, init_data_loader, init
+from modules.utils import get_project_root, init_data_loader, init, check_validity
 
 
 def evaluate_run():
@@ -21,6 +21,7 @@ def evaluate_run():
     set_seed(config["seed"])
     config.set("num_processes", accelerator.num_processes)
     data_loader = init_data_loader(config)
+    check_validity(config)
     trainer = run(config, data_loader=data_loader)
     trainer.resume_checkpoint()  # load the best model
     log["#Voc"] = len(data_loader.word_dict)

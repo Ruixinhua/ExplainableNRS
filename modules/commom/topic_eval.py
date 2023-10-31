@@ -57,7 +57,6 @@ class TopicEval:
             prefix = f"{self.group_name}/{key}"
             topic_list = get_topic_list(dist, self.top_n, self.reverse_dict)  # convert to tokens list
             if "fast_npmi" in self.topic_evaluation_method:
-                self.config.set("ref_data_path", os.path.join(get_project_root(), "dataset/utils/wiki.dtm.npz"))
                 # convert to index list: minus 1 because the index starts from 0 (0 is for padding)
                 topic_scores[f"{prefix}/NPMI"] = fast_npmi_eval(self.config, topic_list, self.word_dict)
             if "slow_eval" in self.topic_evaluation_method:

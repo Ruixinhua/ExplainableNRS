@@ -205,3 +205,14 @@ def check_existing(path, exist_ok=True, mkdir=True):
             os.makedirs(path, exist_ok=exist_ok)
         return False
     return True
+
+
+def check_validity(config):
+    logger = config.get_logger("check validity of the configuration")
+    paths2check = ["data_dir", "model_dir", "saved_dir", "ref_data_path", "slow_ref_data_path", "glove_path"]
+    validity = True
+    for path in paths2check:
+        if hasattr(config, path) and not os.path.exists(getattr(config, path)):
+            logger.error(f"{path} does not exist")
+            validity = False
+    return validity

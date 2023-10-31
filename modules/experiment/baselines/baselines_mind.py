@@ -53,10 +53,13 @@ if __name__ == "__main__":
     yaml_file = get_yaml_path(model_name, data_path, MIND_SIZE)
     train_path = data_path / MIND_SIZE / "train"
     valid_path = data_path / MIND_SIZE / "valid"
-    train_news_file = train_path / "news.tsv"
+    test_path = data_path / MIND_SIZE / "test"
+    news_file = config.get("news_file", "news_merge2title.tsv")
+    train_news_file = train_path / news_file
     train_behaviors_file = train_path / "behaviors.tsv"
-    valid_news_file = valid_path / "news.tsv"
+    valid_news_file = valid_path / news_file
     valid_behaviors_file = valid_path / "behaviors.tsv"
+    test_behaviors_file = test_path / "behaviors.tsv"
     if not train_path.exists() and not valid_path.exists():
         get_train_valid_path(data_path, MIND_SIZE)
     if model_name == "DKN":
@@ -75,13 +78,15 @@ if __name__ == "__main__":
                 dkn_utils / f"entity_embeddings_5w_{word_embedding_dim}.npy"
             ),
         }
-        train_session, train_history = read_clickhistory(train_path, "behaviors.tsv")
-        valid_session, valid_history = read_clickhistory(valid_path, "behaviors.tsv")
-        if not train_file.exists():
+        if not train_file.exists() or not valid_file.exists():
+            train_session, train_history = read_clickhistory(
+                train_path, "behaviors.tsv"
+            )
+            valid_session, valid_history = read_clickhistory(
+                valid_path, "behaviors.tsv"
+            )
             get_train_input(train_session, str(train_file))
-        if not valid_file.exists():
             get_valid_input(valid_session, str(valid_file))
-        if not check_existing(params["user_history_file"], mkdir=False):
             get_user_history(train_history, valid_history, params["user_history_file"])
         news_words, news_entities = get_words_and_entities(
             train_news_file, valid_news_file
@@ -110,7 +115,12 @@ if __name__ == "__main__":
             "wordDict_file": str(data_path / "utils" / "word_dict.pkl"),
             "userDict_file": str(data_path / "utils" / "uid2index.pkl"),
         }
-        fit_files = [train_news_file, train_behaviors_file, valid_news_file, valid_behaviors_file]
+        fit_files = [
+            train_news_file,
+            train_behaviors_file,
+            valid_news_file,
+            valid_behaviors_file,
+        ]
         val_files = [valid_news_file, valid_behaviors_file]
     hparams = prepare_hparams(
         yaml_file,
