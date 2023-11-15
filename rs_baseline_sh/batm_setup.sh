@@ -25,7 +25,7 @@ batch_size=32
 epochs=100
 early_stop=3
 step_size=2
-seeds=42,  # by default seeds=42,2020,2021,2023,3407
+seeds=2021,  # by default seeds=42,2020,2021,2023,3407
 show_entropy=true   # calculate entropy during training: true/false
 
 # Evaluation settings
