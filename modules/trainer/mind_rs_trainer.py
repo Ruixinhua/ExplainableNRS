@@ -270,11 +270,8 @@ class MindRSTrainer(NCTrainer):
         """call this method after training"""
         model.eval()
         log = self._valid_epoch(model, dataset)
-        for (
-            name,
-            p,
-        ) in (
-            model.named_parameters()
-        ):  # add histogram of model parameters to the tensorboard
-            self.writer.add_histogram(name, p, bins="auto")
-        return {f"{prefix}_{k}": v for k, v in log.items()}  # return log with prefix
+        # for (name, p,) in (model.named_parameters()):  # add histogram of model parameters to the tensorboard
+        #     self.writer.add_histogram(name, p, bins="auto")
+        if prefix:
+            log = {f"{prefix}_{k}": v for k, v in log.items()}
+        return log  # return log with prefix

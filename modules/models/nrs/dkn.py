@@ -125,7 +125,7 @@ class DKNRSModel(MindNRSBase):
             title_embed, entity_embed = self.embedding_layer(title), self.entity_embedding(entity_ids)
             news_vector = self.kcnn(title_embed, entity_embed)
         else:
-            news_vector = self.kcnn(self.embedding_layer(input_feat))
+            news_vector = self.kcnn(self.dropouts(self.embedding_layer(**input_feat)))
         return {"news_embed": news_vector}
 
     def user_encoder(self, input_feat):

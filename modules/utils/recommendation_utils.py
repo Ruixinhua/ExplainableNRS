@@ -18,7 +18,7 @@ def get_news_embeds(model, news_loader, **kwargs):
     device = kwargs.get("device")
     if accelerator:
         news_loader = accelerator.prepare_data_loader(news_loader)
-    bar = tqdm(news_loader, total=len(news_loader))
+    bar = tqdm(news_loader, total=len(news_loader), disable=kwargs.get("disable_tqdm", True))
     for batch_dict in bar:
         bar.set_description(f"Get news embeddings: {gpu_stat()}")
         # load data to device
